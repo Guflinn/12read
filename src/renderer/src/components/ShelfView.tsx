@@ -1,0 +1,287 @@
+import { useEffect, useState } from 'react'
+import type { Book } from '@shared/types'
+import { readerApi } from '@/core/api'
+import {
+  coverGradient,
+  coverInitial,
+  describeBook,
+  formatChars,
+  formatPercent,
+  formatRelative
+} from '@/core/reading'
+import { useLibraryStore } from '@/store/library'
+import { ImportStatus } from './ImportStatus'
+import { Modal } from './Modal'
+import { toast } from './Toast'
+
+/**
+ * 书架上的进度条。当前主进程一个 getProgress 只查一本书，
+ * 书架规模是「个人藏书」量级，先按本查询；真要几百本再让 book:list 带上 percent。
+ */
+function useBookProgress(books: Book[]): Record<string, number> {
+  const [progress, setProgress] = useState<Record<string, number>>({})
+  const ids = books.map((book) => book.id).join(',')
+
+  useEffect(() => {
+    let alive = true
+    const current = books
+    const run = async (): Promise<void> => {
+      const entries = await Promise.all(
+        current.map(async (book): Promise<[string, number]> => {
+          try {
+            const stored = await readerApi().getProgress(book.id)
+            return [book.id, stored ? stored.percent : 0]
+          } catch {
+            return [book.id, 0]
+          }
+        })
+      )
+      if (alive) setProgress(Object.fromEntries(entries))
+    }
+    void run()
+    return () => {
+      alive = false
+    }
+    // ids 变化才重新查询：books 每次 store 更新都是新数组，所以依赖用 ids 而不是 books
+  }, [ids])
+
+  return progress
+}
+
+function BookCard({
+  book,
+  percent,
+  now,
+  onOpen,
+  onRename,
+  onDelete
+}: {
+  book: Book
+  percent: number
+  now: number
+  onOpen(): void
+  onRename(): void
+  onDelete(): void
+}): React.JSX.Element {
+  return (
+    <div
+      className="book-card"
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onOpen()
+        }
+      }}
+    >
+      <div className="cover" style={{ background: coverGradient(book.coverSeed) }}>
+        <span className="cover-char">{coverInitial(book.title)}</span>
+        <span className="cover-badge">{book.encoding.toUpperCase()}</span>
+      </div>
+      <div className="card-actions">
+        <button
+          onClick={(event) => {
+            event.stopPropagation()
+            onRename()
+          }}
+        >
+          重命名
+        </button>
+        <button
+          onClick={(event) => {
+            event.stopPropagation()
+            onDelete()
+          }}
+        >
+          删除
+        </button>
+      </div>
+      <div className="book-title" title={book.title}>
+        {book.title}
+      </div>
+      <div className="book-author" title={book.author ?? describeBook(book)}>
+        {book.author ?? describeBook(book)}
+      </div>
+      <div className="progress-track">
+        <div className="progress-fill" style={{ width: percent.toFixed(2) + '%' }} />
+      </div>
+      <div className="book-foot">
+        <span>已读 {formatPercent(percent)}</span>
+        <span>{formatRelative(book.lastOpenedAt === null ? book.addedAt : book.lastOpenedAt, now)}</span>
+      </div>
+    </div>
+  )
+}
+
+export function ShelfView({ onOpen }: { onOpen(bookId: string): void }): React.JSX.Element {
+  const books = useLibraryStore((s) => s.books)
+  const loading = useLibraryStore((s) => s.loading)
+  const importPaths = useLibraryStore((s) => s.importPaths)
+  const pickAndImport = useLibraryStore((s) => s.pickAndImport)
+  const rename = useLibraryStore((s) => s.rename)
+  const remove = useLibraryStore((s) => s.remove)
+  const [hot, setHot] = useState(false)
+  const [renaming, setRenaming] = useState<Book | null>(null)
+  const [renameText, setRenameText] = useState('')
+  const [deleting, setDeleting] = useState<Book | null>(null)
+  const [scopeOpen, setScopeOpen] = useState(false)
+  const progress = useBookProgress(books)
+  const now = Date.now()
+  const totalChars = books.reduce((sum, book) => sum + book.charCount, 0)
+
+  const importFiles = (files: FileList | null): void => {
+    const list = files ? Array.from(files) : []
+    const paths: string[] = []
+    for (const file of list) {
+      try {
+        const path = readerApi().pathForFile(file)
+        if (path) paths.push(path)
+      } catch {
+        // 非文件拖放（比如拖来一段文本）忽略即可
+      }
+    }
+    if (paths.length === 0) {
+      toast('没能拿到文件路径，请用「导入 TXT」按钮选择')
+      return
+    }
+    void importPaths(paths)
+  }
+
+  return (
+    <section id="view-shelf" className="view active">
+      <div className="shelf-wrap">
+        <header className="shelf-header">
+          <div className="brand">
+            <div className="logo">十二</div>
+            <div>
+              <h1>十二阅读</h1>
+              <p>本地 TXT 阅读器 · 数据只存在这台电脑上</p>
+            </div>
+          </div>
+          <div className="shelf-actions">
+            <button className="btn primary" onClick={() => void pickAndImport()}>
+              ＋ 导入 TXT
+            </button>
+            <button className="btn ghost" onClick={() => setScopeOpen(true)}>
+              范围说明
+            </button>
+          </div>
+        </header>
+
+        <div
+          className={hot ? 'dropzone hot' : 'dropzone'}
+          role="button"
+          tabIndex={0}
+          onClick={() => void pickAndImport()}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') void pickAndImport()
+          }}
+          onDragOver={(event) => {
+            event.preventDefault()
+            setHot(true)
+          }}
+          onDragLeave={() => setHot(false)}
+          onDrop={(event) => {
+            event.preventDefault()
+            setHot(false)
+            importFiles(event.dataTransfer.files)
+          }}
+        >
+          把 .txt 拖到这里，或点击此处导入（支持多选）
+        </div>
+
+        <ImportStatus />
+
+        <div className="shelf-bar">
+          <span>
+            {books.length === 0 ? '书架空着' : books.length + ' 本 · 共 ' + formatChars(totalChars)}
+          </span>
+          <span>本地 SQLite 存储 · 不联网</span>
+        </div>
+
+        {loading && books.length === 0 ? <div className="empty">正在读取书架…</div> : null}
+        {!loading && books.length === 0 ? (
+          <div className="empty" id="shelf-empty">
+            书架还是空的，导入一本开始吧
+          </div>
+        ) : null}
+        <div className="shelf-grid" id="shelf-grid">
+          {books.map((book) => (
+            <BookCard
+              key={book.id}
+              book={book}
+              percent={progress[book.id] ?? 0}
+              now={now}
+              onOpen={() => onOpen(book.id)}
+              onRename={() => {
+                setRenaming(book)
+                setRenameText(book.title)
+              }}
+              onDelete={() => setDeleting(book)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {renaming ? (
+        <Modal
+          title="重命名"
+          confirmLabel="保存"
+          onCancel={() => setRenaming(null)}
+          onConfirm={() => {
+            const target = renaming
+            setRenaming(null)
+            void rename(target.id, renameText).then(() => toast('已重命名'))
+          }}
+        >
+          <input
+            autoFocus
+            value={renameText}
+            onChange={(event) => setRenameText(event.target.value)}
+            onKeyDown={(event) => event.stopPropagation()}
+          />
+        </Modal>
+      ) : null}
+
+      {deleting ? (
+        <Modal
+          title="删除这本书？"
+          confirmLabel="删除"
+          danger
+          onCancel={() => setDeleting(null)}
+          onConfirm={() => {
+            const target = deleting
+            setDeleting(null)
+            void remove(target.id).then(() => toast('已删除'))
+          }}
+        >
+          <p className="modal-text">
+            《{deleting.title}》的正文、章节与阅读进度都会从本机删除，无法撤销。
+          </p>
+        </Modal>
+      ) : null}
+
+      {scopeOpen ? (
+        <Modal title="这个版本做什么" confirmLabel="知道了" cancelLabel="关闭" onCancel={() => setScopeOpen(false)} onConfirm={() => setScopeOpen(false)}>
+          <p className="scope-h">现在能用</p>
+          <ul className="scope-list">
+            <li>导入本地 .txt：拖入或选择文件，自动识别 UTF-8 / GBK / UTF-16 编码</li>
+            <li>自动分章：识别「第 N 章」这类标题，识别不到就按字数分段</li>
+            <li>阅读：上下滚动、上一章/下一章、目录跳转、字号 / 行距 / 日夜间</li>
+            <li>进度：关掉再打开，回到上次读到的那个字</li>
+          </ul>
+          <p className="scope-h">还不在范围内</p>
+          <ul className="scope-list">
+            <li>书签、笔记、划线、全文搜索</li>
+            <li>EPUB / PDF / MOBI（数据结构已为 EPUB 预留）</li>
+            <li>账号、云同步、在线书城、TTS 朗读</li>
+            <li>手动改分章、手动指定编码、导出备份</li>
+          </ul>
+        </Modal>
+      ) : null}
+    </section>
+  )
+}
+

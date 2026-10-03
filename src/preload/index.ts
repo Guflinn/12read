@@ -1,6 +1,7 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import { z } from 'zod'
 import { CH } from '@shared/channels'
+import type { ReaderApi } from '@shared/api'
 import {
   cancelArgsSchema,
   emptyArgsSchema,
@@ -18,16 +19,6 @@ import type { Book, Chapter, ImportProgress, Progress, ReaderSettings } from '@s
  * contextBridge 暴露层（TECH.md 2.1 铁律 1、4.2）。
  * 方法白名单穷举，不透传 ipcRenderer；入参先在渲染侧校验一次。
  */
-
-export interface AppInfo {
-  name: string
-  version: string
-  electron: string
-  chrome: string
-  node: string
-  platform: string
-}
-
 function invoke<T>(channel: string, schema: z.ZodType, payload: unknown): Promise<T> {
   const parsed = schema.safeParse(payload)
   if (!parsed.success) {
@@ -36,8 +27,8 @@ function invoke<T>(channel: string, schema: z.ZodType, payload: unknown): Promis
   return ipcRenderer.invoke(channel, parsed.data) as Promise<T>
 }
 
-const readerApi = {
-  appInfo: (): Promise<AppInfo> => invoke(CH.appInfo, emptyArgsSchema, undefined),
+const readerApi: ReaderApi = {
+  appInfo: () => invoke(CH.appInfo, emptyArgsSchema, undefined),
   pickFiles: (): Promise<string[]> => invoke(CH.filePick, emptyArgsSchema, undefined),
   importFile: (filePath: string): Promise<Book> =>
     invoke(CH.bookImport, importArgsSchema, { filePath }),
@@ -58,6 +49,8 @@ const readerApi = {
   getSettings: (): Promise<ReaderSettings> => invoke(CH.settingsGet, emptyArgsSchema, undefined),
   saveSettings: (settings: ReaderSettings): Promise<ReaderSettings> =>
     invoke(CH.settingsSave, settingsSchema, settings),
+  pathForFile: (file: unknown): string =>
+    webUtils.getPathForFile(file as Parameters<typeof webUtils.getPathForFile>[0]),
   /** 返回取消订阅函数；回调只拿到校验过的进度对象，拿不到 IpcRendererEvent。 */
   onImportProgress: (callback: (progress: ImportProgress) => void): (() => void) => {
     const listener = (_event: IpcRendererEvent, payload: unknown): void => {
@@ -70,8 +63,6 @@ const readerApi = {
     }
   }
 }
-
-export type ReaderApi = typeof readerApi
 
 export function expose(): void {
   contextBridge.exposeInMainWorld('reader', readerApi)

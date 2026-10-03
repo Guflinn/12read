@@ -26,6 +26,8 @@ export interface IpcContext {
   content: FileContentReader
   progress: SqlProgressStore
   settings: SettingsStore
+  /** 本机设备 id，随 app:info 一次性交给渲染进程（TECH.md 6.1）。 */
+  deviceId: string
 }
 
 /** 每个通道入参都在 main 侧再过一遍 zod（TECH.md 4.2），失败就是拒绝 + 日志。 */
@@ -55,7 +57,8 @@ export function registerIpc(ctx: IpcContext): void {
     electron: process.versions.electron,
     chrome: process.versions.chrome,
     node: process.versions.node,
-    platform: process.platform
+    platform: process.platform,
+    deviceId: ctx.deviceId
   }))
 
   handle(CH.filePick, emptyArgsSchema, async (): Promise<string[]> => {

@@ -9,6 +9,7 @@ import { MetaRepository } from './db/meta-repository'
 import { runMigrations } from './db/migrate'
 import { registerIpc } from './ipc'
 import { FileContentReader } from './services/content-reader'
+import { deviceIdOf } from './services/device-id'
 import { ImportService } from './services/importer'
 import { booksRoot, dbPath } from './services/layout'
 import { LibraryService } from './services/library'
@@ -53,13 +54,15 @@ function bootstrap(): void {
 
   const repo = new LibraryRepository(db)
   const importer = new ImportService({ root, repo }, broadcast())
+  const meta = new MetaRepository(db)
 
   registerIpc({
     importer,
     library: new LibraryService(root, repo),
     content: new FileContentReader(root, repo),
     progress: new SqlProgressStore(repo),
-    settings: new SettingsStore(new MetaRepository(db))
+    settings: new SettingsStore(meta),
+    deviceId: deviceIdOf(meta)
   })
 
   app.on('will-quit', () => {

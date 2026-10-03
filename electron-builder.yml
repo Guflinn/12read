@@ -10,6 +10,8 @@ files:
   - '!**/*.map'
 asarUnpack:
   - '**/node_modules/better-sqlite3/**'
+# better-sqlite3 13 提供 N-API prebuild，打包时无需 node-gyp 重编译
+npmRebuild: false
 win:
   target:
     - nsis

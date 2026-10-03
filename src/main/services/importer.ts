@@ -60,10 +60,17 @@ export class ImportService {
       this.emit({ taskId, filePath, stage, ratio, message })
     }
 
-    const info = await stat(filePath).catch((cause: unknown) => {
-      throw new ImportError('io-error', '打不开这个文件：' + filePath, cause)
-    })
-    if (!info.isFile()) throw new ImportError('io-error', '这不是一个文件：' + filePath)
+    // 早期失败（文件不在、路径是目录）也要发一条 error 进度：
+    // 否则界面上的进度条会停在半路，用户只能从 reject 的异常里猜发生了什么。
+    const failEarly = (message: string, cause?: unknown): never => {
+      const error = new ImportError('io-error', message, cause)
+      report('error', 1, error.message)
+      throw error
+    }
+    const info = await stat(filePath).catch((cause: unknown) =>
+      failEarly('打不开这个文件：' + filePath, cause)
+    )
+    if (!info.isFile()) failEarly('这不是一个文件：' + filePath)
 
     const bookId = newBookId()
     const destDir = bookDir(root, bookId)

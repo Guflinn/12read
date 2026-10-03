@@ -89,7 +89,9 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
   applyProgress(progress: ImportProgress): void {
     const rest = get().importing.filter((p) => p.taskId !== progress.taskId)
-    if (progress.stage === 'done') {
+    // done：任务行消失；error：失败信息已经由 importPaths 收进 error 提示条，
+    // 留着只会是一条永远「正在导入」的残留行。
+    if (progress.stage === 'done' || progress.stage === 'error') {
       set({ importing: rest })
       return
     }

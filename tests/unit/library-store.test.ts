@@ -126,7 +126,7 @@ describe('library store', () => {
     expect(harness.renameBook).not.toHaveBeenCalled()
   })
 
-  it('导入进度按 taskId 覆盖，done 之后移除', () => {
+  it('导入进度按 taskId 覆盖，done / error 之后移除', () => {
     const progress = (patch: Partial<ImportProgress>): ImportProgress => ({
       taskId: 'task-1',
       filePath: 'C:/books/一.txt',
@@ -141,6 +141,14 @@ describe('library store', () => {
     expect(useLibraryStore.getState().importing[0]?.stage).toBe('splitting')
 
     useLibraryStore.getState().applyProgress(progress({ stage: 'done', ratio: 1 }))
+    expect(useLibraryStore.getState().importing).toHaveLength(0)
+
+    // 失败：任务行也要收起来，错误信息由 error 提示条负责
+    useLibraryStore.getState().applyProgress(progress({ stage: 'decoding' }))
+    expect(useLibraryStore.getState().importing).toHaveLength(1)
+    useLibraryStore.getState().applyProgress(
+      progress({ stage: 'error', ratio: 1, message: '这不是一个纯文本文件' })
+    )
     expect(useLibraryStore.getState().importing).toHaveLength(0)
   })
 

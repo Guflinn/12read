@@ -133,7 +133,7 @@ describe('ImportService.importFile 内联分支（worker 文件缺失）', () =>
     expect(existsSync(join(bookDir(root, book.id), 'content.txt'))).toBe(true)
   })
 
-  it('文件不存在时报 io-error，仍会发出 error 进度', async () => {
+  it('文件不存在时报 io-error，并发出 error 进度', async () => {
     const { repo, insertBook } = makeRepo()
     const events: ImportProgress[] = []
     const service = new ImportService({ root, repo }, (progress) => events.push(progress))
@@ -148,16 +148,23 @@ describe('ImportService.importFile 内联分支（worker 文件缺失）', () =>
     expect((error as ImportError).code).toBe('io-error')
     expect((error as ImportError).message).toBe('打不开这个文件：' + missing)
     expect(insertBook).not.toHaveBeenCalled()
-    // stat 失败发生在 try 之前，因此不会发出任何进度（含 error）；
-    // 这是源码现状，已在最终报告里记录。
-    expect(events).toEqual([])
+    expect(events).toEqual([
+      {
+        taskId: 'task-2',
+        filePath: missing,
+        stage: 'error',
+        ratio: 1,
+        message: '打不开这个文件：' + missing
+      }
+    ])
   })
 
-  it('目标不是文件时报 io-error', async () => {
+  it('目标不是文件时报 io-error，并发出 error 进度', async () => {
     const dir = join(root, '其实是个目录')
     await mkdir(dir)
     const { repo } = makeRepo()
-    const service = new ImportService({ root, repo })
+    const events: ImportProgress[] = []
+    const service = new ImportService({ root, repo }, (progress) => events.push(progress))
 
     const error = await service.importFile(dir, 'task-3').then(
       () => null,
@@ -166,6 +173,15 @@ describe('ImportService.importFile 内联分支（worker 文件缺失）', () =>
 
     expect((error as ImportError).code).toBe('io-error')
     expect((error as ImportError).message).toBe('这不是一个文件：' + dir)
+    expect(events).toEqual([
+      {
+        taskId: 'task-3',
+        filePath: dir,
+        stage: 'error',
+        ratio: 1,
+        message: '这不是一个文件：' + dir
+      }
+    ])
   })
 
   it('解码失败时报 binary 并清掉半个书目录，不写库', async () => {

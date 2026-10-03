@@ -67,6 +67,9 @@ test('夜间模式：整页底色与文字一起变暗，顶栏不再深底深�
   await page.waitForTimeout(300)
 
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'night')
+  // 目录抽屉惰性渲染：先打开，列表项才有样式可读
+  await page.click('#btn-toc')
+  await expect(page.locator('#toc-list li')).toHaveCount(3)
   const night = await page.evaluate(() => {
     const style = (sel: string) => {
       const el = document.querySelector(sel)
@@ -91,6 +94,10 @@ test('夜间模式：整页底色与文字一起变暗，顶栏不再深底深�
   expect(contrast(night.paragraph.color, night.body.bg)).toBeGreaterThan(4.5)
   expect(contrast(night.title.color, night.body.bg)).toBeGreaterThan(4.5)
   expect(contrast(night.listItem.color, night.listItem.bg)).toBeGreaterThan(4.5)
+
+  // 收起目录（Escape 由阅读器接管），否则 scrim 会挡住返回按钮
+  await page.keyboard.press('Escape')
+  await expect(page.locator('#toc-drawer')).not.toHaveClass(/on/)
 
   // 回书架：整页底仍是夜间，标题文字同样用夜间色
   await page.click('#btn-back')

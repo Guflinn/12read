@@ -53,6 +53,9 @@ test('导入 → 阅读 → 切章 → 改字号 → 重启后回到原处', asy
   await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
   await expect(page.locator('#reader-chapter-label')).toContainText('1/3')
 
+  // 目录是惰性渲染的：抽屉没打开时一条都不渲染
+  await expect(page.locator('#toc-list li')).toHaveCount(0)
+
   // 目录切到第三章
   await page.click('#btn-toc')
   await expect(page.locator('#toc-list li')).toHaveCount(3)

@@ -28,21 +28,24 @@ export function TocDrawer(): React.JSX.Element {
           </button>
         </div>
         <ol className="toc-list" id="toc-list">
-          {chapters.map((chapter) => (
-            <li
-              key={chapter.index}
-              className={chapter.index === chapterIndex ? 'on' : ''}
-              ref={chapter.index === chapterIndex ? activeRef : null}
-              title={chapter.title}
-              onClick={() => {
-                setToc(false)
-                void goto(chapter.index, 0)
-              }}
-            >
-              <span className="toc-kind">{kindLabel(chapter.kind)}</span>
-              {chapter.index + 1}. {chapter.title}
-            </li>
-          ))}
+          {/* 惰性渲染：抽屉关着时一条都不建，几千章的书也不拖慢阅读器挂载 */}
+          {open
+            ? chapters.map((chapter) => (
+                <li
+                  key={chapter.index}
+                  className={chapter.index === chapterIndex ? 'on' : ''}
+                  ref={chapter.index === chapterIndex ? activeRef : null}
+                  title={chapter.title}
+                  onClick={() => {
+                    setToc(false)
+                    void goto(chapter.index, 0)
+                  }}
+                >
+                  <span className="toc-kind">{kindLabel(chapter.kind)}</span>
+                  {chapter.index + 1}. {chapter.title}
+                </li>
+              ))
+            : null}
         </ol>
       </aside>
     </>

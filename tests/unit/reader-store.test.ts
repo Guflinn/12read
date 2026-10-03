@@ -180,12 +180,24 @@ describe('reader store: 打开', () => {
     expect(useReaderStore.getState().chapterText).toBe(DEFAULT_TEXTS[0])
   })
 
-  it('超长章节先渲染前 2 万字，可继续加载', async () => {
-    const longText = '长'.repeat(CHUNK_THRESHOLD_CHARS + 5000)
+  it('超长章节先渲染前 2 万字，继续加载是一步步展开的', async () => {
+    const longText = '长'.repeat(CHUNK_FIRST_RENDER_CHARS * 3 + 5000)
     makeHarness(null, [longText, '第二章'])
     await useReaderStore.getState().open(BOOK_ID)
     expect(useReaderStore.getState().visibleChars).toBe(CHUNK_FIRST_RENDER_CHARS)
 
+    // 一次只多渲染一步：几十万字的章节全量挂进 DOM 会卡住界面
+    useReaderStore.getState().revealMore()
+    expect(useReaderStore.getState().visibleChars).toBe(CHUNK_FIRST_RENDER_CHARS * 2)
+
+    useReaderStore.getState().revealMore()
+    expect(useReaderStore.getState().visibleChars).toBe(CHUNK_FIRST_RENDER_CHARS * 3)
+
+    // 最后一步不足一整步时夹到章尾
+    useReaderStore.getState().revealMore()
+    expect(useReaderStore.getState().visibleChars).toBe(longText.length)
+
+    // 已经到底再点也不会越界
     useReaderStore.getState().revealMore()
     expect(useReaderStore.getState().visibleChars).toBe(longText.length)
   })

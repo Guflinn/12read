@@ -252,8 +252,15 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     set({ pendingOffset: null })
   },
 
+  /**
+   * 按步展开，而不是一次性把整章塞进 DOM：
+   * 章动辄几十万字，全量渲染会一次性挂出上万个段落、卡死主线程。
+   * 滚到接近底部会再次触发，读起来就是「继续往下就有了」。
+   */
   revealMore(): void {
-    set((state) => ({ visibleChars: state.chapterText.length }))
+    set((state) => ({
+      visibleChars: Math.min(state.chapterText.length, state.visibleChars + CHUNK_FIRST_RENDER_CHARS)
+    }))
   },
 
   setToc(open: boolean): void {

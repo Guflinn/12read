@@ -17,12 +17,19 @@
 
 ## 快速开始
 
-需要 Node 20+ 和 pnpm（lockfile 按 pnpm 11 生成）。
+需要 Node 20+ 与 pnpm 11（lockfile 按 pnpm 11 生成）：
 
 ```bash
+npm install -g pnpm   # 或 corepack enable pnpm
 pnpm install          # better-sqlite3 走 N-API 预编译包，不需要本机 MSVC / Python
 pnpm dev              # 开发模式（HMR）
 ```
+
+Windows + PowerShell 上如果直接敲 `pnpm` 报「禁止运行脚本」，执行一次
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` 即可（用户级设置，随时可回退）——
+它放行的是本机 npm 全局安装的 `pnpm.ps1`。
+
+配置都放在 `pnpm-workspace.yaml` 里（pnpm 11 起构建脚本白名单写作 `allowBuilds:`，`electron`、`better-sqlite3` 等已设为 `true`），仓库里刻意不放 `.npmrc`：hoist 与 peer 相关行为用 pnpm 默认值即可。
 
 常用命令：
 
@@ -84,6 +91,8 @@ pnpm build && pnpm exec electron-builder --win nsis   # release/twelve-read-setu
 ```
 
 `electron-builder.yml` 里 `npmRebuild: false`：better-sqlite3 13 自带各平台 N-API 预编译二进制，不必也不要让 node-gyp 重编译。安装包不签名、不带自动更新。
+
+注意 `electron-builder` 内部要用 `pnpm list --prod --json` 收集依赖，所以打包必须在 pnpm 可用的情况下跑（上面的 `pnpm exec` 天然满足；用裸 `npx electron-builder` 时若 PATH 上没有 pnpm 会报 `No JSON content found in output`）。
 
 实测（Windows x64）：`release/twelve-read-setup-0.1.0.exe` 约 98 MB，低于 TECH 的 120 MB 目标；解包目录 `release/win-unpacked` 约 352 MB，体积几乎都在 Electron 运行时（210 MB）与被解包的 better-sqlite3（含各平台 prebuild 与 SQLite 合并源码）上。打包后的 exe 做过冒烟：能建库、能写 `books/`，说明 N-API 预编译二进制在 asar 外正常加载。
 

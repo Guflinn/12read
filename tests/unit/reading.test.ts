@@ -13,7 +13,9 @@ import {
   formatPercent,
   formatRelative,
   kindLabel,
-  percentOf
+  percentOf,
+  progressLabel,
+  remainingChars
 } from '@/core/reading'
 
 function makeBook(patch: Partial<Book> = {}): Book {
@@ -90,6 +92,22 @@ describe('书架展示', () => {
     expect(formatChars(0)).toBe('0 字')
     expect(formatChars(9999)).toBe('9999 字')
     expect(formatChars(123456)).toBe('12.3 万字')
+  })
+
+  it('剩余字数按全书百分比折算，边界都夹住', () => {
+    expect(remainingChars(300, 0)).toBe(300)
+    expect(remainingChars(300, 50)).toBe(150)
+    expect(remainingChars(300, 100)).toBe(0)
+    expect(remainingChars(300, 120)).toBe(0)
+    expect(remainingChars(300, -5)).toBe(300)
+    expect(remainingChars(0, 50)).toBe(0)
+    expect(remainingChars(Number.NaN, 50)).toBe(0)
+  })
+
+  it('底部那行字把百分比与剩余字数拼在一起', () => {
+    expect(progressLabel(300, 0)).toBe('已读 0.0% · 剩余 300 字')
+    expect(progressLabel(123456, 50)).toBe('已读 50.0% · 剩余 6.2 万字')
+    expect(progressLabel(0, 0)).toBe('已读 0.0% · 剩余 0 字')
   })
 
   it('书籍副标题带字数与节数', () => {

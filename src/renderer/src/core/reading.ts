@@ -31,6 +31,21 @@ export function formatChars(chars: number): string {
   return (chars / 10000).toFixed(1) + ' 万字'
 }
 
+/**
+ * 还剩多少字：percent 由「本章起始 + 章内偏移」推得，所以剩余量也按全书估算。
+ * 只用于展示，不参与定位（TECH.md 6.2）。
+ */
+export function remainingChars(totalChars: number, percent: number): number {
+  if (!Number.isFinite(totalChars) || totalChars <= 0) return 0
+  const safe = Number.isFinite(percent) ? Math.min(100, Math.max(0, percent)) : 0
+  return Math.max(0, Math.round(totalChars * (1 - safe / 100)))
+}
+
+/** 阅读器底部那行字：已读百分比 + 剩余字数。 */
+export function progressLabel(totalChars: number, percent: number): string {
+  return '已读 ' + formatPercent(percent) + ' · 剩余 ' + formatChars(remainingChars(totalChars, percent))
+}
+
 export function describeBook(book: Book): string {
   // 「节」是中性说法：既涵盖识别出的章节，也涵盖定长兜底的分段
   return formatChars(book.charCount) + ' · ' + book.chapterCount + ' 节'

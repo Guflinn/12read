@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { offsetForScrollTop, scrollTopForOffset, splitParagraphs } from '@/core/paragraphs'
-import { chapterLabel } from '@/core/reading'
+import { chapterLabel, progressLabel } from '@/core/reading'
 import { useReaderStore } from '@/store/reader'
 import { useSettingsStore } from '@/store/settings'
 import { SettingsSheet } from './SettingsSheet'
@@ -254,6 +254,12 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
       <div className="reader-progress">
         <div id="reader-progress-fill" style={{ width: percent.toFixed(2) + '%' }} />
       </div>
+
+      {book ? (
+        <div className="reader-meter" id="reader-meter">
+          {progressLabel(book.charCount, percent)}
+        </div>
+      ) : null}
 
       <TocDrawer />
       <SettingsSheet />

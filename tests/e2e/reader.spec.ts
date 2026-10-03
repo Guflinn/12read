@@ -1,5 +1,5 @@
 import iconv from 'iconv-lite'
-import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test'
 import {
   buildNovel,
   cssVar,
@@ -178,4 +178,38 @@ test('二进制文件被挡在门外并给出提示', async () => {
   await importPath(page, bookPath)
   await expect(page.locator('#errbar')).toContainText('不是一个纯文本文件')
   await expect(page.locator('.book-card')).toHaveCount(0)
+})
+
+/** 从「已读 12.3% · 剩余 456 字 / 1.2 万字」里抠出剩余字数。 */
+async function readRemaining(meter: Locator): Promise<number> {
+  const text = await meter.innerText()
+  // 注意：formatChars 的数字和单位之间有一个空格（"7374 字" / "6.2 万字"）
+  const match = text.match(/剩余 ([\d.]+) ?(万)?字/)
+  if (!match) return -1
+  const value = Number(match[1])
+  return match[2] ? value * 10000 : value
+}
+
+test('阅读器底部显示已读百分比与剩余字数，往下读一起变', async () => {
+  const dataDir = makeTempDir('12read-meter-')
+  const bookPath = writeNovelFile(makeTempDir('12read-meter-src-'), '测量书.txt', buildNovel())
+
+  const page = await openApp(dataDir)
+  await importPath(page, bookPath)
+  await page.click('.book-card')
+  await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
+
+  const meter = page.locator('#reader-meter')
+  await expect(meter).toHaveText('已读 0.0% · 剩余 7374 字')
+  const before = await readRemaining(meter)
+  expect(before).toBeGreaterThan(0)
+
+  // 翻到章尾：进度往前走，剩余字数跟着变少
+  await page.keyboard.press('End')
+  await expect.poll(() => readRemaining(meter)).toBeLessThan(before)
+  await expect(meter).toContainText('已读 ')
+
+  // 回章首又还原
+  await page.keyboard.press('Home')
+  await expect.poll(() => readRemaining(meter)).toBe(before)
 })

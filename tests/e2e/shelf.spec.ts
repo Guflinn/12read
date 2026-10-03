@@ -133,3 +133,45 @@ test('导入不存在的文件：给中文提示，不留「正在导入」任�
   await expect(page.locator('.import-row')).toHaveCount(0)
   await expect(page.locator('.book-card')).toHaveCount(0)
 })
+
+test('书架搜索与排序：搜作者也能命中，进度可排序', async () => {
+  const sourceDir = makeTempDir('12read-shelf-filter-')
+  writeNovelFile(sourceDir, '《甲书》甲作者.txt', buildNovel())
+  writeNovelFile(sourceDir, '乙书.txt', buildNovel())
+
+  page = await openApp(makeTempDir('12read-shelf-'))
+  await importPaths(page, [join(sourceDir, '《甲书》甲作者.txt'), join(sourceDir, '乙书.txt')])
+  await expect(page.locator('.book-card')).toHaveCount(2)
+
+  // 搜作者也能命中
+  await page.fill('#shelf-search', '甲作者')
+  await expect(page.locator('.book-card')).toHaveCount(1)
+  await expect(page.locator('.book-title')).toHaveText('甲书')
+  await expect(page.locator('#shelf-match')).toHaveText('匹配 1 本')
+
+  // 搜不到时给空态
+  await page.fill('#shelf-search', '不存在的书')
+  await expect(page.locator('.book-card')).toHaveCount(0)
+  await expect(page.locator('#shelf-nomatch')).toBeVisible()
+
+  // 清空恢复全部
+  await page.fill('#shelf-search', '')
+  await expect(page.locator('.book-card')).toHaveCount(2)
+  await expect(page.locator('#shelf-match')).toHaveCount(0)
+
+  // 书名排序：甲在乙前
+  await page.selectOption('#shelf-sort', 'title')
+  await expect(page.locator('.book-title').first()).toHaveText('甲书')
+  await expect(page.locator('.book-title').nth(1)).toHaveText('乙书')
+
+  // 进度排序：读过一段的乙书排前面
+  await card(page, /^乙书$/).click()
+  await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
+  await page.locator('#reader-scroll').evaluate((el) => {
+    el.scrollTop = 900
+  })
+  await page.waitForTimeout(800)
+  await page.click('#btn-back')
+  await page.selectOption('#shelf-sort', 'progress')
+  await expect(page.locator('.book-title').first()).toHaveText('乙书')
+})

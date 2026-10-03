@@ -200,3 +200,14 @@
   .toc-kind { display: inline-block; margin-right: 6px; padding: 0 4px; border: 1px solid var(--line);
     border-radius: 4px; font-size: 10.5px; color: var(--dim); }
   .toc-list li.on .toc-kind { border-color: var(--accent); color: var(--accent); }
+
+  /* ---------- 书架工具条（搜索 / 排序） ---------- */
+  .shelf-tools { display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; }
+  .shelf-search { flex: 1 1 auto; min-width: 0; padding: 8px 12px; font: inherit; font-size: 14px; color: var(--text);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 9px; }
+  .shelf-search::placeholder { color: var(--dim); }
+  .shelf-search:focus { outline: none; border-color: var(--accent); }
+  .shelf-sort { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dim); }
+  .shelf-sort select { padding: 7px 8px; font: inherit; font-size: 13px; color: var(--text); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 9px; }
+  #shelf-match { font-size: 12.5px; color: var(--dim); white-space: nowrap; }

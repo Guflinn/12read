@@ -9,6 +9,7 @@ import {
   formatPercent,
   formatRelative
 } from '@/core/reading'
+import { SHELF_SORTS, shelfView, type ShelfSort } from '@/core/shelf'
 import { useLibraryStore } from '@/store/library'
 import { ImportStatus } from './ImportStatus'
 import { Modal } from './Modal'
@@ -95,8 +96,12 @@ export function ShelfView({ onOpen }: { onOpen(bookId: string): void }): React.J
   const [renameText, setRenameText] = useState('')
   const [deleting, setDeleting] = useState<Book | null>(null)
   const [scopeOpen, setScopeOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<ShelfSort>('recent')
   const now = Date.now()
   const totalChars = books.reduce((sum, book) => sum + book.charCount, 0)
+  const shown = shelfView(books, query, sort)
+  const filtering = query.trim().length > 0
 
   const importFiles = (files: FileList | null): void => {
     const list = files ? Array.from(files) : []
@@ -162,6 +167,34 @@ export function ShelfView({ onOpen }: { onOpen(bookId: string): void }): React.J
 
         <ImportStatus />
 
+        {books.length > 0 ? (
+          <div className="shelf-tools">
+            <input
+              id="shelf-search"
+              className="shelf-search"
+              type="search"
+              value={query}
+              placeholder="搜索书名或作者"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            <label className="shelf-sort">
+              排序
+              <select
+                id="shelf-sort"
+                value={sort}
+                onChange={(event) => setSort(event.target.value as ShelfSort)}
+              >
+                {SHELF_SORTS.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {filtering ? <span id="shelf-match">匹配 {shown.length} 本</span> : null}
+          </div>
+        ) : null}
+
         <div className="shelf-bar">
           <span id="shelf-count">
             {books.length === 0 ? '书架空着' : books.length + ' 本 · 共 ' + formatChars(totalChars)}
@@ -175,8 +208,13 @@ export function ShelfView({ onOpen }: { onOpen(bookId: string): void }): React.J
             书架还是空的，导入一本开始吧
           </div>
         ) : null}
+        {!loading && books.length > 0 && filtering && shown.length === 0 ? (
+          <div className="empty" id="shelf-nomatch">
+            没有匹配的书
+          </div>
+        ) : null}
         <div className="shelf-grid" id="shelf-grid">
-          {books.map((book) => (
+          {shown.map((book) => (
             <BookCard
               key={book.id}
               book={book}

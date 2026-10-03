@@ -31,7 +31,8 @@ export interface ReaderState {
   pendingOffset: CharOffset | null
   percent: number
   open(bookId: string): Promise<void>
-  leave(): void
+  /** 回书架：先落一次盘再清空，返回的 Promise 在进度写回主进程后 resolve。 */
+  leave(): Promise<void>
   goto(index: number, offset?: CharOffset): Promise<void>
   next(): Promise<void>
   prev(): Promise<void>
@@ -157,8 +158,12 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     }
   },
 
-  leave(): void {
-    saver.flush()
+  async leave(): Promise<void> {
+    // 离开阅读器时无条件落盘一次：只要打开过书就算「最近读过」，
+    // 书架排序（last_opened_at）和「已读 x%」就不依赖用户是否滚动过。
+    // persist() 会在第一个 await 之前同步取出进度快照，所以可以先拿住快照再清空 state。
+    saver.cancel()
+    const saving = persist()
     seq += 1
     set({
       book: null,
@@ -172,6 +177,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       sheetOpen: false,
       error: null
     })
+    // 等落盘完成再让调用方接着做（App 会等它结束后再刷新书架，顺序才确定）
+    await saving
   },
 
   async goto(index: number, offset: CharOffset = 0): Promise<void> {

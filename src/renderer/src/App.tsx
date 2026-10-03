@@ -63,11 +63,16 @@ export default function App(): React.JSX.Element {
 
   // 进阅读器就换书；回书架就写回进度并刷新书架（最近阅读排序）
   useEffect(() => {
-    if (route.name === 'reader') void useReaderStore.getState().open(route.bookId)
-    else {
-      useReaderStore.getState().leave()
-      void useLibraryStore.getState().load()
+    if (route.name === 'reader') {
+      void useReaderStore.getState().open(route.bookId)
+      return undefined
     }
+    // 先等进度写回主进程，再刷新书架：否则「最近阅读」排序会用到还没落库的 last_opened_at
+    const backToShelf = async (): Promise<void> => {
+      await useReaderStore.getState().leave()
+      await useLibraryStore.getState().load()
+    }
+    void backToShelf()
     return undefined
   }, [route])
 

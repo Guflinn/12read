@@ -74,7 +74,7 @@ tests         unit / contract / e2e
 
 - `tests/unit`：纯函数、store、主进程服务（真实 better-sqlite3 + 临时目录）。
 - `tests/contract`：IPC 通道清单/接线一致性、zod schema 正负用例。
-- `tests/e2e`：Playwright `_electron.launch`，跑「导入 → 阅读 → 切章 → 改字号 → 重启恢复」、GBK 不乱码、二进制被拒三条真实链路。
+- `tests/e2e`：Playwright `_electron.launch`，跑「导入 → 阅读 → 切章 → 改字号 → 重启恢复」、GBK 不乱码、二进制被拒，以及书架的「书名/作者清洗、最近阅读排序、重命名、删除、目录高亮、导入不存在的文件给提示」等真实链路。
 - 覆盖率门槛 90% 行（见 `vitest.config.ts`；只做真实 Electron 才能跑起来的入口文件，如 `src/main/index.ts`、`src/main/window.ts`、worker 启动脚本，交给 e2e）。
 
 ## 打包

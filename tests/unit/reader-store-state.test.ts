@@ -115,6 +115,20 @@ describe('阅读器开关类状态', () => {
     expect(left.percent).toBe(0)
   })
 
+  it('回书架时无条件落盘一次，没滚动过也算「最近读过」', async () => {
+    await useReaderStore.getState().open(BOOK_ID)
+    expect(currentApi.saveProgress).not.toHaveBeenCalled()
+
+    await useReaderStore.getState().leave()
+
+    expect(currentApi.saveProgress).toHaveBeenCalledTimes(1)
+    const saved = currentApi.saveProgress.mock.calls[0]?.[0] as Progress
+    expect(saved.bookId).toBe(BOOK_ID)
+    expect(saved.chapterIndex).toBe(0)
+    expect(saved.charOffset).toBe(0)
+    expect(saved.deviceId).toBe('device-1')
+  })
+
   it('flushSync 关窗前把当前位置同步交给主进程，没打开书时什么都不做', async () => {
     useReaderStore.getState().flushSync()
     expect(currentApi.flushProgress).not.toHaveBeenCalled()

@@ -1,0 +1,135 @@
+import { join } from 'node:path'
+import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { buildNovel, launchApp, makeTempDir, stubOpenDialog, writeNovelFile } from './helpers'
+
+// 书架这一层是 MVP 3.3 的验收面：书名清洗、最近阅读排序、重命名、删除、目录高亮、错误提示。
+// serial：每个用例都要独占一棵真实的 Electron 进程。
+test.describe.configure({ mode: 'serial' })
+
+let app: ElectronApplication | null = null
+let page: Page | null = null
+
+async function openApp(dataDir: string): Promise<Page> {
+  app = await launchApp(dataDir)
+  const win = await app.firstWindow()
+  await win.waitForSelector('#btn-import')
+  return win
+}
+
+async function importPaths(target: Page, paths: string[]): Promise<void> {
+  if (!app) throw new Error('应用还没启动')
+  await stubOpenDialog(app, paths)
+  await target.click('#btn-import')
+}
+
+/** 按书名精确挑卡片（书名互相包含时 hasText 会误伤，所以用 ^…$）。 */
+function card(target: Page, title: RegExp) {
+  return target.locator('.book-card', { has: target.locator('.book-title', { hasText: title }) })
+}
+
+test.afterEach(async () => {
+  await app?.close()
+  app = null
+  page = null
+})
+
+test('书架：多选导入清洗书名作者，重命名与删除立即可见', async () => {
+  const sourceDir = makeTempDir('12read-shelf-src-')
+  writeNovelFile(sourceDir, '《甲书》甲作者.txt', buildNovel())
+  writeNovelFile(sourceDir, '乙书(完结).txt', buildNovel())
+
+  page = await openApp(makeTempDir('12read-shelf-'))
+  await importPaths(page, [join(sourceDir, '《甲书》甲作者.txt'), join(sourceDir, '乙书(完结).txt')])
+
+  await expect(page.locator('.book-card')).toHaveCount(2)
+  // 《书名》作者.txt：书名与作者分开；乙书(完结).txt：只把 (完结) 这类标注清掉
+  await expect(card(page, /^甲书$/).locator('.book-title')).toHaveText('甲书')
+  await expect(card(page, /^甲书$/).locator('.book-author')).toHaveText('甲作者')
+  await expect(card(page, /^乙书$/).locator('.book-title')).toHaveText('乙书')
+  await expect(card(page, /^乙书$/).locator('.book-author')).toHaveText(/3 节/)
+  await expect(page.locator('.book-title', { hasText: '完结' })).toHaveCount(0)
+
+  // 重命名：走真实 Modal
+  await card(page, /^甲书$/).locator('.card-rename').click()
+  await expect(page.locator('.modal h3')).toHaveText('重命名')
+  await page.locator('.modal input').fill('甲书改名')
+  await page.locator('.modal-actions .btn.primary').click()
+  await expect(card(page, /^甲书改名$/).locator('.book-title')).toHaveText('甲书改名')
+  await expect(page.locator('.modal')).toHaveCount(0)
+
+  // 删除：danger 确认后卡片与正文一起消失
+  await card(page, /^乙书$/).locator('.card-delete').click()
+  await expect(page.locator('.modal h3')).toHaveText('删除这本书？')
+  await page.locator('.modal-actions .btn.danger').click()
+  await expect(page.locator('.book-card')).toHaveCount(1)
+  await expect(page.locator('.book-title', { hasText: '乙书' })).toHaveCount(0)
+})
+
+test('最近阅读：没滚动过就回书架的那本也会排到最前，滚动过的记下百分比', async () => {
+  const sourceDir = makeTempDir('12read-shelf-sort-')
+  writeNovelFile(sourceDir, '《甲书》甲作者.txt', buildNovel())
+  writeNovelFile(sourceDir, '乙书.txt', buildNovel())
+
+  page = await openApp(makeTempDir('12read-shelf-'))
+  await importPaths(page, [join(sourceDir, '《甲书》甲作者.txt'), join(sourceDir, '乙书.txt')])
+  await expect(page.locator('.book-card')).toHaveCount(2)
+
+  // 打开甲书，一次都不滚动，直接回书架
+  await card(page, /^甲书$/).click()
+  await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
+  await page.click('#btn-back')
+  await expect(page.locator('.book-title').first()).toHaveText('甲书')
+
+  // 再打开乙书并滚动一段，回书架后它排最前且进度不再是 0
+  await card(page, /^乙书$/).click()
+  await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
+  await page.locator('#reader-scroll').evaluate((el) => {
+    el.scrollTop = 900
+  })
+  await page.waitForTimeout(800)
+  await page.click('#btn-back')
+
+  await expect(page.locator('.book-title').first()).toHaveText('乙书')
+  await expect(card(page, /^乙书$/).locator('.book-foot')).toHaveText(/已读/)
+  const width = await card(page, /^乙书$/)
+    .locator('.progress-fill')
+    .evaluate((el) => (el as HTMLElement).style.width)
+  expect(Number.parseFloat(width)).toBeGreaterThan(0)
+})
+
+test('目录抽屉高亮当前章，点章切换，Esc 关掉', async () => {
+  const sourceDir = makeTempDir('12read-shelf-toc-')
+  writeNovelFile(sourceDir, '目录测试书.txt', buildNovel())
+
+  page = await openApp(makeTempDir('12read-shelf-'))
+  await importPaths(page, [join(sourceDir, '目录测试书.txt')])
+  await expect(page.locator('.book-card')).toHaveCount(1)
+  await card(page, /^目录测试书$/).click()
+  await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
+
+  await page.click('#btn-toc')
+  await expect(page.locator('#toc-drawer')).toHaveClass(/on/)
+  await expect(page.locator('.toc-list li')).toHaveCount(3)
+  await expect(page.locator('.toc-list li.on')).toHaveCount(1)
+  await expect(page.locator('.toc-list li.on')).toHaveText(/第一章/)
+
+  await page.locator('.toc-list li').nth(2).click()
+  await expect(page.locator('.chapter-title')).toHaveText('第三章 归途')
+  await expect(page.locator('#reader-chapter-label')).toHaveText(/3\/3/)
+
+  await page.click('#btn-toc')
+  await expect(page.locator('.toc-list li.on')).toHaveText(/第三章/)
+  await page.keyboard.press('Escape')
+  await expect(page.locator('#toc-drawer')).not.toHaveClass(/on/)
+})
+
+test('导入不存在的文件：给中文提示，不留「正在导入」任务，也不建卡片', async () => {
+  const dataDir = makeTempDir('12read-shelf-missing-')
+  page = await openApp(dataDir)
+
+  await importPaths(page, [join(dataDir, '不存在的书.txt')])
+
+  await expect(page.locator('#errbar')).toContainText('打不开这个文件')
+  await expect(page.locator('.import-row')).toHaveCount(0)
+  await expect(page.locator('.book-card')).toHaveCount(0)
+})

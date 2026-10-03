@@ -1,0 +1,368 @@
+import { existsSync } from 'node:fs'
+import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { SLICE_MODE_BYTES, type Book, type ImportProgress, type ImportStage } from '@shared/types'
+import type { LibraryRepository, NewBookRecord, NewChapterRecord } from '@main/db/library-repository'
+import { ImportError } from '@main/services/import-error'
+import { ImportService } from '@main/services/importer'
+import { bookDir, booksRoot } from '@main/services/layout'
+import { SAMPLE_TEXT, bytesBinaryWithNul, bytesUtf8 } from '../fixtures/texts'
+
+/**
+ * 只把 stat 包一层，用来伪造超大文件；其余文件操作全走真实实现，
+ * 这样「写库前落盘 / 失败后清理」才是真的在测磁盘。
+ */
+const fsState = vi.hoisted(() => ({ statSize: null as number | null }))
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>()
+  return {
+    ...actual,
+    stat: (async (...args: Parameters<typeof actual.stat>) => {
+      const info = await actual.stat(...args)
+      if (fsState.statSize === null) return info
+      return {
+        isFile: (): boolean => info.isFile(),
+        size: fsState.statSize
+      } as unknown as typeof info
+    }) as typeof actual.stat
+  }
+})
+
+interface InsertCall {
+  record: NewBookRecord
+  chapters: NewChapterRecord[]
+}
+
+function makeRepo(): {
+  repo: LibraryRepository
+  insertBook: ReturnType<typeof vi.fn>
+  calls: InsertCall[]
+} {
+  const calls: InsertCall[] = []
+  const insertBook = vi.fn((record: NewBookRecord, chapters: NewChapterRecord[]): Book => {
+    calls.push({ record, chapters })
+    return {
+      id: record.id,
+      title: record.title,
+      author: record.author,
+      format: 'txt',
+      encoding: record.encoding,
+      byteSize: record.byteSize,
+      charCount: record.charCount,
+      chapterCount: chapters.length,
+      contentMode: record.contentMode,
+      coverSeed: 1,
+      addedAt: record.addedAt,
+      lastOpenedAt: null
+    }
+  })
+  return { repo: { insertBook } as unknown as LibraryRepository, insertBook, calls }
+}
+
+let root = ''
+let srcFile = ''
+
+beforeEach(async () => {
+  fsState.statSize = null
+  root = await mkdtemp(join(tmpdir(), 'importer-'))
+  srcFile = join(root, '《十二阅读》林某.txt')
+})
+
+afterEach(async () => {
+  fsState.statSize = null
+  await rm(root, { recursive: true, force: true })
+})
+
+/** 把一段 worker 脚本写到临时目录，返回绝对路径。 */
+async function writeWorker(name: string, source: string): Promise<string> {
+  const file = join(root, name + '.cjs')
+  await writeFile(file, source, 'utf8')
+  return file
+}
+
+const LONG_LIVED_WORKER = `
+const { parentPort } = require('node:worker_threads')
+parentPort.postMessage({ type: 'progress', stage: 'decoding', ratio: 0.5 })
+setInterval(() => {}, 1000)
+`
+
+/** 等到回调里出现指定 stage，避免用 sleep 猜时间。 */
+function stageGate(): { promise: Promise<void>; onProgress: (p: ImportProgress) => void } {
+  let resolveGate: () => void = () => undefined
+  const promise = new Promise<void>((resolve) => {
+    resolveGate = resolve
+  })
+  return {
+    promise,
+    onProgress: (progress: ImportProgress): void => {
+      if (progress.stage === 'decoding') resolveGate()
+    }
+  }
+}
+
+describe('ImportService.importFile 内联分支（worker 文件缺失）', () => {
+  it('正常导入：返回 Book、写库、进度覆盖 reading..done', async () => {
+    await writeFile(srcFile, bytesUtf8(SAMPLE_TEXT))
+    const { repo, insertBook, calls } = makeRepo()
+    const events: ImportProgress[] = []
+    const service = new ImportService({ root, repo, now: () => 12345 }, (progress) => events.push(progress))
+
+    const book = await service.importFile(srcFile, 'task-1')
+
+    expect(book.id).toBe(calls[0].record.id)
+    expect(book.title).toBe('十二阅读')
+    expect(book.author).toBe('林某')
+    expect(insertBook).toHaveBeenCalledTimes(1)
+    expect(calls[0].record).toMatchObject({
+      encoding: 'utf-8',
+      byteSize: bytesUtf8(SAMPLE_TEXT).length,
+      charCount: SAMPLE_TEXT.length,
+      contentMode: 'single',
+      addedAt: 12345
+    })
+    expect(calls[0].chapters).toHaveLength(2)
+
+    const stages = events.map((event) => event.stage)
+    for (const stage of ['reading', 'detecting', 'decoding', 'splitting', 'storing', 'done'] as ImportStage[]) {
+      expect(stages).toContain(stage)
+    }
+    expect(events[0]).toEqual({ taskId: 'task-1', filePath: srcFile, stage: 'reading', ratio: 0.01, message: undefined })
+    expect(events.at(-1)).toEqual({ taskId: 'task-1', filePath: srcFile, stage: 'done', ratio: 1, message: undefined })
+    expect(existsSync(join(bookDir(root, book.id), 'content.txt'))).toBe(true)
+  })
+
+  it('文件不存在时报 io-error，仍会发出 error 进度', async () => {
+    const { repo, insertBook } = makeRepo()
+    const events: ImportProgress[] = []
+    const service = new ImportService({ root, repo }, (progress) => events.push(progress))
+    const missing = join(root, '不存在.txt')
+
+    const error = await service.importFile(missing, 'task-2').then(
+      () => null,
+      (cause: unknown) => cause
+    )
+
+    expect(error).toBeInstanceOf(ImportError)
+    expect((error as ImportError).code).toBe('io-error')
+    expect((error as ImportError).message).toBe('打不开这个文件：' + missing)
+    expect(insertBook).not.toHaveBeenCalled()
+    // stat 失败发生在 try 之前，因此不会发出任何进度（含 error）；
+    // 这是源码现状，已在最终报告里记录。
+    expect(events).toEqual([])
+  })
+
+  it('目标不是文件时报 io-error', async () => {
+    const dir = join(root, '其实是个目录')
+    await mkdir(dir)
+    const { repo } = makeRepo()
+    const service = new ImportService({ root, repo })
+
+    const error = await service.importFile(dir, 'task-3').then(
+      () => null,
+      (cause: unknown) => cause
+    )
+
+    expect((error as ImportError).code).toBe('io-error')
+    expect((error as ImportError).message).toBe('这不是一个文件：' + dir)
+  })
+
+  it('解码失败时报 binary 并清掉半个书目录，不写库', async () => {
+    await writeFile(srcFile, bytesBinaryWithNul())
+    const { repo, insertBook } = makeRepo()
+    const service = new ImportService({ root, repo })
+
+    const error = await service.importFile(srcFile, 'task-4').then(
+      () => null,
+      (cause: unknown) => cause
+    )
+
+    expect(error).toBeInstanceOf(ImportError)
+    expect((error as ImportError).code).toBe('binary')
+    expect(insertBook).not.toHaveBeenCalled()
+    // books/ 会被创建，但里面不能留下半成品目录。
+    expect(await readdir(booksRoot(root))).toEqual([])
+  })
+
+  it('超过 SLICE_MODE_BYTES 时走 sliced 落盘', async () => {
+    await writeFile(srcFile, bytesUtf8(SAMPLE_TEXT))
+    fsState.statSize = SLICE_MODE_BYTES + 1
+    const { repo, calls } = makeRepo()
+    const service = new ImportService({ root, repo })
+
+    const book = await service.importFile(srcFile, 'task-5')
+
+    expect(calls[0].record.contentMode).toBe('sliced')
+    expect(book.contentMode).toBe('sliced')
+    expect(existsSync(join(bookDir(root, book.id), 'chapters'))).toBe(true)
+  })
+})
+
+describe('ImportService 的 worker 分支', () => {
+  it('worker 成功：进度来自 worker 消息，结果照常写库', async () => {
+    await writeFile(srcFile, bytesUtf8(SAMPLE_TEXT))
+    const workerPath = await writeWorker(
+      'ok',
+      `
+const { parentPort, workerData } = require('node:worker_threads')
+parentPort.postMessage({ type: 'progress', stage: 'decoding', ratio: 0.5, message: '解码中' })
+parentPort.postMessage({
+  type: 'done',
+  result: {
+    encoding: 'utf-8',
+    charCount: 12,
+    chapters: [{ title: '第一章', startOffset: 0, charLength: 12, kind: 'chapter' }],
+    contentMode: workerData.contentMode,
+    usedFallback: false,
+    markerHits: 1,
+    suspicious: false
+  }
+})
+`
+    )
+    const { repo, insertBook, calls } = makeRepo()
+    const events: ImportProgress[] = []
+    const service = new ImportService({ root, repo, workerPath }, (progress) => events.push(progress))
+
+    const book = await service.importFile(srcFile, 'task-w1')
+
+    expect(insertBook).toHaveBeenCalledTimes(1)
+    expect(book.charCount).toBe(12)
+    expect(calls[0].record.charCount).toBe(12)
+    expect(calls[0].chapters).toHaveLength(1)
+    expect(events).toContainEqual({
+      taskId: 'task-w1',
+      filePath: srcFile,
+      stage: 'decoding',
+      ratio: 0.5,
+      message: '解码中'
+    })
+    expect(events.at(-1)?.stage).toBe('done')
+  })
+
+  it('worker 回报 error 信封时转成对应的 ImportError', async () => {
+    await writeFile(srcFile, bytesUtf8(SAMPLE_TEXT))
+    const workerPath = await writeWorker(
+      'bad',
+      `
+const { parentPort } = require('node:worker_threads')
+parentPort.postMessage({ type: 'error', code: 'binary', message: '这不是一个纯文本文件' })
+`
+    )
+    const { repo, insertBook } = makeRepo()
+    const service = new ImportService({ root, repo, workerPath })
+
+    const error = await service.importFile(srcFile, 'task-w2').then(
+      () => null,
+      (cause: unknown) => cause
+    )
+
+    expect(error).toBeInstanceOf(ImportError)
+    expect((error as ImportError).code).toBe('binary')
+    expect((error as ImportError).message).toBe('这不是一个纯文本文件')
+    expect(insertBook).not.toHaveBeenCalled()
+  })
+
+  it('worker 直接抛错时走 error 事件，映射成 unknown', async () => {
+    await writeFile(srcFile, bytesUtf8(SAMPLE_TEXT))
+    const workerPath = await writeWorker('crash', "throw new Error('worker 崩了')")
+    const { repo } = makeRepo()
+    const service = new ImportService({ root, repo, workerPath })
+
+    const error = await service.importFile(srcFile, 'task-w3').then(
+      () => null,
+      (cause: unknown) => cause
+    )
+
+    expect(error).toBeInstanceOf(ImportError)
+    expect((error as ImportError).code).toBe('unknown')
+    expect((error as ImportError).message).toBe('worker 崩了')
+  })
+
+  it('worker 没发结果就退出时按 cancelled 处理', async () => {
+    await writeFile(srcFile, bytesUtf8(SAMPLE_TEXT))
+    const workerPath = await writeWorker(
+      'silent',
+      `
+const { parentPort } = require('node:worker_threads')
+parentPort.postMessage({ type: 'progress', stage: 'storing', ratio: 0.9 })
+`
+    )
+    const { repo, insertBook } = makeRepo()
+    const service = new ImportService({ root, repo, workerPath })
+
+    const error = await service.importFile(srcFile, 'task-w4').then(
+      () => null,
+      (cause: unknown) => cause
+    )
+
+    expect((error as ImportError).code).toBe('cancelled')
+    expect((error as ImportError).message).toBe('导入已取消')
+    expect(insertBook).not.toHaveBeenCalled()
+  })
+
+  it('cancel(taskId) 终止在跑的 worker 并 reject cancelled', async () => {
+    await writeFile(srcFile, bytesUtf8(SAMPLE_TEXT))
+    const workerPath = await writeWorker('long', LONG_LIVED_WORKER)
+    const { repo, insertBook } = makeRepo()
+    const gate = stageGate()
+    const service = new ImportService({ root, repo, workerPath }, gate.onProgress)
+
+    // 先挂上拒绝处理，再 cancel，避免退出事件撞出 unhandled rejection。
+    const outcome = service.importFile(srcFile, 'task-cancel').then(
+      () => null,
+      (cause: unknown) => cause
+    )
+    await gate.promise
+    service.cancel('task-cancel')
+    const error = await outcome
+
+    expect((error as ImportError).code).toBe('cancelled')
+    expect(insertBook).not.toHaveBeenCalled()
+  })
+
+  it('cancelAll() 终止所有在跑的 worker', async () => {
+    await writeFile(srcFile, bytesUtf8(SAMPLE_TEXT))
+    const workerPath = await writeWorker('long2', LONG_LIVED_WORKER)
+    const { repo } = makeRepo()
+    const seen = new Set<string>()
+    let resolveBoth: () => void = () => undefined
+    const bothSeen = new Promise<void>((resolve) => {
+      resolveBoth = resolve
+    })
+    const service = new ImportService({ root, repo, workerPath }, (progress) => {
+      if (progress.stage === 'decoding') {
+        seen.add(progress.taskId)
+        if (seen.size === 2) resolveBoth()
+      }
+    })
+
+    // 两个 promise 都先挂上拒绝处理，cancelAll 后一起等，避免 unhandled rejection。
+    const first = service.importFile(srcFile, 'multi-1').then(
+      () => null,
+      (cause: unknown) => cause
+    )
+    const second = service.importFile(srcFile, 'multi-2').then(
+      () => null,
+      (cause: unknown) => cause
+    )
+    await bothSeen
+    service.cancelAll()
+
+    const outcomes = await Promise.all([first, second])
+    for (const error of outcomes) {
+      expect((error as ImportError).code).toBe('cancelled')
+    }
+  })
+
+  it('cancel 未知 taskId、空 cancelAll 都是安全 no-op', () => {
+    const { repo } = makeRepo()
+    const service = new ImportService({ root, repo })
+
+    expect(() => {
+      service.cancel('不存在的任务')
+      service.cancelAll()
+    }).not.toThrow()
+  })
+})

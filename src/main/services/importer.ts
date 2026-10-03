@@ -15,6 +15,11 @@ export interface ImportServiceOptions {
   root: string
   repo: LibraryRepository
   now?: () => number
+  /**
+   * worker 脚本路径，默认是构建产物 decode.worker.js。
+   * 只为可测性留出的注入口：单测指向临时脚本就能覆盖 worker 分支，生产行为完全不变。
+   */
+  workerPath?: string
 }
 
 type WorkerEnvelope =
@@ -100,7 +105,7 @@ export class ImportService {
 
   /** worker 文件缺失（例如开发分支没构建）时内联执行，功能优先。 */
   private runJob(job: DecodeJob): Promise<DecodeJobResult> {
-    const workerPath = join(__dirname, 'decode.worker.js')
+    const workerPath = this.options.workerPath ?? join(__dirname, 'decode.worker.js')
     if (!existsSync(workerPath)) {
       return runDecodeJob(job, (stage, ratio, message) =>
         this.emit({ taskId: job.taskId, filePath: job.sourcePath, stage, ratio, message })

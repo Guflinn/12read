@@ -19,6 +19,7 @@
     "test:unit": "vitest run tests/unit",
     "test:contract": "vitest run tests/contract",
     "test": "vitest run tests/unit && vitest run tests/contract",
+    "test:coverage": "vitest run tests/unit tests/contract --coverage",
     "test:e2e": "playwright test",
     "verify": "eslint . && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.e2e.json && vitest run tests/unit && vitest run tests/contract",
     "dist": "electron-vite build && electron-builder --dir"
@@ -35,6 +36,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",
+    "@vitest/coverage-v8": "^4.1.11",
     "electron": "^38.8.6",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",

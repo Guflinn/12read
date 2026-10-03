@@ -5,10 +5,11 @@ import type {
   CharOffset,
   ContentMode,
   Encoding,
-  Progress
+  Progress,
+  ShelfBook
 } from '@shared/types'
 import type { SqlDatabase } from './driver'
-import { coverSeedFromTitle, toBook, toChapter, toProgress, type SqlRow } from './mappers'
+import { coverSeedFromTitle, toBook, toChapter, toProgress, toShelfBook, type SqlRow } from './mappers'
 
 export interface NewBookRecord {
   id: string
@@ -42,13 +43,16 @@ export class LibraryRepository {
   constructor(private readonly db: SqlDatabase) {}
 
   /** 最近读过的排在前面；从未打开的用导入时间参与排序（MVP 3.3「按最近排序」）。 */
-  listBooks(): Book[] {
+  listBooks(): ShelfBook[] {
+    // 进度用 LEFT JOIN 一次带出来：书架不再为每本书各发一次 progress:get（N+1）。
     const rows = this.db
       .prepare(
-        `SELECT ${BOOK_COLUMNS} FROM book ORDER BY COALESCE(last_opened_at, added_at) DESC, added_at DESC`
+        `SELECT ${BOOK_COLUMNS}, COALESCE(progress.percent, 0) AS percent
+         FROM book LEFT JOIN progress ON progress.book_id = book.id
+         ORDER BY COALESCE(book.last_opened_at, book.added_at) DESC, book.added_at DESC`
       )
       .all()
-    return rows.map((row) => toBook(row as SqlRow))
+    return rows.map((row) => toShelfBook(row as SqlRow))
   }
 
   getBook(bookId: string): Book | null {

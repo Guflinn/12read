@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReaderApi } from '@shared/api'
-import type { Book, ImportProgress } from '@shared/types'
+import type { Book, ImportProgress, ShelfBook } from '@shared/types'
 import { setReaderApi } from '@/core/api'
 import { useLibraryStore } from '@/store/library'
 
@@ -24,6 +24,10 @@ function makeBook(patch: Partial<Book> = {}): Book {
   }
 }
 
+function makeShelfBook(patch: Partial<ShelfBook> = {}): ShelfBook {
+  return { ...makeBook(patch), percent: 0, ...patch }
+}
+
 interface Harness {
   api: ReaderApi
   importFile: ReturnType<typeof vi.fn>
@@ -31,6 +35,7 @@ interface Harness {
   renameBook: ReturnType<typeof vi.fn>
   deleteBook: ReturnType<typeof vi.fn>
   pickFiles: ReturnType<typeof vi.fn>
+  getProgress: ReturnType<typeof vi.fn>
 }
 
 function makeHarness(): Harness {
@@ -38,10 +43,14 @@ function makeHarness(): Harness {
     if (filePath.includes('坏')) throw new Error('这不是一个纯文本文件')
     return makeBook({ id: filePath })
   })
-  const listBooks = vi.fn(async (): Promise<Book[]> => [makeBook({ id: 'a' }), makeBook({ id: 'b' })])
+  const listBooks = vi.fn(async (): Promise<ShelfBook[]> => [
+    makeShelfBook({ id: 'a', percent: 12.5 }),
+    makeShelfBook({ id: 'b' })
+  ])
   const renameBook = vi.fn(async (bookId: string, title: string): Promise<Book> => makeBook({ id: bookId, title }))
   const deleteBook = vi.fn(async (): Promise<void> => undefined)
   const pickFiles = vi.fn(async (): Promise<string[]> => ['x.txt'])
+  const getProgress = vi.fn()
   const api = {
     appInfo: vi.fn(),
     pickFiles,
@@ -53,7 +62,7 @@ function makeHarness(): Harness {
     deleteBook,
     chapters: vi.fn(),
     readChapter: vi.fn(),
-    getProgress: vi.fn(),
+    getProgress,
     saveProgress: vi.fn(),
     getSettings: vi.fn(),
     saveSettings: vi.fn(),
@@ -61,7 +70,7 @@ function makeHarness(): Harness {
     pathForFile: vi.fn(() => '')
   } as unknown as ReaderApi
   setReaderApi(api)
-  return { api, importFile, listBooks, renameBook, deleteBook, pickFiles }
+  return { api, importFile, listBooks, renameBook, deleteBook, pickFiles, getProgress }
 }
 
 beforeEach(() => {
@@ -78,6 +87,13 @@ describe('library store', () => {
     await useLibraryStore.getState().load()
     expect(useLibraryStore.getState().books).toHaveLength(2)
     expect(useLibraryStore.getState().loading).toBe(false)
+  })
+
+  it('书架进度随 book:list 一起回来，不再逐本查进度', async () => {
+    const harness = makeHarness()
+    await useLibraryStore.getState().load()
+    expect(useLibraryStore.getState().books.map((book) => book.percent)).toEqual([12.5, 0])
+    expect(harness.getProgress).not.toHaveBeenCalled()
   })
 
   it('load 失败落成可见错误', async () => {
@@ -113,6 +129,8 @@ describe('library store', () => {
     await useLibraryStore.getState().rename('a', '  新名字  ')
     const renamed = useLibraryStore.getState().books.find((book) => book.id === 'a')
     expect(renamed?.title).toBe('新名字')
+    // renameBook 只返回 Book，展开合并后进度不能被抹掉
+    expect(renamed?.percent).toBe(12.5)
     expect(harness.renameBook).toHaveBeenCalledWith('a', '新名字')
 
     await useLibraryStore.getState().remove('a')

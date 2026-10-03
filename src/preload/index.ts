@@ -13,7 +13,7 @@ import {
   renameArgsSchema,
   settingsSchema
 } from '@shared/schema'
-import type { Book, Chapter, ImportProgress, Progress, ReaderSettings } from '@shared/types'
+import type { Book, Chapter, ImportProgress, Progress, ReaderSettings, ShelfBook } from '@shared/types'
 
 /**
  * contextBridge 暴露层（TECH.md 2.1 铁律 1、4.2）。
@@ -33,7 +33,7 @@ const readerApi: ReaderApi = {
   importFile: (filePath: string): Promise<Book> =>
     invoke(CH.bookImport, importArgsSchema, { filePath }),
   cancelTask: (taskId: string): Promise<void> => invoke(CH.taskCancel, cancelArgsSchema, { taskId }),
-  listBooks: (): Promise<Book[]> => invoke(CH.bookList, emptyArgsSchema, undefined),
+  listBooks: (): Promise<ShelfBook[]> => invoke(CH.bookList, emptyArgsSchema, undefined),
   getBook: (bookId: string): Promise<Book | null> => invoke(CH.bookGet, getArgsSchema, { bookId }),
   renameBook: (bookId: string, title: string): Promise<Book> =>
     invoke(CH.bookRename, renameArgsSchema, { bookId, title }),

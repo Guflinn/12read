@@ -39,6 +39,15 @@ export interface Book {
   lastOpenedAt: number | null
 }
 
+/**
+ * 书架列表项：Book 再带上进度百分比。
+ * 主进程用一次 LEFT JOIN 把进度带回来，渲染层不必为每本书各发一次 getProgress（N+1）。
+ */
+export interface ShelfBook extends Book {
+  /** 0..100；从未读过是 0。 */
+  percent: number
+}
+
 export interface Chapter {
   bookId: BookId
   index: number

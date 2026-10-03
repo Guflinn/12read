@@ -6,6 +6,7 @@ import type {
   ContentMode,
   Encoding,
   Progress,
+  ShelfBook,
   CharOffset
 } from '@shared/types'
 
@@ -73,6 +74,12 @@ export function toBook(row: SqlRow): Book {
     addedAt: int(row['added_at']),
     lastOpenedAt: nullableInt(row['last_opened_at'])
   }
+}
+
+/** 书架列表专用：Book + 进度百分比。percent 缺失或越界都夹到 0..100。 */
+export function toShelfBook(row: SqlRow): ShelfBook {
+  const percent = num(row['percent'])
+  return { ...toBook(row), percent: Math.min(100, Math.max(0, percent)) }
 }
 
 export function toChapter(row: SqlRow): Chapter {

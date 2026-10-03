@@ -229,6 +229,20 @@ describe('书库仓储', () => {
     db.close()
   })
 
+  it('listBooks 一次 LEFT JOIN 就把进度带出来', () => {
+    const { db, repo } = repoWithSchema()
+    repo.insertBook(makeBook('a', { addedAt: 100 }), [])
+    repo.insertBook(makeBook('b', { addedAt: 200 }), [])
+    repo.saveProgress({ ...makeProgress('a'), percent: 33.5 })
+
+    // 没读过的书是 0，不再需要渲染层逐本补一次 getProgress
+    expect(repo.listBooks().map((book) => [book.id, book.percent])).toEqual([
+      ['b', 0],
+      ['a', 33.5]
+    ])
+    db.close()
+  })
+
   it('touchBook 写入 lastOpenedAt', () => {
     const { db, repo } = repoWithSchema()
     repo.insertBook(makeBook('a', { addedAt: 100 }), [])

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import type { Book } from '@shared/types'
+import { useState } from 'react'
+import type { Book, ShelfBook } from '@shared/types'
 import { readerApi } from '@/core/api'
 import {
   coverGradient,
@@ -14,40 +14,6 @@ import { ImportStatus } from './ImportStatus'
 import { Modal } from './Modal'
 import { toast } from './Toast'
 
-/**
- * 书架上的进度条。当前主进程一个 getProgress 只查一本书，
- * 书架规模是「个人藏书」量级，先按本查询；真要几百本再让 book:list 带上 percent。
- */
-function useBookProgress(books: Book[]): Record<string, number> {
-  const [progress, setProgress] = useState<Record<string, number>>({})
-  const ids = books.map((book) => book.id).join(',')
-
-  useEffect(() => {
-    let alive = true
-    const current = books
-    const run = async (): Promise<void> => {
-      const entries = await Promise.all(
-        current.map(async (book): Promise<[string, number]> => {
-          try {
-            const stored = await readerApi().getProgress(book.id)
-            return [book.id, stored ? stored.percent : 0]
-          } catch {
-            return [book.id, 0]
-          }
-        })
-      )
-      if (alive) setProgress(Object.fromEntries(entries))
-    }
-    void run()
-    return () => {
-      alive = false
-    }
-    // ids 变化才重新查询：books 每次 store 更新都是新数组，所以依赖用 ids 而不是 books
-  }, [ids])
-
-  return progress
-}
-
 function BookCard({
   book,
   percent,
@@ -56,7 +22,7 @@ function BookCard({
   onRename,
   onDelete
 }: {
-  book: Book
+  book: ShelfBook
   percent: number
   now: number
   onOpen(): void
@@ -129,7 +95,6 @@ export function ShelfView({ onOpen }: { onOpen(bookId: string): void }): React.J
   const [renameText, setRenameText] = useState('')
   const [deleting, setDeleting] = useState<Book | null>(null)
   const [scopeOpen, setScopeOpen] = useState(false)
-  const progress = useBookProgress(books)
   const now = Date.now()
   const totalChars = books.reduce((sum, book) => sum + book.charCount, 0)
 
@@ -215,7 +180,8 @@ export function ShelfView({ onOpen }: { onOpen(bookId: string): void }): React.J
             <BookCard
               key={book.id}
               book={book}
-              percent={progress[book.id] ?? 0}
+              // 进度来自 book:list 的 LEFT JOIN，不再逐本查一次
+              percent={book.percent}
               now={now}
               onOpen={() => onOpen(book.id)}
               onRename={() => {

@@ -1,6 +1,6 @@
 import { rm } from 'node:fs/promises'
 import type { Library } from '@shared/ports'
-import type { Book, Chapter } from '@shared/types'
+import type { Book, Chapter, ShelfBook } from '@shared/types'
 import type { LibraryRepository } from '../db/library-repository'
 import { bookDir } from './layout'
 
@@ -11,7 +11,7 @@ export class LibraryService implements Library {
     private readonly repo: LibraryRepository
   ) {}
 
-  async list(): Promise<Book[]> {
+  async list(): Promise<ShelfBook[]> {
     return this.repo.listBooks()
   }
 

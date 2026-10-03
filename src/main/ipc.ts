@@ -12,7 +12,7 @@ import {
   renameArgsSchema,
   settingsSchema
 } from '@shared/schema'
-import type { Book, Chapter, Progress, ReaderSettings } from '@shared/types'
+import type { Book, Chapter, Progress, ReaderSettings, ShelfBook } from '@shared/types'
 import type { FileContentReader } from './services/content-reader'
 import { toImportError, type ImportError } from './services/import-error'
 import type { ImportService } from './services/importer'
@@ -83,7 +83,7 @@ export function registerIpc(ctx: IpcContext): void {
     ctx.importer.cancel(taskId)
   })
 
-  handle(CH.bookList, emptyArgsSchema, (): Promise<Book[]> => ctx.library.list())
+  handle(CH.bookList, emptyArgsSchema, (): Promise<ShelfBook[]> => ctx.library.list())
 
   handle(CH.bookGet, getArgsSchema, ({ bookId }): Promise<Book | null> => ctx.library.get(bookId))
 

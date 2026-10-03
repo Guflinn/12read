@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReaderApi } from '@shared/api'
-import { CHUNK_FIRST_RENDER_CHARS, CHUNK_THRESHOLD_CHARS, type Book, type Chapter, type Progress } from '@shared/types'
+import { CHUNK_FIRST_RENDER_CHARS, type Book, type Chapter, type Progress } from '@shared/types'
 import { setReaderApi } from '@/core/api'
 import { setDeviceId } from '@/core/session'
 import { PROGRESS_THROTTLE_MS, useReaderStore } from '@/store/reader'

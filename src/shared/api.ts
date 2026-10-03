@@ -1,4 +1,4 @@
-import type { Book, Chapter, ImportProgress, Progress, ReaderSettings } from './types'
+import type { Book, Chapter, ImportProgress, Progress, ReaderSettings, ShelfBook } from './types'
 
 /**
  * 渲染进程可见的 API 契约（TECH.md 4.2）。
@@ -22,7 +22,7 @@ export interface ReaderApi {
   pickFiles(): Promise<string[]>
   importFile(filePath: string): Promise<Book>
   cancelTask(taskId: string): Promise<void>
-  listBooks(): Promise<Book[]>
+  listBooks(): Promise<ShelfBook[]>
   getBook(bookId: string): Promise<Book | null>
   renameBook(bookId: string, title: string): Promise<Book>
   deleteBook(bookId: string): Promise<void>

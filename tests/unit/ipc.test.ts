@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CH } from '@shared/channels'
-import type { Book, Chapter, Progress, ReaderSettings } from '@shared/types'
+import type { Book, Chapter, Progress, ReaderSettings, ShelfBook } from '@shared/types'
 import type { IpcContext } from '@main/ipc'
 import { ImportError } from '@main/services/import-error'
 
@@ -46,6 +46,8 @@ const BOOK: Book = {
   lastOpenedAt: null
 }
 
+const SHELF_BOOK: ShelfBook = { ...BOOK, percent: 12.5 }
+
 const PROGRESS: Progress = {
   bookId: BOOK_ID,
   chapterIndex: 1,
@@ -79,7 +81,7 @@ function makeContext(): {
     })
   }
   const library = {
-    list: vi.fn(async (): Promise<Book[]> => [BOOK]),
+    list: vi.fn(async (): Promise<ShelfBook[]> => [SHELF_BOOK]),
     get: vi.fn(async (): Promise<Book | null> => BOOK),
     rename: vi.fn(async (): Promise<Book> => ({ ...BOOK, title: '新名' })),
     remove: vi.fn(async (bookId: string) => {
@@ -204,7 +206,7 @@ describe('IPC 注册与转发', () => {
 
   it('book:list / book:get / book:chapters 转发查询', async () => {
     const { library } = setup()
-    expect(await call(CH.bookList)).toEqual([BOOK])
+    expect(await call(CH.bookList)).toEqual([SHELF_BOOK])
     expect(await call(CH.bookGet, { bookId: BOOK_ID })).toEqual(BOOK)
     const chapters = (await call(CH.bookChapters, { bookId: BOOK_ID })) as Chapter[]
     expect(chapters).toHaveLength(1)

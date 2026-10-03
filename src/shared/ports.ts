@@ -3,7 +3,8 @@ import type {
   BookId,
   Chapter,
   ImportProgress,
-  Progress
+  Progress,
+  ShelfBook
 } from './types'
 
 /**
@@ -23,7 +24,7 @@ export interface Importer {
 }
 
 export interface Library {
-  list(): Promise<Book[]>
+  list(): Promise<ShelfBook[]>
   get(bookId: BookId): Promise<Book | null>
   rename(bookId: BookId, title: string): Promise<Book>
   remove(bookId: BookId): Promise<void>

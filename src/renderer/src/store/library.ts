@@ -1,9 +1,9 @@
 import { create } from 'zustand'
-import type { Book, ImportProgress } from '@shared/types'
+import type { ImportProgress, ShelfBook } from '@shared/types'
 import { readerApi } from '@/core/api'
 
 export interface LibraryState {
-  books: Book[]
+  books: ShelfBook[]
   loading: boolean
   error: string | null
   /** 正在导入的任务，按 taskId 覆盖最新一条。 */
@@ -72,7 +72,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     if (trimmed.length === 0) return
     try {
       const updated = await readerApi().renameBook(bookId, trimmed)
-      set({ books: get().books.map((b) => (b.id === bookId ? updated : b)) })
+      // renameBook 返回的是 Book（不带 percent），展开原项以免丢掉进度
+      set({ books: get().books.map((b) => (b.id === bookId ? { ...b, ...updated } : b)) })
     } catch (cause) {
       set({ error: '重命名失败：' + messageOf(cause) })
     }

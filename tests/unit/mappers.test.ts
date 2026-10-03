@@ -6,7 +6,8 @@ import {
   coverSeedFromTitle,
   toBook,
   toChapter,
-  toProgress
+  toProgress,
+  toShelfBook
 } from '@main/db/mappers'
 
 const BOOK_ID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
@@ -54,6 +55,15 @@ describe('数据库行映射', () => {
 
   it('bigint 形式的计数也能读', () => {
     expect(toBook({ char_count: 12n }).charCount).toBe(12)
+  })
+
+  it('书架行额外带出进度，越界与脏值都夹到 0..100', () => {
+    const shelf = toShelfBook({ id: BOOK_ID, title: '三体', percent: 12.5 })
+    expect(shelf).toMatchObject({ id: BOOK_ID, title: '三体', percent: 12.5 })
+    expect(shelf.encoding).toBe('unknown')
+    expect(toShelfBook({ percent: 300 }).percent).toBe(100)
+    expect(toShelfBook({ percent: -5 }).percent).toBe(0)
+    expect(toShelfBook({}).percent).toBe(0)
   })
 
   it('章节行映射出偏移量', () => {

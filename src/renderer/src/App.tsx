@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import { ErrorBar } from './components/ErrorBar'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ReaderView } from './components/ReaderView'
@@ -6,6 +6,7 @@ import { ShelfView } from './components/ShelfView'
 import { ToastHost } from './components/Toast'
 import { readerApi } from './core/api'
 import { setDeviceId } from './core/session'
+import { applyTheme } from './core/theme'
 import { useLibraryStore } from './store/library'
 import { useReaderStore } from './store/reader'
 import { useSettingsStore } from './store/settings'
@@ -99,9 +100,14 @@ export default function App(): React.JSX.Element {
     window.location.hash = '#/shelf'
   }, [])
 
+  // 主题与 --fs/--lh 都落在 <html> 上，body 的底色与继承文字色才能一起跟着夜间走
+  useLayoutEffect(() => {
+    applyTheme(settings, document.documentElement)
+  }, [settings])
+
   if (!ready) {
     return (
-      <div className="app" data-theme={settings.theme}>
+      <div className="app">
         <div className="boot">
           <div className="boot-card">
             <div className="logo">十二</div>
@@ -115,16 +121,7 @@ export default function App(): React.JSX.Element {
 
   return (
     <ErrorBoundary>
-      <div
-        className="app"
-        data-theme={settings.theme}
-        style={
-          {
-            '--fs': settings.fontSize + 'px',
-            '--lh': String(settings.lineHeight)
-          } as React.CSSProperties
-        }
-      >
+      <div className="app">
         <ErrorBar />
         {route.name === 'reader' ? (
           <ReaderView onBack={backToShelf} />

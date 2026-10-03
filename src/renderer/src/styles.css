@@ -1,6 +1,7 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; }
   :root {
+    color-scheme: light;
     --bg: #f6f3ed;
     --surface: #fffdf9;
     --text: #2c2a26;
@@ -13,6 +14,7 @@
     --lh: 1.9;
   }
   [data-theme="night"] {
+    color-scheme: dark;
     --bg: #16171a;
     --surface: #1e1f23;
     --text: #c9c6bf;

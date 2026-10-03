@@ -67,7 +67,7 @@ test('导入 → 阅读 → 切章 → 改字号 → 重启后回到原处', asy
   const fsAfter = await cssVar(page, '--fs')
   expect(parseInt(fsAfter, 10)).toBe(parseInt(fsBefore, 10) + 1)
   await page.click('[data-theme-choice="night"]')
-  await expect(page.locator('.app')).toHaveAttribute('data-theme', 'night')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'night')
   await page.keyboard.press('Escape')
   await expect(page.locator('#settings-sheet')).not.toHaveClass(/on/)
 
@@ -88,7 +88,7 @@ test('导入 → 阅读 → 切章 → 改字号 → 重启后回到原处', asy
   await expect(page.locator('.book-card')).toHaveCount(1)
   await page.click('.book-card')
   await expect(page.locator('.chapter-title')).toHaveText('第三章 归途')
-  await expect(page.locator('.app')).toHaveAttribute('data-theme', 'night')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'night')
   expect(await cssVar(page, '--fs')).toBe(fsAfter)
   await page.waitForTimeout(400)
   const topAfter = await topParagraphIndex(page)

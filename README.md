@@ -23,6 +23,14 @@ cd 12read
 
 覆盖 MVP 的 P0 范围：导入（模拟）、书架、章节切分、目录跳转、滚动阅读、字号 / 行距、日夜主题、进度保存与恢复。
 
+![书架](demo/screenshots/shelf.png)
+
+![阅读界面](demo/screenshots/reader.png)
+
+![夜间主题与目录](demo/screenshots/reader-night-toc.png)
+
+![阅读设置](demo/screenshots/reader-settings.png)
+
 操作要点：
 
 - 书架卡片右上角的 **⋯** 悬停后会展开「重命名 / 删除」

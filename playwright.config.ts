@@ -8,5 +8,6 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: [['list']],
+  globalSetup: './tests/e2e/global-setup.ts',
   use: { trace: 'off' }
 })

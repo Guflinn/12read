@@ -22,14 +22,16 @@ export function SettingsSheet(): React.JSX.Element {
         <div className="grow">
           <div className="stepper">
             <button
+              id="fs-minus"
               aria-label="减小字号"
               disabled={settings.fontSize <= 15}
               onClick={() => apply({ fontSize: settings.fontSize - 1 })}
             >
               A－
             </button>
-            <span>{settings.fontSize}</span>
+            <span id="fs-value">{settings.fontSize}</span>
             <button
+              id="fs-plus"
               aria-label="增大字号"
               disabled={settings.fontSize >= 27}
               onClick={() => apply({ fontSize: settings.fontSize + 1 })}
@@ -47,6 +49,7 @@ export function SettingsSheet(): React.JSX.Element {
             <button
               key={item.value}
               className={Math.abs(settings.lineHeight - item.value) < 0.01 ? 'pill on' : 'pill'}
+              data-lh={item.value}
               onClick={() => apply({ lineHeight: item.value })}
             >
               {item.label}
@@ -60,12 +63,14 @@ export function SettingsSheet(): React.JSX.Element {
         <div className="grow">
           <button
             className={settings.theme === 'day' ? 'pill on' : 'pill'}
+            data-theme-choice="day"
             onClick={() => apply({ theme: 'day' })}
           >
             日间
           </button>
           <button
             className={settings.theme === 'night' ? 'pill on' : 'pill'}
+            data-theme-choice="night"
             onClick={() => apply({ theme: 'night' })}
           >
             夜间

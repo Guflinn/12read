@@ -82,6 +82,7 @@ function BookCard({
       </div>
       <div className="card-actions">
         <button
+          className="card-rename"
           onClick={(event) => {
             event.stopPropagation()
             onRename()
@@ -90,6 +91,7 @@ function BookCard({
           重命名
         </button>
         <button
+          className="card-delete"
           onClick={(event) => {
             event.stopPropagation()
             onDelete()
@@ -161,16 +163,17 @@ export function ShelfView({ onOpen }: { onOpen(bookId: string): void }): React.J
             </div>
           </div>
           <div className="shelf-actions">
-            <button className="btn primary" onClick={() => void pickAndImport()}>
+            <button id="btn-import" className="btn primary" onClick={() => void pickAndImport()}>
               ＋ 导入 TXT
             </button>
-            <button className="btn ghost" onClick={() => setScopeOpen(true)}>
+            <button id="btn-scope" className="btn ghost" onClick={() => setScopeOpen(true)}>
               范围说明
             </button>
           </div>
         </header>
 
         <div
+          id="dropzone"
           className={hot ? 'dropzone hot' : 'dropzone'}
           role="button"
           tabIndex={0}
@@ -195,10 +198,10 @@ export function ShelfView({ onOpen }: { onOpen(bookId: string): void }): React.J
         <ImportStatus />
 
         <div className="shelf-bar">
-          <span>
+          <span id="shelf-count">
             {books.length === 0 ? '书架空着' : books.length + ' 本 · 共 ' + formatChars(totalChars)}
           </span>
-          <span>本地 SQLite 存储 · 不联网</span>
+          <span id="storage-note">本地 SQLite 存储 · 不联网</span>
         </div>
 
         {loading && books.length === 0 ? <div className="empty">正在读取书架…</div> : null}

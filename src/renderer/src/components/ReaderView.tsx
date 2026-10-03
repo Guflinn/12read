@@ -133,17 +133,17 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
   return (
     <section id="view-reader" className="view active">
       <header className="reader-top">
-        <button className="icon-btn" onClick={onBack}>
+        <button id="btn-back" className="icon-btn" onClick={onBack}>
           ← 书架
         </button>
         <div className="reader-title">
-          <strong>{book ? book.title : '十二阅读'}</strong>
-          <span>{chapterLabel(chapter, chapters.length)}</span>
+          <strong id="reader-book">{book ? book.title : '十二阅读'}</strong>
+          <span id="reader-chapter-label">{chapterLabel(chapter, chapters.length)}</span>
         </div>
-        <button className="icon-btn" onClick={() => useReaderStore.getState().setToc(true)}>
+        <button id="btn-toc" className="icon-btn" onClick={() => useReaderStore.getState().setToc(true)}>
           目录
         </button>
-        <button className="icon-btn" onClick={() => useReaderStore.getState().setSheet(true)}>
+        <button id="btn-settings" className="icon-btn" onClick={() => useReaderStore.getState().setSheet(true)}>
           Aa
         </button>
       </header>
@@ -191,16 +191,18 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
 
         <nav className="chapter-nav">
           <button
+            id="btn-prev"
             className="btn"
             disabled={chapterIndex <= 0}
             onClick={() => void useReaderStore.getState().prev()}
           >
             ← 上一章
           </button>
-          <span className="pos">
+          <span className="pos" id="chapter-pos">
             {chapters.length === 0 ? '—' : chapterIndex + 1 + ' / ' + chapters.length}
           </span>
           <button
+            id="btn-next"
             className="btn"
             disabled={chapters.length === 0 || chapterIndex >= chapters.length - 1}
             onClick={() => void useReaderStore.getState().next()}

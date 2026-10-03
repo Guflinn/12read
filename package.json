@@ -12,14 +12,15 @@
     "preview": "electron-vite preview",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
-    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.e2e.json",
+    "typecheck:e2e": "tsc --noEmit -p tsconfig.e2e.json",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test:unit": "vitest run tests/unit",
     "test:contract": "vitest run tests/contract",
     "test": "vitest run tests/unit && vitest run tests/contract",
     "test:e2e": "playwright test",
-    "verify": "eslint . && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && vitest run tests/unit && vitest run tests/contract",
+    "verify": "eslint . && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.e2e.json && vitest run tests/unit && vitest run tests/contract",
     "dist": "electron-vite build && electron-builder --dir"
   },
   "dependencies": {

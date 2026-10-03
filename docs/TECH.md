@@ -10,6 +10,7 @@
 | 日期 | 变更 |
 | --- | --- |
 | 2026 | 首版。形态决策由 MVP.md 第 1 节的「Web/PWA，后续可套 Tauri 壳」改为「Electron 桌面应用，核心保持平台无关」。 |
+| 2026-10-03 | 0.1.1：主题与排版变量从 `.app` 上移到 `<html>`（原来 `body` 取不到夜间变量，整页花屏）；`book:list` 返回 `ShelfBook[]`（带 `percent`，一次 LEFT JOIN，取代书架 N+1）；大章节续渲染由「一次全给」改为每次 2 万字。 |
 
 ## 1. 形态决策：Electron
 
@@ -105,7 +106,7 @@ export interface Importer {
 }
 
 export interface Library {
-  list(): Promise<Book[]>;
+  list(): Promise<ShelfBook[]>; // ShelfBook = Book + percent（0..100）
   get(bookId: string): Promise<Book | null>;
   rename(bookId: string, title: string): Promise<Book>;
   remove(bookId: string): Promise<void>;
@@ -130,6 +131,7 @@ export interface Ports {
 }
 ~~~
 
+- `Library.list()` 返回 `ShelfBook[]`：书架一次查询就连同进度拿全，renderer 不再逐本 `progress:get`（N+1 → 1）。
 - Electron 实现：src/main/platform/electron/*
 - 将来 Web / PWA 实现：IndexedDB + File API，接口不变
 - 将来 Tauri 实现：invoke 到 Rust，接口不变
@@ -144,7 +146,7 @@ export interface Ports {
 | --- | --- | --- | --- | --- |
 | file:pick | R→M | 无 | string[] | 用户取消返回空数组 |
 | book:import | R→M | path | Book | 长任务，见 4.3 |
-| book:list | R→M | 无 | Book[] | 按 lastOpenedAt 倒序 |
+| book:list | R→M | 无 | ShelfBook[] | 按 lastOpenedAt 倒序；LEFT JOIN progress 带出 percent |
 | book:get | R→M | bookId | Book 或 null | |
 | book:rename | R→M | bookId, title | Book | title 清洗后非空 |
 | book:delete | R→M | bookId | void | 级联删进度记录与正文目录 |
@@ -325,11 +327,12 @@ CREATE INDEX idx_book_recent ON book(last_opened_at DESC);
 
 - DOM 中永远只有当前章。切章 = 换内容 + 重置滚动
 - 跨章衔接：上一章末尾与下一章开头先取好，避免白屏（对应 MVP 第 8 节坑 2）
-- 大章节保护：单章 > 5 万字时启用分块渲染（先渲染前 2 万字，滚到阈值再追加）
+- 大章节保护：单章 > 5 万字时启用分块渲染（先渲染前 2 万字，滚到阈值再 `+2 万字` 逐步追加，避免一次把几十万字挂进 DOM）
 
 ### 8.2 排版
 
 - 字号、行距、主题全部走 CSS 变量（--fs / --lh / --theme-*），切换只改根节点属性，React 不重渲染正文
+- 变量与 `data-theme` 写在 `document.documentElement`（`<html>`）上，见 `src/renderer/src/core/theme.ts` 的 `applyTheme(settings, root)`；写在 `.app` 内部会让 `body` 拿不到夜间配色（深底压深字）
 - 重排后的位置保持见第 9 节锚点重定位
 
 ### 8.3 性能指标（M3 验收）

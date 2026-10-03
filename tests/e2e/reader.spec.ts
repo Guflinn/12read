@@ -35,6 +35,45 @@ test.afterEach(async () => {
   }
 })
 
+test('键盘翻页：空格 / PageDown / PageUp / Home / End', async () => {
+  const dataDir = makeTempDir('12read-keys-')
+  const bookPath = writeNovelFile(makeTempDir('12read-key-src-'), '键盘书.txt', buildNovel())
+
+  const page = await openApp(dataDir)
+  await importPath(page, bookPath)
+  await page.click('.book-card')
+  await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
+  expect(await topParagraphIndex(page)).toBe(0)
+
+  // End 到章尾、Home 回章首
+  await page.keyboard.press('End')
+  const atEnd = await topParagraphIndex(page)
+  expect(atEnd).toBeGreaterThan(3)
+  await page.keyboard.press('Home')
+  expect(await topParagraphIndex(page)).toBe(0)
+
+  // PageDown 走一屏，但到不了章尾；空格再往下
+  await page.keyboard.press('PageDown')
+  const afterPageDown = await topParagraphIndex(page)
+  expect(afterPageDown).toBeGreaterThan(0)
+  expect(afterPageDown).toBeLessThan(atEnd)
+
+  await page.keyboard.press('Space')
+  const afterSpace = await topParagraphIndex(page)
+  expect(afterSpace).toBeGreaterThan(afterPageDown)
+
+  // Shift+空格往回翻
+  await page.keyboard.press('Shift+Space')
+  expect(await topParagraphIndex(page)).toBeLessThan(afterSpace)
+
+  // 停在章尾再按翻页键不越界、不报错
+  await page.keyboard.press('End')
+  const bottom = await topParagraphIndex(page)
+  await page.keyboard.press('PageDown')
+  await page.keyboard.press('Space')
+  expect(await topParagraphIndex(page)).toBeGreaterThanOrEqual(bottom)
+})
+
 test('导入 → 阅读 → 切章 → 改字号 → 重启后回到原处', async () => {
   const dataDir = makeTempDir('12read-data-')
   const bookPath = writeNovelFile(makeTempDir('12read-src-'), '《测试书》测试作者.txt', buildNovel())

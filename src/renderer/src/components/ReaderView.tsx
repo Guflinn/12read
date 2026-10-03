@@ -87,7 +87,8 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
     return () => window.removeEventListener('resize', onResize)
   }, [measureTops])
 
-  const onScroll = useCallback((): void => {
+  /** 滚动位置变了就同步一次状态：进度、顶部偏移，以及超长章节的继续加载。 */
+  const syncScrollState = useCallback((): void => {
     const scroll = scrollRef.current
     if (!scroll) return
     const offset = offsetForScrollTop(measurement, topsRef.current, scroll.scrollTop)
@@ -101,11 +102,34 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
     }
   }, [measurement, truncated])
 
+  /** 一页的步长：留 40px 重叠，前后两页才读得连得上。 */
+  const pageScroll = useCallback(
+    (direction: 1 | -1): void => {
+      const scroll = scrollRef.current
+      if (!scroll) return
+      const step = Math.max(120, scroll.clientHeight - 40)
+      scroll.scrollTop += direction * step
+      syncScrollState()
+    },
+    [syncScrollState]
+  )
+
+  /** Home / End：只在当前章内跳到头尾，不换章（Ctrl 组合才跳全书首尾）。 */
+  const jumpEdge = useCallback(
+    (edge: 'top' | 'bottom'): void => {
+      const scroll = scrollRef.current
+      if (!scroll) return
+      scroll.scrollTop = edge === 'top' ? 0 : scroll.scrollHeight
+      syncScrollState()
+    },
+    [syncScrollState]
+  )
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       const target = event.target as HTMLElement | null
       const tag = target ? target.tagName : ''
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return
       const store = useReaderStore.getState()
       if (event.key === 'ArrowRight') {
         event.preventDefault()
@@ -113,6 +137,21 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
       } else if (event.key === 'ArrowLeft') {
         event.preventDefault()
         void store.prev()
+      } else if (event.key === 'PageDown' || event.key === 'PageUp') {
+        event.preventDefault()
+        pageScroll(event.key === 'PageDown' ? 1 : -1)
+      } else if (event.key === ' ' || event.key === 'Spacebar') {
+        // 焦点在按钮/链接上时把空格让给原生激活，免得「点过按钮后空格就翻页」
+        if (tag === 'BUTTON' || tag === 'A') return
+        event.preventDefault()
+        pageScroll(event.shiftKey ? -1 : 1)
+      } else if (event.key === 'Home' || event.key === 'End') {
+        event.preventDefault()
+        if (event.ctrlKey || event.metaKey) {
+          void store.goto(event.key === 'Home' ? 0 : store.chapters.length - 1, 0)
+        } else {
+          jumpEdge(event.key === 'Home' ? 'top' : 'bottom')
+        }
       } else if (event.key === 'Escape') {
         if (store.tocOpen) store.setToc(false)
         else if (store.sheetOpen) store.setSheet(false)
@@ -121,7 +160,7 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onBack])
+  }, [onBack, pageScroll, jumpEdge])
 
   useEffect(
     () => () => {
@@ -148,7 +187,7 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
         </button>
       </header>
 
-      <main className="reader-scroll" id="reader-scroll" ref={scrollRef} onScroll={onScroll}>
+      <main className="reader-scroll" id="reader-scroll" ref={scrollRef} onScroll={syncScrollState}>
         {loading ? <div className="reader-loading dim">正在打开…</div> : null}
         {!loading && chapters.length === 0 ? <div className="empty">这本书没有可读的内容</div> : null}
         {!loading && chapters.length > 0 ? (

@@ -1,0 +1,129 @@
+/**
+ * 12read 领域类型。
+ *
+ * 偏移量语义（TECH.md 5.1，必须遵守）：
+ *   CharOffset 是「解码后文本的 UTF-16 code unit 偏移」，不是字节偏移。
+ *   中文全在 BMP，一个汉字算 1；emoji 等代理对算 2。
+ *   所有涉及偏移的代码都必须遵守，并在单测里固定住。
+ */
+
+/** 解码后文本的 UTF-16 code unit 偏移。 */
+export type CharOffset = number
+
+export type BookId = string
+
+export type BookFormat = 'txt'
+
+/** 检测到的源文件编码。unknown 表示解码结果可疑，仅附警告，不阻塞导入。 */
+export type Encoding = 'utf-8' | 'utf-8-bom' | 'utf-16le' | 'utf-16be' | 'gb18030' | 'unknown'
+
+/** single：整本解码文本按偏移 slice；sliced：导入时按章切文件。 */
+export type ContentMode = 'single' | 'sliced'
+
+/** chapter：正则识别到的章节；segment：定长兜底分段。UI 文案必须区分。 */
+export type ChapterKind = 'chapter' | 'segment'
+
+export interface Book {
+  id: BookId
+  title: string
+  author: string | null
+  format: BookFormat
+  encoding: Encoding
+  byteSize: number
+  /** 解码后文本长度，UTF-16 code units。 */
+  charCount: number
+  chapterCount: number
+  contentMode: ContentMode
+  coverSeed: number
+  addedAt: number
+  lastOpenedAt: number | null
+}
+
+export interface Chapter {
+  bookId: BookId
+  index: number
+  title: string
+  /** 全文解码文本里的起始偏移。 */
+  startOffset: CharOffset
+  charLength: number
+  kind: ChapterKind
+}
+
+export interface Progress {
+  bookId: BookId
+  chapterIndex: number
+  /** 章内相对偏移，UTF-16 code units。 */
+  charOffset: CharOffset
+  /** 前 30 字引文，兜底锚点。 */
+  anchorBefore: string | null
+  /** 后 30 字引文，兜底锚点。 */
+  anchorAfter: string | null
+  /** 冗余展示值，不参与定位。 */
+  percent: number
+  updatedAt: number
+  /** 为同步预留，本版写死本机 id。 */
+  deviceId: string | null
+}
+
+export type ImportStage =
+  | 'reading'
+  | 'detecting'
+  | 'decoding'
+  | 'splitting'
+  | 'storing'
+  | 'done'
+  | 'error'
+
+export interface ImportProgress {
+  taskId: string
+  filePath: string
+  stage: ImportStage
+  /** 0..1 */
+  ratio: number
+  message?: string
+}
+
+export type ImportErrorCode =
+  | 'binary'
+  | 'decode-failed'
+  | 'cancelled'
+  | 'io-error'
+  | 'db-error'
+  | 'unknown'
+
+export interface ImportFailure {
+  filePath: string
+  code: ImportErrorCode
+  message: string
+}
+
+export interface ImportWarning {
+  filePath: string
+  code: 'suspicious-decoding' | 'segmented-fallback' | 'truncated-metadata'
+  message: string
+}
+
+export interface ImportOutcome {
+  imported: Book[]
+  failed: ImportFailure[]
+  warnings: ImportWarning[]
+}
+
+export interface ReaderSettings {
+  fontSize: number
+  lineHeight: number
+  theme: 'day' | 'night'
+}
+
+export const DEFAULT_SETTINGS: ReaderSettings = {
+  fontSize: 19,
+  lineHeight: 1.9,
+  theme: 'day'
+}
+
+/** 单章渲染上限之上的分块阈值，见 TECH.md 8.1。 */
+export const CHUNK_THRESHOLD_CHARS = 50_000
+export const CHUNK_FIRST_RENDER_CHARS = 20_000
+
+/** 32MB 以上走 sliced，见 TECH.md 5.3。 */
+export const SLICE_MODE_BYTES = 32 * 1024 * 1024

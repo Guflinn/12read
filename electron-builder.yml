@@ -1,0 +1,24 @@
+appId: com.twelve.read
+productName: 十二阅读
+directories:
+  buildResources: build
+  output: release
+files:
+  - out/**
+  - package.json
+  - node_modules/**
+  - '!**/*.map'
+asarUnpack:
+  - '**/node_modules/better-sqlite3/**'
+win:
+  target:
+    - nsis
+  artifactName: twelve-read-setup-${version}.exe
+mac:
+  target:
+    - dmg
+  category: public.app-category.books
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true

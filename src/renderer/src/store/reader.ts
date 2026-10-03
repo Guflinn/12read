@@ -37,6 +37,8 @@ export interface ReaderState {
   prev(): Promise<void>
   onScrolled(offset: CharOffset): void
   flush(): void
+  /** 关窗前的同步落盘（TECH.md 6.3），主进程写完才返回。 */
+  flushSync(): void
   consumePending(): void
   revealMore(): void
   setToc(open: boolean): void
@@ -227,6 +229,16 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
 
   flush(): void {
     saver.flush()
+  },
+
+  flushSync(): void {
+    const progress = buildProgress()
+    if (!progress) return
+    try {
+      readerApi().flushProgress(progress)
+    } catch (cause) {
+      console.error('[12read] 退出前同步保存进度失败', cause)
+    }
   },
 
   consumePending(): void {

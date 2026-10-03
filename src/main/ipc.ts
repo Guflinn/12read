@@ -112,6 +112,19 @@ export function registerIpc(ctx: IpcContext): void {
     await ctx.progress.save(progress)
   })
 
+  // 退出前的同步落盘（TECH.md 6.3）：beforeunload 之后异步 IPC 未必来得及。
+  // better-sqlite3 的写入本身是同步的，所以这里发出去就落库了。
+  ipcMain.on(CH.progressFlush, (event, raw: unknown) => {
+    const parsed = progressSchema.safeParse(raw)
+    if (!parsed.success) {
+      console.error('[12read] IPC 参数校验失败: ' + CH.progressFlush, parsed.error.issues)
+      event.returnValue = false
+      return
+    }
+    void ctx.progress.save(parsed.data)
+    event.returnValue = true
+  })
+
   handle(CH.settingsGet, emptyArgsSchema, (): ReaderSettings => ctx.settings.get())
 
   handle(CH.settingsSave, settingsSchema, (settings): ReaderSettings => ctx.settings.set(settings))

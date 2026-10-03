@@ -74,13 +74,15 @@ export default function App(): React.JSX.Element {
   // 切后台 / 失焦 / 关窗前强制落一次进度（TECH.md 6.3）
   useEffect(() => {
     const flush = (): void => useReaderStore.getState().flush()
+    // 关窗这一步同步落盘：beforeunload 之后异步 IPC 不保证送达（TECH.md 6.3）
+    const flushSync = (): void => useReaderStore.getState().flushSync()
     window.addEventListener('visibilitychange', flush)
     window.addEventListener('blur', flush)
-    window.addEventListener('beforeunload', flush)
+    window.addEventListener('beforeunload', flushSync)
     return () => {
       window.removeEventListener('visibilitychange', flush)
       window.removeEventListener('blur', flush)
-      window.removeEventListener('beforeunload', flush)
+      window.removeEventListener('beforeunload', flushSync)
     }
   }, [])
 

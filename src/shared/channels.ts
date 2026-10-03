@@ -10,6 +10,8 @@ export const CH = {
   chapterRead: 'chapter:read',
   progressGet: 'progress:get',
   progressSave: 'progress:save',
+  /** 退出前的同步落盘：beforeunload 里异步 IPC 未必来得及（TECH.md 6.3）。 */
+  progressFlush: 'progress:flush',
   taskCancel: 'task:cancel',
   settingsGet: 'settings:get',
   settingsSave: 'settings:save',

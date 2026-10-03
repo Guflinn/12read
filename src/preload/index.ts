@@ -46,6 +46,14 @@ const readerApi: ReaderApi = {
     invoke(CH.progressGet, getArgsSchema, { bookId }),
   saveProgress: (progress: Progress): Promise<void> =>
     invoke(CH.progressSave, progressSchema, progress),
+  flushProgress: (progress: Progress): void => {
+    const parsed = progressSchema.safeParse(progress)
+    if (!parsed.success) {
+      console.error('[12read] 参数校验失败: ' + CH.progressFlush)
+      return
+    }
+    void ipcRenderer.sendSync(CH.progressFlush, parsed.data)
+  },
   getSettings: (): Promise<ReaderSettings> => invoke(CH.settingsGet, emptyArgsSchema, undefined),
   saveSettings: (settings: ReaderSettings): Promise<ReaderSettings> =>
     invoke(CH.settingsSave, settingsSchema, settings),

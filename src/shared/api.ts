@@ -30,6 +30,11 @@ export interface ReaderApi {
   readChapter(bookId: string, index: number): Promise<string>
   getProgress(bookId: string): Promise<Progress | null>
   saveProgress(progress: Progress): Promise<void>
+  /**
+   * 关窗/退出前的同步落盘（TECH.md 6.3）：走 sendSync，主进程写完才返回。
+   * 参数非法时静默失败（只在控制台记账），绝不阻塞关窗。
+   */
+  flushProgress(progress: Progress): void
   getSettings(): Promise<ReaderSettings>
   saveSettings(settings: ReaderSettings): Promise<ReaderSettings>
   /** 订阅导入进度，返回取消订阅函数。 */

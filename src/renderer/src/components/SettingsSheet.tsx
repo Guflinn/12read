@@ -138,7 +138,7 @@ export function SettingsSheet(): React.JSX.Element {
       <div className="sheet-hint">
         调字号会让正文重新排版，但<b>阅读位置不变</b> —— 这就是进度不用「第几页」记录的原因。
         <br />
-        <b>← →</b> 切换章节 · <b>Esc</b> 关面板 / 返回书架
+        <b>← →</b> 翻页 · <b>Ctrl + ← →</b> 切换章节 · <b>Esc</b> 关面板 / 返回书架
         <br />
         行距可选：{LINE_HEIGHTS.join(' / ')}
       </div>

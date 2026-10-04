@@ -142,12 +142,16 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
       const tag = target ? target.tagName : ''
       if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return
       const store = useReaderStore.getState()
-      if (event.key === 'ArrowRight') {
+      if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+        // ← / → 翻页（每次一屏、留 40px 重叠，跟 PageUp/PageDown 同一个动作）；
+        // 按住 Ctrl（或 Mac 的 Cmd）才是切换章节。
         event.preventDefault()
-        void store.next()
-      } else if (event.key === 'ArrowLeft') {
-        event.preventDefault()
-        void store.prev()
+        const back = event.key === 'ArrowLeft'
+        if (event.ctrlKey || event.metaKey) {
+          void (back ? store.prev() : store.next())
+        } else {
+          pageScroll(back ? -1 : 1)
+        }
       } else if (event.key === 'PageDown' || event.key === 'PageUp') {
         event.preventDefault()
         pageScroll(event.key === 'PageDown' ? 1 : -1)

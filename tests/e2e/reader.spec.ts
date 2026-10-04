@@ -35,7 +35,7 @@ test.afterEach(async () => {
   }
 })
 
-test('键盘翻页：空格 / PageDown / PageUp / Home / End', async () => {
+test('键盘翻页：← / → 翻一屏，Ctrl + ← / → 切章，空格 / PageDown / Home / End 照旧', async () => {
   const dataDir = makeTempDir('12read-keys-')
   const bookPath = writeNovelFile(makeTempDir('12read-key-src-'), '键盘书.txt', buildNovel())
 
@@ -49,6 +49,22 @@ test('键盘翻页：空格 / PageDown / PageUp / Home / End', async () => {
   await page.keyboard.press('End')
   const atEnd = await topParagraphIndex(page)
   expect(atEnd).toBeGreaterThan(3)
+  await page.keyboard.press('Home')
+  expect(await topParagraphIndex(page)).toBe(0)
+
+  // ← / → 翻一屏（不切章），Ctrl + ← / → 才切章
+  await page.keyboard.press('ArrowRight')
+  const afterRight = await topParagraphIndex(page)
+  expect(afterRight).toBeGreaterThan(0)
+  expect(afterRight).toBeLessThan(atEnd)
+  await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
+  await page.keyboard.press('ArrowLeft')
+  expect(await topParagraphIndex(page)).toBe(0)
+
+  await page.keyboard.press('Control+ArrowRight')
+  await expect(page.locator('.chapter-title')).toHaveText('第二章 转折')
+  await page.keyboard.press('Control+ArrowLeft')
+  await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
   await page.keyboard.press('Home')
   expect(await topParagraphIndex(page)).toBe(0)
 

@@ -210,7 +210,7 @@ MVP 只用一句话定义成功标准：
 | 4 | 手动指定编码重解码 | **已完成（commit bfb8c0a）**：新增 `book:redecode` 通道与 `ImportService.redecode`，复用 `books/<id>/source.bin` 重解；`decodeBytesWith` 支持手工 `big5`（自动检测不会给出它）；书架书卡加「编码」按钮 + 重解码 Modal | 乱码书不用重导；重解码清掉该书的进度（偏移全变了） |
 | 5 | 手动修正分章 | **已完成（commit 5e1f090）**：新增 `src/main/services/chapter-editor.ts`（只重写章节表，进度按编辑前的绝对字符位置重新落位）与 `chapter:rename` / `chapter:merge` / `chapter:split` 三个通道；目录每节可改名 / 合并，顶栏「拆分」在当前位置拆开本章 | 合并 / 拆分 / 改章节标题；拆分后半自动叫「原标题（续）」 |
 | 6 | 书签与划线 | **已完成（commit ed20635 / fcba50b / 545c012）**：schema v2 迁移（`schema-v2.ts` 建 `bookmark` / `highlight` / `reading_stat` 与三个索引，`annotations-repository.ts` 读写），新增 `bookmark:list/add/remove` 与 `highlight:list/add/remove` 六个通道；顶栏「🔖 书签」、正文选区浮出工具条划线、点已有划线浮出删除，抽屉拆成目录 / 书签 / 划线三页 | 划线按解码后文本的字符偏移存，与进度同一套语义；笔记不做，`highlight.note` 字段先留在表里；第 8 项阅读统计复用这次建好的 `reading_stat` |
-| 7 | 章节内搜索 + 全书搜索 | 搜索服务扫描 content.txt / chapters/*.txt，命中列表带上下文 | 与第 6 项合并进同一次迁移 |
+| 7 | 章节内搜索 + 全书搜索 | **已完成（commit 2b250d3 / 9c59286）**：新增纯函数 `src/shared/core/search.ts`（`findMatches` / `contextAround` / `chapterMatches`）与 `src/main/services/search.ts`（`BookSearchService` 逐章扫正文，每章最多 30 条、全书最多 200 条，主进程逐章 yield 事件循环），通道 `book:search`；顶栏「🔍 搜索」/ Ctrl+F 开面板，可切「本章 / 全书」，命中列表带章号与前后 24 字，点一条跳过去并闪一下 | **不用 SQLite FTS5**（见下方已定问题）；不需要新表，schema v2 的迁移与这次无关 |
 | 8 | 阅读统计 | 新表（阅读时长 / 字数 / 每日） | 与第 6 项合并进同一次迁移 |
 | 9 | 导出与备份 | 整库打包 zip（书架 + 进度 + 正文 + 书签划线 + 统计） | 放最后：要覆盖前面所有新数据 |
 | 10 | 大书专项（性能） | 打开 / 首次进入阅读 / 切章 / 长章节滚动 / 内存；大书下的导入、搜索、进度保存 | 用户 2026-10-04 追加；不新增功能，专用那本 851 万字 / 41 节的书当靶子 |
@@ -222,7 +222,7 @@ MVP 只用一句话定义成功标准：
 
 - （已定 2026-10-04）← / → 让位给翻页，切章用 **Ctrl + ← / →**（Mac 上 Cmd 也行）。
 - （已定 2026-10-04）划线：鼠标选中正文 → 浮出工具条「划线」；点已有划线 → 浮出「删除划线」。笔记本版不做，`highlight.note` 字段先留在表里。
-- 全书搜索走 SQLite FTS 还是直接扫章节文件（后者零迁移，但大书慢）。
+- （已定 2026-10-04）搜索直接扫章节文件，**不用 SQLite FTS5**：unicode61 分词器对中文不切词，trigram 只支持 3 字以上的查询，而 851 万字的书要建两千万级三元组；正文本来就有 64MB LRU 缓存，逐章扫一遍是百毫秒级，零迁移、零索引体积，大书慢的问题交给第 10 项实测。
 - 阅读统计的最小粒度（是否按天汇总、要不要画图表）。
 
 按价值/成本排序（0.1.3 吃掉的标注在括号里）：

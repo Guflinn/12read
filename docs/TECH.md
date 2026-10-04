@@ -10,7 +10,7 @@
 | 日期 | 变更 |
 | --- | --- |
 | 2026 | 首版。形态决策由 MVP.md 第 1 节的「Web/PWA，后续可套 Tauri 壳」改为「Electron 桌面应用，核心保持平台无关」。 |
-| 2026-10-04 | 0.1.3：schema v2 迁移（`src/main/db/schema-v2.ts` 建 `bookmark` / `highlight` / `reading_stat` 与三个索引，`annotations-repository.ts` 提供读写），新增 `bookmark:list/add/remove`、`highlight:list/add/remove` 六个通道；渲染层 `core/annotations.ts` 放纯函数（`splitHighlighted` 把章内偏移切成划线片段、`excerptAt`、`normalizeSelection`），目录抽屉拆成目录 / 书签 / 划线三页。 |
+| 2026-10-04 | 0.1.3：章节内 + 全书搜索。纯函数在 `src/shared/core/search.ts`（`normalizeQuery` / `findMatches` / `contextAround` / `chapterMatches`，大小写不敏感、非重叠、从左到右），主进程 `src/main/services/search.ts` 的 `BookSearchService` 逐章 `readChapter` 扫正文并逐章 yield 事件循环；通道 `book:search`（scope ∈ chapter / book），渲染层 `SearchPanel.tsx` 320ms 防抖、Ctrl/Cmd+F 开面板、命中跳转后段落闪 1.6s。**不用 SQLite FTS5**：unicode61 对中文不切词，trigram 只支持 3 字以上查询，且 851 万字的书要建两千万级三元组；正文已有 64MB LRU 缓存，逐章 indexOf 是百毫秒级。**阅读与搜索必须共用同一个 `FileContentReader` 实例**（`src/main/index.ts`），否则 64MB 缓存变两份。 |（`src/main/db/schema-v2.ts` 建 `bookmark` / `highlight` / `reading_stat` 与三个索引，`annotations-repository.ts` 提供读写），新增 `bookmark:list/add/remove`、`highlight:list/add/remove` 六个通道；渲染层 `core/annotations.ts` 放纯函数（`splitHighlighted` 把章内偏移切成划线片段、`excerptAt`、`normalizeSelection`），目录抽屉拆成目录 / 书签 / 划线三页。 |
 | 2026-10-04 | 0.1.3：正文字体（`--font-body`）与栏宽（`--page-w`）可选；阅读器 ← / → 翻一屏、Ctrl + ← / → 切章；新增 `book:redecode` 手动指定编码重解码（含手工 `big5` 分支）。 |
 | 2026-10-04 | 0.1.3：手动改分章（`chapter:rename` / `chapter:merge` / `chapter:split` + `ChapterEditor`）：正文一字不动，只重写章节表，进度按编辑前的绝对字符位置重新落位。 |
 | 2026-10-04 | 0.1.2：阅读器顶栏加独立的日/夜间切换按钮；新增「上次位置」书签（`reader` store 的 `bookmark` + `settleBookmark` / `backToBookmark`，来回切换靠「把当前位置换进书签」）；`ReaderSettings` 增加 `bold`，加粗写 `--fw`（schema 用 `default(false)`，0.1.1 的旧设置不会整份回退默认）。 |
@@ -160,6 +160,13 @@ export interface Ports {
 | chapter:rename | R→M | bookId, index, title | Chapter[] | 只改标题；title 去空白后 1..120 |
 | chapter:merge | R→M | bookId, index | Chapter[] | 把 index+1 章并进 index 章（标题沿用前者）；最后一章报错 |
 | chapter:split | R→M | bookId, index, offset | Chapter[] | 在章内 offset 处拆开，后半叫「原标题（续）」；offset 必须落在 1..charLength-1 |
+| bookmark:list | R→M | bookId | Bookmark[] | 按 chapterIndex → charOffset → createdAt 排序 |
+| bookmark:add | R→M | bookId, chapterIndex, charOffset, excerpt | Bookmark | excerpt 是偏移前后 24 字，连续空白折成一个空格；id 与 createdAt 由主进程生成 |
+| bookmark:remove | R→M | id | void | 重复删不报错 |
+| highlight:list | R→M | bookId | Highlight[] | 按 chapterIndex → startOffset 排序 |
+| highlight:add | R→M | bookId, chapterIndex, startOffset, endOffset, text | Highlight | endOffset 必须大于 startOffset；text 最多 2000 字，note 恒为 null（笔记不做） |
+| highlight:remove | R→M | id | void | 重复删不报错 |
+| book:search | R→M | bookId, query, scope, chapterIndex | SearchResult | scope ∈ chapter / book；query trim 后 1..80 字；直接扫正文（不用 FTS5，见变更记录），每章最多 30 条、全书最多 200 条，命中总量 `total` 可能大于列出的 `hits.length`（每章上限也会触发 truncated） |
 | progress:get | R→M | bookId | Progress 或 null | |
 | progress:save | R→M | Progress | void | renderer 侧节流 500ms |
 | task:cancel | R→M | taskId | void | 取消导入 |

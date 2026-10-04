@@ -15,6 +15,16 @@ import { createThrottle, type Throttler } from '@/core/throttle'
 
 /** 滚动时最多每 500ms 落一次盘（TECH.md 6.3）。 */
 export const PROGRESS_THROTTLE_MS = 500
+/** 停止滚动多久算「在这儿看了一会儿」，把这里记成下次可以回来的位置。 */
+export const BOOKMARK_REST_MS = 1200
+/** 同章内挪动不到这么多字不算换地方，免得「上次位置」跟着微小滚动乱跑。 */
+export const BOOKMARK_MIN_GAP_CHARS = 100
+
+/** 书签：章号 + 章内字符偏移，和进度用同一套定位语义。 */
+export interface ReadingSpot {
+  chapterIndex: number
+  charOffset: CharOffset
+}
 
 export interface ReaderState {
   book: Book | null
@@ -30,6 +40,8 @@ export interface ReaderState {
   /** 待还原的章内偏移；ReaderView 滚动到位后调用 consumePending() 清空。 */
   pendingOffset: CharOffset | null
   percent: number
+  /** 「上次位置」：回到这里的目标；点一次会把当前位置换进来，于是再点一次能回去。 */
+  bookmark: ReadingSpot | null
   open(bookId: string): Promise<void>
   /** 回书架：先落一次盘再清空，返回的 Promise 在进度写回主进程后 resolve。 */
   leave(): Promise<void>
@@ -37,6 +49,10 @@ export interface ReaderState {
   next(): Promise<void>
   prev(): Promise<void>
   onScrolled(offset: CharOffset): void
+  /** 停下来读了一会儿：把当前位置记成「上次位置」。 */
+  settleBookmark(offset: CharOffset): void
+  /** 回到上次停留的位置；再点一次回到刚才离开的地方。 */
+  backToBookmark(): Promise<void>
   flush(): void
   /** 关窗前的同步落盘（TECH.md 6.3），主进程写完才返回。 */
   flushSync(): void
@@ -50,6 +66,8 @@ export interface ReaderState {
 let lastOffset = 0
 /** 请求序号：丢弃迟到的 open()/goto() 结果，避免旧请求覆盖新章节。 */
 let seq = 0
+/** 书签跳转自己会触发一次「停顿」，那一次不能算新位置，否则来回跳会互相覆盖。 */
+let skipNextSettle = false
 
 function messageOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause)
@@ -111,6 +129,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
   sheetOpen: false,
   pendingOffset: null,
   percent: 0,
+  bookmark: null,
 
   async open(bookId: string): Promise<void> {
     const api = readerApi()
@@ -125,6 +144,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       visibleChars: 0,
       pendingOffset: null,
       percent: 0,
+      bookmark: null,
       tocOpen: false,
       sheetOpen: false
     })
@@ -150,8 +170,11 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         visibleChars: initialVisible(text),
         pendingOffset: offset,
         percent: percentOf(book.charCount, chapter ? chapter.startOffset : 0, offset),
+        // 打开时就记一个位置：还没滚动过也能「回到打开本书的地方」，按钮不会一开始就是灰的
+        bookmark: { chapterIndex: index, charOffset: offset },
         loading: false
       })
+      skipNextSettle = false
     } catch (cause) {
       if (mine !== seq) return
       set({ loading: false, error: '打开失败：' + messageOf(cause) })
@@ -173,6 +196,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       visibleChars: 0,
       pendingOffset: null,
       percent: 0,
+      bookmark: null,
       tocOpen: false,
       sheetOpen: false,
       error: null
@@ -232,6 +256,42 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     const percent = percentOf(state.book.charCount, chapter ? chapter.startOffset : 0, lastOffset)
     if (Math.abs(percent - state.percent) >= 0.05) set({ percent })
     saver.schedule()
+  },
+
+  settleBookmark(offset: CharOffset): void {
+    const state = get()
+    if (!state.book || state.chapterText.length === 0) return
+    const next: ReadingSpot = {
+      chapterIndex: state.chapterIndex,
+      charOffset: clampOffset(offset, state.chapterText.length)
+    }
+    if (skipNextSettle) {
+      skipNextSettle = false
+      return
+    }
+    const current = state.bookmark
+    if (
+      current &&
+      current.chapterIndex === next.chapterIndex &&
+      Math.abs(current.charOffset - next.charOffset) < BOOKMARK_MIN_GAP_CHARS
+    ) {
+      return
+    }
+    set({ bookmark: next })
+  },
+
+  async backToBookmark(): Promise<void> {
+    const state = get()
+    const target = state.bookmark
+    if (!state.book || !target) return
+    const here: ReadingSpot = {
+      chapterIndex: state.chapterIndex,
+      charOffset: clampOffset(lastOffset, state.chapterText.length)
+    }
+    // 先把自己现在的位置换成新书签，再跳过去：这样再点一次就是「回到刚才那里」
+    set({ bookmark: here })
+    skipNextSettle = true
+    await get().goto(target.chapterIndex, target.charOffset)
   },
 
   flush(): void {

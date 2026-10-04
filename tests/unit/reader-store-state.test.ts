@@ -82,7 +82,8 @@ beforeEach(() => {
     tocOpen: false,
     sheetOpen: false,
     pendingOffset: null,
-    percent: 0
+    percent: 0,
+    bookmark: null
   })
 })
 

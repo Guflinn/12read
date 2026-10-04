@@ -213,3 +213,36 @@ test('阅读器底部显示已读百分比与剩余字数，往下读一起变',
   await page.keyboard.press('Home')
   await expect.poll(() => readRemaining(meter)).toBe(before)
 })
+
+test('回到上次位置：停稳后点一下就回去，再点一下回到刚才那里', async () => {
+  const dataDir = makeTempDir('12read-bookmark-')
+  const bookPath = writeNovelFile(makeTempDir('12read-bookmark-src-'), '位置书.txt', buildNovel())
+
+  const page = await openApp(dataDir)
+  await importPath(page, bookPath)
+  await page.click('.book-card')
+  await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
+
+  // 打开就记了一个位置，按钮一进来就能点
+  const back = page.locator('#btn-pos-back')
+  await expect(back).toBeEnabled()
+  await expect(back).toContainText('上次位置')
+
+  // 翻到章尾，停够 BOOKMARK_REST_MS，这里就成了「上次停留的位置」
+  await page.keyboard.press('End')
+  await page.waitForTimeout(1500)
+  const atEnd = await topParagraphIndex(page)
+  expect(atEnd).toBeGreaterThan(3)
+
+  // 滑回章首，趁还没停稳点「上次位置」→ 回到刚才停稳的地方
+  await page.locator('#reader-scroll').evaluate((el) => {
+    el.scrollTop = 0
+  })
+  await back.click()
+  await expect.poll(() => topParagraphIndex(page)).toBeGreaterThanOrEqual(atEnd - 2)
+
+  // 再点一次 → 回到刚才离开的地方（章首）
+  await back.click()
+  await expect.poll(() => topParagraphIndex(page)).toBeLessThanOrEqual(1)
+})
+

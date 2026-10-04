@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { offsetForScrollTop, scrollTopForOffset, splitParagraphs } from '@/core/paragraphs'
 import { chapterLabel, progressLabel } from '@/core/reading'
-import { useReaderStore } from '@/store/reader'
+import { BOOKMARK_REST_MS, useReaderStore } from '@/store/reader'
 import { useSettingsStore } from '@/store/settings'
 import { SettingsSheet } from './SettingsSheet'
 import { TocDrawer } from './TocDrawer'
@@ -20,6 +20,7 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
   const loading = useReaderStore((s) => s.loading)
   const pendingOffset = useReaderStore((s) => s.pendingOffset)
   const percent = useReaderStore((s) => s.percent)
+  const bookmark = useReaderStore((s) => s.bookmark)
   const fontSize = useSettingsStore((s) => s.settings.fontSize)
   const lineHeight = useSettingsStore((s) => s.settings.lineHeight)
   const theme = useSettingsStore((s) => s.settings.theme)
@@ -31,6 +32,8 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
   const topsRef = useRef<number[]>([0])
   /** 最近一次滚动对应的章内偏移；字号变化后靠它回到同一处文字。 */
   const lastOffsetRef = useRef(0)
+  /** 停顿计时器：连续滚动期间一直往后推，停够 BOOKMARK_REST_MS 才记一次「上次位置」。 */
+  const restTimerRef = useRef<number | null>(null)
 
   const chapter = chapters[chapterIndex]
   const title = chapter ? chapter.title : '正文'
@@ -102,6 +105,12 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
     ) {
       useReaderStore.getState().revealMore()
     }
+    // 快速滑动期间不记位置：停下来的地方才值得当「上次位置」
+    if (restTimerRef.current !== null) window.clearTimeout(restTimerRef.current)
+    restTimerRef.current = window.setTimeout(() => {
+      restTimerRef.current = null
+      useReaderStore.getState().settleBookmark(lastOffsetRef.current)
+    }, BOOKMARK_REST_MS)
   }, [measurement, truncated])
 
   /** 一页的步长：留 40px 重叠，前后两页才读得连得上。 */
@@ -166,6 +175,7 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
 
   useEffect(
     () => () => {
+      if (restTimerRef.current !== null) window.clearTimeout(restTimerRef.current)
       useReaderStore.getState().flush()
     },
     []
@@ -181,6 +191,16 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
           <strong id="reader-book">{book ? book.title : '十二阅读'}</strong>
           <span id="reader-chapter-label">{chapterLabel(chapter, chapters.length)}</span>
         </div>
+        <button
+          id="btn-pos-back"
+          className="icon-btn"
+          disabled={bookmark === null}
+          aria-label="回到上次停留的位置"
+          title="回到上次停留的位置（再点一次回到刚才那里）"
+          onClick={() => void useReaderStore.getState().backToBookmark()}
+        >
+          ↩ 上次位置
+        </button>
         <button
           id="btn-theme"
           className="icon-btn"

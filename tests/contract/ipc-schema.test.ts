@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  annotationIdArgsSchema,
   bookIdSchema,
+  bookmarkAddArgsSchema,
   cancelArgsSchema,
+  highlightAddArgsSchema,
   importArgsSchema,
   mergeChapterArgsSchema,
   progressSchema,
@@ -82,6 +85,25 @@ describe('IPC 入参校验：合法用例', () => {
     )
   })
 
+  it('书签与划线入参：章内偏移接受 0，去掉不用的字段', () => {
+    const bookmark = bookmarkAddArgsSchema.safeParse({
+      bookId: VALID_ID,
+      chapterIndex: 0,
+      charOffset: 0,
+      excerpt: '读到这儿'
+    })
+    expect(bookmark.success).toBe(true)
+    const highlight = highlightAddArgsSchema.safeParse({
+      bookId: VALID_ID,
+      chapterIndex: 2,
+      startOffset: 10,
+      endOffset: 22,
+      text: '被划下来的一行字'
+    })
+    expect(highlight.success).toBe(true)
+    expect(annotationIdArgsSchema.safeParse({ id: 'k1' }).success).toBe(true)
+  })
+
   it('缺字体与栏宽时补默认值', () => {
     const parsed = settingsSchema.parse({ fontSize: 19, lineHeight: 1.9, theme: 'day' })
     expect(parsed.fontFamily).toBe('song')
@@ -159,6 +181,54 @@ describe('IPC 入参校验：非法用例', () => {
     expect(
       splitChapterArgsSchema.safeParse({ bookId: VALID_ID, index: 0, offset: -3 }).success
     ).toBe(false)
+  })
+
+  it('书签与划线入参：负偏移、空 id、空文字、超长摘录都被拒', () => {
+    expect(
+      bookmarkAddArgsSchema.safeParse({
+        bookId: VALID_ID,
+        chapterIndex: 0,
+        charOffset: -1,
+        excerpt: '摘要'
+      }).success
+    ).toBe(false)
+    expect(
+      bookmarkAddArgsSchema.safeParse({
+        bookId: VALID_ID,
+        chapterIndex: 0,
+        charOffset: 1,
+        excerpt: '长'.repeat(201)
+      }).success
+    ).toBe(false)
+    expect(annotationIdArgsSchema.safeParse({ id: '' }).success).toBe(false)
+    expect(
+      highlightAddArgsSchema.safeParse({
+        bookId: VALID_ID,
+        chapterIndex: 0,
+        startOffset: 1,
+        endOffset: 2,
+        text: ''
+      }).success
+    ).toBe(false)
+    expect(
+      highlightAddArgsSchema.safeParse({
+        bookId: VALID_ID,
+        chapterIndex: 0,
+        startOffset: 1.5,
+        endOffset: 2,
+        text: '整数才行'
+      }).success
+    ).toBe(false)
+    // 起止颠倒属于语义问题，schema 只管形状，交给 ipc 层报「划线范围不合法」
+    expect(
+      highlightAddArgsSchema.safeParse({
+        bookId: VALID_ID,
+        chapterIndex: 0,
+        startOffset: 9,
+        endOffset: 2,
+        text: '反着选'
+      }).success
+    ).toBe(true)
   })
 
   it('拒绝空 filePath 与空 taskId', () => {

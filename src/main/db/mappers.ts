@@ -1,10 +1,12 @@
 import type {
   Book,
   BookFormat,
+  Bookmark,
   Chapter,
   ChapterKind,
   ContentMode,
   Encoding,
+  Highlight,
   Progress,
   ShelfBook,
   CharOffset
@@ -104,6 +106,37 @@ export function toProgress(row: SqlRow): Progress {
     percent: num(row['percent']),
     updatedAt: int(row['updated_at']),
     deviceId: nullableStr(row['device_id'])
+  }
+}
+
+/** 章内位置一律不许是负数：脏数据读出来也当成章首，免得后面算出越界的偏移。 */
+function position(value: unknown): number {
+  return Math.max(0, int(value))
+}
+
+export function toBookmark(row: SqlRow): Bookmark {
+  return {
+    id: str(row['id']),
+    bookId: str(row['book_id']),
+    chapterIndex: position(row['chapter_index']),
+    charOffset: position(row['char_offset']) as CharOffset,
+    excerpt: str(row['excerpt']),
+    createdAt: position(row['created_at'])
+  }
+}
+
+export function toHighlight(row: SqlRow): Highlight {
+  const note = nullableStr(row['note'])
+  return {
+    id: str(row['id']),
+    bookId: str(row['book_id']),
+    chapterIndex: position(row['chapter_index']),
+    startOffset: position(row['start_offset']) as CharOffset,
+    endOffset: position(row['end_offset']) as CharOffset,
+    text: str(row['text']),
+    // 空备注与没有备注是一回事（这一版还不写备注，留着字段以后加）
+    note: note === null || note === '' ? null : note,
+    createdAt: position(row['created_at'])
   }
 }
 

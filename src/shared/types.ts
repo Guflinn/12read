@@ -84,6 +84,51 @@ export interface Progress {
   deviceId: string | null
 }
 
+/** 书签与划线的 id（uuid v4，由主进程生成）。 */
+export type AnnotationId = string
+
+/** 书签：章号 + 章内偏移，和进度用同一套定位语义。 */
+export interface Bookmark {
+  id: AnnotationId
+  bookId: BookId
+  chapterIndex: number
+  /** 章内相对偏移，UTF-16 code units。 */
+  charOffset: CharOffset
+  /** 加书签时那一小段原文，列表里当摘要显示。 */
+  excerpt: string
+  createdAt: number
+}
+
+export interface Highlight {
+  id: AnnotationId
+  bookId: BookId
+  chapterIndex: number
+  startOffset: CharOffset
+  endOffset: CharOffset
+  /** 划线选中的原文，列表里显示、以后导出也用得上。 */
+  text: string
+  /** 备注：本版一律 null，字段先留着，以后加备注不用再迁库。 */
+  note: string | null
+  createdAt: number
+}
+
+/** 新建书签的入参（id / createdAt 由主进程补）。 */
+export interface BookmarkInput {
+  bookId: BookId
+  chapterIndex: number
+  charOffset: CharOffset
+  excerpt: string
+}
+
+/** 新建划线的入参（id / createdAt / note 由主进程补）。 */
+export interface HighlightInput {
+  bookId: BookId
+  chapterIndex: number
+  startOffset: CharOffset
+  endOffset: CharOffset
+  text: string
+}
+
 export type ImportStage =
   | 'reading'
   | 'detecting'

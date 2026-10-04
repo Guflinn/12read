@@ -1,6 +1,11 @@
 import type {
+  AnnotationId,
   Book,
+  Bookmark,
+  BookmarkInput,
   Chapter,
+  Highlight,
+  HighlightInput,
   ImportProgress,
   ManualEncoding,
   Progress,
@@ -45,6 +50,16 @@ export interface ReaderApi {
   mergeChapter(bookId: string, index: number): Promise<Chapter[]>
   splitChapter(bookId: string, index: number, offset: number): Promise<Chapter[]>
   readChapter(bookId: string, index: number): Promise<string>
+  /**
+   * 书签与划线（0.1.3 第 6 项）：都按「章号 + 章内偏移」定位，与进度同一套语义；
+   * 划线记的是同一章里的 startOffset..endOffset，note 本版一律 null。
+   */
+  listBookmarks(bookId: string): Promise<Bookmark[]>
+  addBookmark(input: BookmarkInput): Promise<Bookmark>
+  removeBookmark(id: AnnotationId): Promise<void>
+  listHighlights(bookId: string): Promise<Highlight[]>
+  addHighlight(input: HighlightInput): Promise<Highlight>
+  removeHighlight(id: AnnotationId): Promise<void>
   getProgress(bookId: string): Promise<Progress | null>
   saveProgress(progress: Progress): Promise<void>
   /**

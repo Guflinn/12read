@@ -8,6 +8,9 @@ import {
   getArgsSchema,
   importArgsSchema,
   importProgressSchema,
+  annotationIdArgsSchema,
+  bookmarkAddArgsSchema,
+  highlightAddArgsSchema,
   progressSchema,
   mergeChapterArgsSchema,
   readChapterArgsSchema,
@@ -18,8 +21,13 @@ import {
   splitChapterArgsSchema
 } from '@shared/schema'
 import type {
+  AnnotationId,
   Book,
+  Bookmark,
+  BookmarkInput,
   Chapter,
+  Highlight,
+  HighlightInput,
   ImportProgress,
   ManualEncoding,
   Progress,
@@ -62,6 +70,18 @@ const readerApi: ReaderApi = {
     invoke(CH.chapterSplit, splitChapterArgsSchema, { bookId, index, offset }),
   readChapter: (bookId: string, index: number): Promise<string> =>
     invoke(CH.chapterRead, readChapterArgsSchema, { bookId, index }),
+  listBookmarks: (bookId: string): Promise<Bookmark[]> =>
+    invoke(CH.bookmarkList, getArgsSchema, { bookId }),
+  addBookmark: (input: BookmarkInput): Promise<Bookmark> =>
+    invoke(CH.bookmarkAdd, bookmarkAddArgsSchema, input),
+  removeBookmark: (id: AnnotationId): Promise<void> =>
+    invoke(CH.bookmarkRemove, annotationIdArgsSchema, { id }),
+  listHighlights: (bookId: string): Promise<Highlight[]> =>
+    invoke(CH.highlightList, getArgsSchema, { bookId }),
+  addHighlight: (input: HighlightInput): Promise<Highlight> =>
+    invoke(CH.highlightAdd, highlightAddArgsSchema, input),
+  removeHighlight: (id: AnnotationId): Promise<void> =>
+    invoke(CH.highlightRemove, annotationIdArgsSchema, { id }),
   getProgress: (bookId: string): Promise<Progress | null> =>
     invoke(CH.progressGet, getArgsSchema, { bookId }),
   saveProgress: (progress: Progress): Promise<void> =>

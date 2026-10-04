@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CH } from '@shared/channels'
-import type { Book, Chapter, Progress, ReaderSettings, ShelfBook } from '@shared/types'
+import type {
+  Book,
+  Bookmark,
+  Chapter,
+  Highlight,
+  Progress,
+  ReaderSettings,
+  ShelfBook
+} from '@shared/types'
 import type { IpcContext } from '@main/ipc'
 import { ImportError } from '@main/services/import-error'
 
@@ -63,6 +71,26 @@ const CHAPTERS: Chapter[] = [
   { bookId: BOOK_ID, index: 0, title: '第一章', startOffset: 0, charLength: 10, kind: 'chapter' }
 ]
 
+const BOOKMARK: Bookmark = {
+  id: 'k1',
+  bookId: BOOK_ID,
+  chapterIndex: 1,
+  charOffset: 20,
+  excerpt: '摘一段原文',
+  createdAt: 3
+}
+
+const HIGHLIGHT: Highlight = {
+  id: 'h1',
+  bookId: BOOK_ID,
+  chapterIndex: 1,
+  startOffset: 20,
+  endOffset: 30,
+  text: '划下来的一行字',
+  note: null,
+  createdAt: 4
+}
+
 const SETTINGS: ReaderSettings = {
   fontSize: 19,
   lineHeight: 1.9,
@@ -82,6 +110,7 @@ function makeContext(): {
   }
   library: Record<string, ReturnType<typeof vi.fn>>
   chapters: Record<string, ReturnType<typeof vi.fn>>
+  annotations: Record<string, ReturnType<typeof vi.fn>>
   content: Record<string, ReturnType<typeof vi.fn>>
   progress: Record<string, ReturnType<typeof vi.fn>>
   settings: Record<string, ReturnType<typeof vi.fn>>
@@ -114,6 +143,18 @@ function makeContext(): {
     merge: vi.fn((): Chapter[] => CHAPTERS),
     split: vi.fn((): Chapter[] => CHAPTERS)
   }
+  const annotations = {
+    listBookmarks: vi.fn((): Bookmark[] => [BOOKMARK]),
+    addBookmark: vi.fn((record: unknown): Bookmark => record as Bookmark),
+    removeBookmark: vi.fn((id: string) => {
+      order.push('remove-bookmark:' + id)
+    }),
+    listHighlights: vi.fn((): Highlight[] => [HIGHLIGHT]),
+    addHighlight: vi.fn((record: unknown): Highlight => record as Highlight),
+    removeHighlight: vi.fn((id: string) => {
+      order.push('remove-highlight:' + id)
+    })
+  }
   const content = {
     readChapter: vi.fn(async (): Promise<string> => '正文'),
     invalidate: vi.fn((bookId: string) => {
@@ -128,9 +169,18 @@ function makeContext(): {
     get: vi.fn((): ReaderSettings => SETTINGS),
     set: vi.fn((next: ReaderSettings): ReaderSettings => next)
   }
-  const ctx = { importer, library, chapters, content, progress, settings, deviceId: 'device-1' } as unknown as IpcContext
+  const ctx = {
+    importer,
+    library,
+    chapters,
+    annotations,
+    content,
+    progress,
+    settings,
+    deviceId: 'device-1'
+  } as unknown as IpcContext
   registerIpc(ctx)
-  return { ctx, order, importer, library, chapters, content, progress, settings }
+  return { ctx, order, importer, library, chapters, annotations, content, progress, settings }
 }
 
 function call(channel: string, raw?: unknown): Promise<unknown> {
@@ -340,6 +390,107 @@ describe('IPC 注册与转发', () => {
       '参数校验失败: ' + CH.chapterSplit
     )
     expect(chapters.split).toHaveBeenCalledTimes(1)
+  })
+
+  it('bookmark:list / add / remove 转发，id 与时间戳由主进程生成', async () => {
+    const { annotations, order } = setup()
+    expect(await call(CH.bookmarkList, { bookId: BOOK_ID })).toEqual([BOOKMARK])
+    expect(annotations.listBookmarks.mock.calls[0]?.[0]).toBe(BOOK_ID)
+
+    const created = (await call(CH.bookmarkAdd, {
+      bookId: BOOK_ID,
+      chapterIndex: 2,
+      charOffset: 33,
+      excerpt: '读到这儿'
+    })) as Bookmark
+    expect(created.bookId).toBe(BOOK_ID)
+    expect(created.chapterIndex).toBe(2)
+    expect(created.charOffset).toBe(33)
+    expect(created.excerpt).toBe('读到这儿')
+    expect(created.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+    expect(typeof created.createdAt).toBe('number')
+
+    await call(CH.bookmarkRemove, { id: 'k1' })
+    expect(order).toContain('remove-bookmark:k1')
+  })
+
+  it('bookmark:add 的字段越界或缺失直接被拒', async () => {
+    const { annotations } = setup()
+    await expect(
+      call(CH.bookmarkAdd, { bookId: BOOK_ID, chapterIndex: 0, charOffset: -1, excerpt: '摘要' })
+    ).rejects.toThrow('参数校验失败: ' + CH.bookmarkAdd)
+    await expect(
+      call(CH.bookmarkAdd, {
+        bookId: BOOK_ID,
+        chapterIndex: 0,
+        charOffset: 1,
+        excerpt: '长'.repeat(201)
+      })
+    ).rejects.toThrow('参数校验失败: ' + CH.bookmarkAdd)
+    await expect(call(CH.bookmarkRemove, { id: '' })).rejects.toThrow(
+      '参数校验失败: ' + CH.bookmarkRemove
+    )
+    expect(annotations.addBookmark).not.toHaveBeenCalled()
+  })
+
+  it('highlight:list / add / remove 转发，note 先落 null（备注留到以后）', async () => {
+    const { annotations, order } = setup()
+    expect(await call(CH.highlightList, { bookId: BOOK_ID })).toEqual([HIGHLIGHT])
+    expect(annotations.listHighlights.mock.calls[0]?.[0]).toBe(BOOK_ID)
+
+    const created = (await call(CH.highlightAdd, {
+      bookId: BOOK_ID,
+      chapterIndex: 3,
+      startOffset: 5,
+      endOffset: 12,
+      text: '被划下来的七个字'
+    })) as Highlight
+    expect(created.chapterIndex).toBe(3)
+    expect(created.startOffset).toBe(5)
+    expect(created.endOffset).toBe(12)
+    expect(created.text).toBe('被划下来的七个字')
+    expect(created.note).toBeNull()
+    expect(typeof created.createdAt).toBe('number')
+
+    await call(CH.highlightRemove, { id: 'h1' })
+    expect(order).toContain('remove-highlight:h1')
+  })
+
+  it('highlight:add 的结束位置不在开始之后时被拒，且不碰仓储', async () => {
+    const { annotations } = setup()
+    await expect(
+      call(CH.highlightAdd, {
+        bookId: BOOK_ID,
+        chapterIndex: 0,
+        startOffset: 8,
+        endOffset: 8,
+        text: '一样长'
+      })
+    ).rejects.toThrow('划线范围不合法：结束位置要在开始位置之后')
+    await expect(
+      call(CH.highlightAdd, {
+        bookId: BOOK_ID,
+        chapterIndex: 0,
+        startOffset: 9,
+        endOffset: 3,
+        text: '反着选'
+      })
+    ).rejects.toThrow('划线范围不合法：结束位置要在开始位置之后')
+    expect(annotations.addHighlight).not.toHaveBeenCalled()
+  })
+
+  it('highlight:add 的空文字被 zod 拒', async () => {
+    const { annotations } = setup()
+    await expect(
+      call(CH.highlightAdd, {
+        bookId: BOOK_ID,
+        chapterIndex: 0,
+        startOffset: 1,
+        endOffset: 2,
+        text: ''
+      })
+    ).rejects.toThrow('参数校验失败: ' + CH.highlightAdd)
+    expect(annotations.addHighlight).not.toHaveBeenCalled()
   })
 
   it('progress:get 返回进度或 null', async () => {

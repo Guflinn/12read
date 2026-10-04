@@ -5,7 +5,9 @@ import {
   asEncoding,
   coverSeedFromTitle,
   toBook,
+  toBookmark,
   toChapter,
+  toHighlight,
   toProgress,
   toShelfBook
 } from '@main/db/mappers'
@@ -110,6 +112,64 @@ describe('数据库行映射', () => {
     expect(asChapterKind('segment')).toBe('segment')
     expect(asChapterKind('chapter')).toBe('chapter')
     expect(asChapterKind('other')).toBe('chapter')
+  })
+
+  it('书签行映射出章内偏移与摘要', () => {
+    expect(
+      toBookmark({
+        id: 'k1',
+        book_id: BOOK_ID,
+        chapter_index: 2,
+        char_offset: 33,
+        excerpt: '读到这儿',
+        created_at: 7
+      })
+    ).toEqual({
+      id: 'k1',
+      bookId: BOOK_ID,
+      chapterIndex: 2,
+      charOffset: 33,
+      excerpt: '读到这儿',
+      createdAt: 7
+    })
+  })
+
+  it('书签行的脏数据夹紧：下标与偏移不为负，摘要缺失给空串', () => {
+    const bookmark = toBookmark({ chapter_index: -3, char_offset: 'x' })
+    expect(bookmark.chapterIndex).toBe(0)
+    expect(bookmark.charOffset).toBe(0)
+    expect(bookmark.excerpt).toBe('')
+    expect(bookmark.bookId).toBe('')
+    expect(bookmark.createdAt).toBe(0)
+  })
+
+  it('划线行映射出起止偏移与备注', () => {
+    expect(
+      toHighlight({
+        id: 'h1',
+        book_id: BOOK_ID,
+        chapter_index: 1,
+        start_offset: 5,
+        end_offset: 12,
+        text: '被划下来的七个字',
+        note: '这里的伏笔',
+        created_at: 8
+      })
+    ).toEqual({
+      id: 'h1',
+      bookId: BOOK_ID,
+      chapterIndex: 1,
+      startOffset: 5,
+      endOffset: 12,
+      text: '被划下来的七个字',
+      note: '这里的伏笔',
+      createdAt: 8
+    })
+  })
+
+  it('划线行没有备注时读回 null（这一版还不写备注）', () => {
+    expect(toHighlight({ note: null }).note).toBeNull()
+    expect(toHighlight({ note: '' }).note).toBeNull()
   })
 
   it('封面种子只由书名决定', () => {

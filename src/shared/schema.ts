@@ -50,6 +50,24 @@ export const splitChapterArgsSchema = z.object({
   offset: z.number().int().min(1, '拆分位置要落在章节中间')
 })
 
+/** 书签与划线（0.1.3 第 6 项）：偏移语义与 progress 一致。 */
+export const annotationIdArgsSchema = z.object({ id: z.string().min(1).max(64) })
+
+export const bookmarkAddArgsSchema = z.object({
+  bookId: bookIdSchema,
+  chapterIndex: chapterIndexSchema,
+  charOffset: z.number().int().min(0),
+  excerpt: z.string().max(200)
+})
+
+export const highlightAddArgsSchema = z.object({
+  bookId: bookIdSchema,
+  chapterIndex: chapterIndexSchema,
+  startOffset: z.number().int().min(0),
+  endOffset: z.number().int().min(0),
+  text: z.string().min(1, '划线内容不能为空').max(2000)
+})
+
 export const progressSchema = z.object({
   bookId: bookIdSchema,
   chapterIndex: chapterIndexSchema,

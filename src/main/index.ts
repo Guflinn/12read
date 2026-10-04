@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { BrowserWindow, app } from 'electron'
 import { CH } from '@shared/channels'
 import { installCsp } from './csp'
+import { AnnotationsRepository } from './db/annotations-repository'
 import { openDatabase } from './db/better-sqlite3-driver'
 import { LibraryRepository } from './db/library-repository'
 import { MetaRepository } from './db/meta-repository'
@@ -61,6 +62,7 @@ function bootstrap(): void {
     importer,
     library: new LibraryService(root, repo),
     chapters: new ChapterEditor(repo),
+    annotations: new AnnotationsRepository(db),
     content: new FileContentReader(root, repo),
     progress: new SqlProgressStore(repo),
     settings: new SettingsStore(meta),

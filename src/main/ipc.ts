@@ -3,9 +3,12 @@ import type { z } from 'zod'
 import { CH } from '@shared/channels'
 import { newBookId } from '@shared/core/ids'
 import {
+  annotationIdArgsSchema,
+  bookmarkAddArgsSchema,
   cancelArgsSchema,
   emptyArgsSchema,
   getArgsSchema,
+  highlightAddArgsSchema,
   importArgsSchema,
   mergeChapterArgsSchema,
   progressSchema,
@@ -16,7 +19,16 @@ import {
   settingsSchema,
   splitChapterArgsSchema
 } from '@shared/schema'
-import type { Book, Chapter, Progress, ReaderSettings, ShelfBook } from '@shared/types'
+import type {
+  Book,
+  Bookmark,
+  Chapter,
+  Highlight,
+  Progress,
+  ReaderSettings,
+  ShelfBook
+} from '@shared/types'
+import type { AnnotationsRepository } from './db/annotations-repository'
 import type { ChapterEditor } from './services/chapter-editor'
 import type { FileContentReader } from './services/content-reader'
 import { toImportError, type ImportError } from './services/import-error'
@@ -30,6 +42,8 @@ export interface IpcContext {
   library: LibraryService
   /** 手动改分章：只重写章节表，正文不动（0.1.3 第 5 项）。 */
   chapters: ChapterEditor
+  /** 书签与划线（0.1.3 第 6 项）。 */
+  annotations: AnnotationsRepository
   content: FileContentReader
   progress: SqlProgressStore
   settings: SettingsStore
@@ -146,6 +160,55 @@ export function registerIpc(ctx: IpcContext): void {
   handle(CH.chapterSplit, splitChapterArgsSchema, ({ bookId, index, offset }): Chapter[] =>
     runChapterEdit(() => ctx.chapters.split(bookId, index, offset))
   )
+
+  // 书签与划线：id 与时间戳一律由主进程生成，渲染进程只报位置
+  handle(CH.bookmarkList, getArgsSchema, ({ bookId }): Bookmark[] =>
+    ctx.annotations.listBookmarks(bookId)
+  )
+
+  handle(
+    CH.bookmarkAdd,
+    bookmarkAddArgsSchema,
+    ({ bookId, chapterIndex, charOffset, excerpt }): Bookmark =>
+      ctx.annotations.addBookmark({
+        id: newBookId(),
+        bookId,
+        chapterIndex,
+        charOffset,
+        excerpt,
+        createdAt: Date.now()
+      })
+  )
+
+  handle(CH.bookmarkRemove, annotationIdArgsSchema, ({ id }): void => {
+    ctx.annotations.removeBookmark(id)
+  })
+
+  handle(CH.highlightList, getArgsSchema, ({ bookId }): Highlight[] =>
+    ctx.annotations.listHighlights(bookId)
+  )
+
+  handle(
+    CH.highlightAdd,
+    highlightAddArgsSchema,
+    ({ bookId, chapterIndex, startOffset, endOffset, text }): Highlight => {
+      if (endOffset <= startOffset) throw new Error('划线范围不合法：结束位置要在开始位置之后')
+      return ctx.annotations.addHighlight({
+        id: newBookId(),
+        bookId,
+        chapterIndex,
+        startOffset,
+        endOffset,
+        text,
+        note: null,
+        createdAt: Date.now()
+      })
+    }
+  )
+
+  handle(CH.highlightRemove, annotationIdArgsSchema, ({ id }): void => {
+    ctx.annotations.removeHighlight(id)
+  })
 
   handle(CH.progressGet, getArgsSchema, ({ bookId }): Promise<Progress | null> =>
     ctx.progress.get(bookId)

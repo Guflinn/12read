@@ -196,7 +196,7 @@ MVP 只用一句话定义成功标准：
 
 ## 10. Backlog（本版不做，需要时再立项）
 
-已在 0.1.1 / 0.1.2 交付的体验增强（不属于本文档 P0，也不占用 Backlog 名额）：键盘翻页、书架搜索与排序、阅读器底部百分比与剩余字数（0.1.1）；顶栏独立的日/夜间切换、回到上次停留的位置、正文加粗（0.1.2）。0.1.3 一次性吃掉下面 Backlog 的第 1、2、3、4、5、7、8 项；第 6 项 PWA 对 Electron 桌面版没有意义，建议砍掉；EPUB 仍排 0.2.0。
+已在 0.1.1 / 0.1.2 交付的体验增强（不属于本文档 P0，也不占用 Backlog 名额）：键盘翻页、书架搜索与排序、阅读器底部百分比与剩余字数（0.1.1）；顶栏独立的日/夜间切换、回到上次停留的位置、正文加粗（0.1.2）。0.1.3 一次性吃掉下面 Backlog 的第 1、2、3、4、5、7、8 项（这 7 项都已交付）；第 6 项 PWA 对 Electron 桌面版没有意义，建议砍掉；EPUB 仍排 0.2.0。
 
 ### 已排期：0.1.3（大更新，范围 2026-10-04 由用户圈定）
 
@@ -212,7 +212,7 @@ MVP 只用一句话定义成功标准：
 | 6 | 书签与划线 | **已完成（commit ed20635 / fcba50b / 545c012）**：schema v2 迁移（`schema-v2.ts` 建 `bookmark` / `highlight` / `reading_stat` 与三个索引，`annotations-repository.ts` 读写），新增 `bookmark:list/add/remove` 与 `highlight:list/add/remove` 六个通道；顶栏「🔖 书签」、正文选区浮出工具条划线、点已有划线浮出删除，抽屉拆成目录 / 书签 / 划线三页 | 划线按解码后文本的字符偏移存，与进度同一套语义；笔记不做，`highlight.note` 字段先留在表里；第 8 项阅读统计复用这次建好的 `reading_stat` |
 | 7 | 章节内搜索 + 全书搜索 | **已完成（commit 2b250d3 / 9c59286）**：新增纯函数 `src/shared/core/search.ts`（`findMatches` / `contextAround` / `chapterMatches`）与 `src/main/services/search.ts`（`BookSearchService` 逐章扫正文，每章最多 30 条、全书最多 200 条，主进程逐章 yield 事件循环），通道 `book:search`；顶栏「🔍 搜索」/ Ctrl+F 开面板，可切「本章 / 全书」，命中列表带章号与前后 24 字，点一条跳过去并闪一下 | **不用 SQLite FTS5**（见下方已定问题）；不需要新表，schema v2 的迁移与这次无关 |
 | 8 | 阅读统计 | **已完成（commit 284b43b / 4157df5）**：复用第 6 项建好的 `reading_stat` 表，`ReadingStatRepository` 按 `(book_id, day)` 累加，`ReadingStatsService` 出「今天 / 累计 / 连续天数 / 最近 14 天 / 读得最多的 5 本」，通道 `stat:add` / `stat:get`；渲染层 `core/reading-clock.ts` 每 15 秒记一段（窗口可见且 60 秒内有活动才算），字数按同章前进的章内偏移差累计，书架「阅读统计」按钮打开面板 | 不画折线图，只给 14 根柱；时长是「窗口开着且人还在」的近似值，不追求精确 |
-| 9 | 导出与备份 | 整库打包 zip（书架 + 进度 + 正文 + 书签划线 + 统计） | 放最后：要覆盖前面所有新数据 |
+| 9 | 导出与备份 | **已完成（commit d2ba8fb）**：`src/main/services/zip-writer.ts` 手写 ZIP（自算 CRC32、逐条 `deflateRaw`、压不小就退回 STORE、文件名置 UTF-8 位），`BackupService` 用 SQLite `VACUUM INTO` 拿一致快照，连同 `books/<id>/source.bin` 与 `12read-backup.json` 清单（app 版本 / schema 版本 / 导出时间 / 各表计数 / 每本书的 hasSource）打成 `backup:export`；书架「导出备份」按钮弹「另存为」，取消返回 null | **只做导出，不做还原**（还原要覆盖本机数据，留到以后）；派生的 `content.txt` 与 `chapters/NNNN.txt` 不进包，能从 `source.bin` 重新生成 |
 | 10 | 大书专项（性能） | 打开 / 首次进入阅读 / 切章 / 长章节滚动 / 内存；大书下的导入、搜索、进度保存 | 用户 2026-10-04 追加；不新增功能，专用那本 851 万字 / 41 节的书当靶子 |
 
 实施顺序：**2 → 3 → 4 → 5 →（schema v2 迁移）→ 6 → 7 → 8 → 9 → 10**。
@@ -231,7 +231,7 @@ MVP 只用一句话定义成功标准：
 2. 章节内搜索（0.1.3，扩成全书搜索）
 3. 手动修正章节（0.1.3）
 4. 手动指定编码重解码（0.1.3）
-5. 数据导出/备份（0.1.3）
+5. 数据导出/备份（0.1.3，已完成）
 6. PWA 离线（建议砍掉：Electron 桌面版本就不联网）
 7. 分页模式（0.1.3，以「左右翻动」落地）
 8. 阅读统计（0.1.3，已完成）

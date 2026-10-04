@@ -138,9 +138,16 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
   useLayoutEffect(() => {
     const scroll = scrollRef.current
     if (!scroll) return
-    topsRef.current = measureTops()
     const wantsAnchor = pendingOffset !== null
     const desired = wantsAnchor ? pendingOffset : lastOffsetRef.current
+    // 目标还落在没铺出来的那一截里：先把正文铺到那儿，这一轮不滚。
+    // 少了这一步，跳进超长章节的深处只会滚到已渲染部分的末尾，
+    // 而滚动位置一旦不在底部就不会再触发「继续加载」，人就停在半路（0.1.3 第 10 项）。
+    if (truncated && desired >= visibleChars) {
+      useReaderStore.getState().revealTo(desired)
+      return
+    }
+    topsRef.current = measureTops()
     const target = scrollTopForOffset(measurement, topsRef.current, desired)
     const tolerance = wantsAnchor ? 0 : DRIFT_TOLERANCE_PX
     if (Math.abs(scroll.scrollTop - target) > tolerance) scroll.scrollTop = target
@@ -148,7 +155,7 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
       lastOffsetRef.current = desired
       useReaderStore.getState().consumePending()
     }
-  }, [pendingOffset, measurement, measureTops, fontSize, lineHeight])
+  }, [pendingOffset, measurement, measureTops, fontSize, lineHeight, truncated, visibleChars])
 
   useEffect(() => {
     const onResize = (): void => {

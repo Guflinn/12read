@@ -103,6 +103,8 @@ export interface ReaderState {
   flushSync(): void
   consumePending(): void
   revealMore(): void
+  /** 一口气把正文铺到目标偏移之后：从进度/书签/搜索结果跳进章节深处时用。 */
+  revealTo(offset: CharOffset): void
   setToc(open: boolean): void
   setSheet(open: boolean): void
 }
@@ -635,6 +637,19 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     set((state) => ({
       visibleChars: Math.min(state.chapterText.length, state.visibleChars + CHUNK_FIRST_RENDER_CHARS)
     }))
+  },
+
+  /**
+   * 铺到目标偏移之后一屏为止，一次搞定。
+   * 位处超长章节深处时，一格一格往前挪要么来回几十轮（跳一次要等好几秒），
+   * 要么半路停下不动 —— 因为滚动位置一旦不在底部，「继续加载」就不会再触发。
+   * 铺出来的量正好是「目标位置 + 一屏」，DOM 大小约等于人离开这里时的那一屏。
+   */
+  revealTo(offset: CharOffset): void {
+    const state = get()
+    const end = clampOffset(offset, state.chapterText.length) + CHUNK_FIRST_RENDER_CHARS
+    const need = Math.min(state.chapterText.length, end)
+    if (need > state.visibleChars) set({ visibleChars: need })
   },
 
   setToc(open: boolean): void {

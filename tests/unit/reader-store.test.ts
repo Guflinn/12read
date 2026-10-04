@@ -322,6 +322,25 @@ describe('reader store: 打开', () => {
     useReaderStore.getState().revealMore()
     expect(useReaderStore.getState().visibleChars).toBe(longText.length)
   })
+
+  it('跳到章节深处时一次铺到目标之后一屏，铺够了就不动', async () => {
+    const longText = '长'.repeat(CHUNK_FIRST_RENDER_CHARS * 6)
+    makeHarness(null, [longText, '第二章'])
+    await useReaderStore.getState().open(BOOK_ID)
+    expect(useReaderStore.getState().visibleChars).toBe(CHUNK_FIRST_RENDER_CHARS)
+
+    // 目标落在第 3 万 5 千字：铺到目标 + 一屏
+    useReaderStore.getState().revealTo(CHUNK_FIRST_RENDER_CHARS + 15_000)
+    expect(useReaderStore.getState().visibleChars).toBe(CHUNK_FIRST_RENDER_CHARS * 2 + 15_000)
+
+    // 往已经铺出来的地方跳：不缩回去（不然刚要读的那一段会被收回）
+    useReaderStore.getState().revealTo(1000)
+    expect(useReaderStore.getState().visibleChars).toBe(CHUNK_FIRST_RENDER_CHARS * 2 + 15_000)
+
+    // 越界的目标夹到章尾
+    useReaderStore.getState().revealTo(longText.length * 2)
+    expect(useReaderStore.getState().visibleChars).toBe(longText.length)
+  })
 })
 
 describe('reader store: 章节切换', () => {

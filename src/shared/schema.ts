@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { UUID_V4_RE } from '@shared/core/ids'
+import { MANUAL_ENCODINGS } from '@shared/types'
 
 /** bookId 一律 uuid v4：同一个正则也用于 main 侧拼路径前的校验（TECH.md 4.2）。 */
 export const bookIdSchema = z.string().regex(UUID_V4_RE, 'bookId 必须是 uuid v4')
@@ -18,6 +19,12 @@ export const emptyArgsSchema = z.undefined().or(z.null())
 export const renameArgsSchema = z.object({
   bookId: bookIdSchema,
   title: z.string().trim().min(1, '书名不能为空').max(200)
+})
+
+/** 重新解码：编码由用户挑，auto 表示重新自动检测一遍。 */
+export const redecodeArgsSchema = z.object({
+  bookId: bookIdSchema,
+  encoding: z.enum(MANUAL_ENCODINGS)
 })
 
 export const readChapterArgsSchema = z.object({

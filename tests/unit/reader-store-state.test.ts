@@ -53,6 +53,7 @@ function makeApi(): ApiMock {
     listBooks: vi.fn(),
     getBook: vi.fn(async () => BOOK),
     renameBook: vi.fn(),
+    redecodeBook: vi.fn(async () => BOOK),
     deleteBook: vi.fn(),
     chapters: vi.fn(async () => CHAPTERS),
     readChapter: vi.fn(async () => TEXT),

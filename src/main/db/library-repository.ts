@@ -114,6 +114,25 @@ export class LibraryRepository {
     this.db.prepare('UPDATE book SET chapter_count = ? WHERE id = ?').run(chapters.length, bookId)
   }
 
+  /**
+   * 重新解码后整份换掉正文相关数据：章节表、编码与字数，并清掉进度。
+   * 重新解码后所有字符偏移都变了，旧进度（章序号 + 章内偏移 + 锚点）不再成立。
+   */
+  replaceDecoded(
+    bookId: string,
+    decoded: { encoding: Encoding; charCount: number },
+    chapters: NewChapterRecord[]
+  ): void {
+    const run = this.db.transaction(() => {
+      this.replaceChapters(bookId, chapters)
+      this.db
+        .prepare('UPDATE book SET encoding = ?, char_count = ? WHERE id = ?')
+        .run(decoded.encoding, decoded.charCount, bookId)
+      this.db.prepare('DELETE FROM progress WHERE book_id = ?').run(bookId)
+    })
+    run()
+  }
+
   listChapters(bookId: string): Chapter[] {
     const rows = this.db
       .prepare(`SELECT ${CHAPTER_COLUMNS} FROM chapter WHERE book_id = ? ORDER BY idx ASC`)

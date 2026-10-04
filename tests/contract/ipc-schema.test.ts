@@ -5,6 +5,7 @@ import {
   importArgsSchema,
   progressSchema,
   readChapterArgsSchema,
+  redecodeArgsSchema,
   renameArgsSchema,
   settingsSchema
 } from '@shared/schema'
@@ -56,6 +57,12 @@ describe('IPC 入参校验：合法用例', () => {
         pageWidth: 'full'
       }).success
     ).toBe(true)
+  })
+
+  it('重解码入参接受自动检测与每种手动编码', () => {
+    for (const encoding of ['auto', 'utf-8', 'gb18030', 'big5', 'utf-16le', 'utf-16be']) {
+      expect(redecodeArgsSchema.safeParse({ bookId: VALID_ID, encoding }).success).toBe(true)
+    }
   })
 
   it('缺字体与栏宽时补默认值', () => {
@@ -113,6 +120,12 @@ describe('IPC 入参校验：非法用例', () => {
       deviceId: null
     })
     expect(bad.success).toBe(false)
+  })
+
+  it('拒绝重解码里不认识的编码与坏 bookId', () => {
+    expect(redecodeArgsSchema.safeParse({ bookId: VALID_ID, encoding: 'shift-jis' }).success).toBe(false)
+    expect(redecodeArgsSchema.safeParse({ bookId: VALID_ID }).success).toBe(false)
+    expect(redecodeArgsSchema.safeParse({ bookId: 'nope', encoding: 'auto' }).success).toBe(false)
   })
 
   it('拒绝空 filePath 与空 taskId', () => {

@@ -6,6 +6,8 @@ export const CH = {
   bookGet: 'book:get',
   bookRename: 'book:rename',
   bookDelete: 'book:delete',
+  /** 用指定编码重新解码已导入的书（原始字节一直留着，不用重新导入）。 */
+  bookRedecode: 'book:redecode',
   bookChapters: 'book:chapters',
   chapterRead: 'chapter:read',
   progressGet: 'progress:get',

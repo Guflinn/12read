@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import * as iconv from 'iconv-lite'
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -46,15 +47,16 @@ async function seedSource(bytes: Uint8Array): Promise<void> {
   await writeFile(srcFile, bytes)
 }
 
-function makeJob(contentMode: DecodeJob['contentMode']): DecodeJob {
-  return { taskId: 'task-1', sourcePath: srcFile, destDir, contentMode }
+function makeJob(contentMode: DecodeJob['contentMode'], encoding?: DecodeJob['encoding']): DecodeJob {
+  return { taskId: 'task-1', sourcePath: srcFile, destDir, contentMode, encoding }
 }
 
 async function run(
-  contentMode: DecodeJob['contentMode']
+  contentMode: DecodeJob['contentMode'],
+  encoding?: DecodeJob['encoding']
 ): Promise<{ result: DecodeJobResult; events: ProgressEvent[] }> {
   const events: ProgressEvent[] = []
-  const result = await runDecodeJob(makeJob(contentMode), (stage, ratio, message) => {
+  const result = await runDecodeJob(makeJob(contentMode, encoding), (stage, ratio, message) => {
     events.push({ stage, ratio, message })
   })
   return { result, events }
@@ -148,6 +150,41 @@ describe('runDecodeJob 单文件模式（single）', () => {
     expect((error as ImportError).code).toBe('binary')
     expect((error as ImportError).message).toBe('这不是一个纯文本文件')
     expect(existsSync(destDir)).toBe(false)
+  })
+})
+
+describe('runDecodeJob 指定编码（重新解码用）', () => {
+  const BIG5_TEXT = '第一章 起点\n繁體中文測試，這是一本老書。\n'
+
+  it('job.encoding 覆盖自动检测，big5 老书能解对', async () => {
+    await seedSource(new Uint8Array(iconv.encode(BIG5_TEXT, 'big5')))
+
+    // 自动检测永远不会给出 big5（GBK 与 BIG5 的字节区间重叠），解出来是乱码
+    const guessed = await run('single')
+    expect(guessed.result.encoding).not.toBe('big5')
+    expect(await readFile(join(destDir, CONTENT_FILE), 'utf8')).not.toBe(BIG5_TEXT)
+
+    const { result } = await run('single', 'big5')
+
+    expect(result.encoding).toBe('big5')
+    expect(result.suspicious).toBe(false)
+    expect(await readFile(join(destDir, CONTENT_FILE), 'utf8')).toBe(BIG5_TEXT)
+  })
+
+  it('sliced 重解码会清掉多余的旧章文件', async () => {
+    // 先在 chapters/ 里摆出「上次解得比这次多」的残留
+    await seedSource(bytesUtf8(SAMPLE_TEXT))
+    const stale = join(destDir, CHAPTERS_DIR)
+
+    const first = await run('sliced')
+    expect(first.result.chapters).toHaveLength(2)
+    await writeFile(join(stale, chapterFileName(9)), '上一版留下的第九片', 'utf8')
+    expect(await readdir(stale)).toContain(chapterFileName(9))
+
+    const second = await run('sliced')
+
+    expect(second.result.chapters).toHaveLength(2)
+    expect(await readdir(stale)).toEqual([chapterFileName(0), chapterFileName(1)])
   })
 })
 

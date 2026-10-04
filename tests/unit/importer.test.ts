@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import * as iconv from 'iconv-lite'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,8 +8,8 @@ import { SLICE_MODE_BYTES, type Book, type ImportProgress, type ImportStage } fr
 import type { LibraryRepository, NewBookRecord, NewChapterRecord } from '@main/db/library-repository'
 import { ImportError } from '@main/services/import-error'
 import { ImportService } from '@main/services/importer'
-import { bookDir, booksRoot } from '@main/services/layout'
-import { SAMPLE_TEXT, bytesBinaryWithNul, bytesUtf8 } from '../fixtures/texts'
+import { bookDir, booksRoot, contentPath, sourcePath } from '@main/services/layout'
+import { SAMPLE_TEXT, bytesBinaryWithNul, bytesGbk, bytesUtf8 } from '../fixtures/texts'
 
 /**
  * 只把 stat 包一层，用来伪造超大文件；其余文件操作全走真实实现，
@@ -35,12 +36,16 @@ interface InsertCall {
   chapters: NewChapterRecord[]
 }
 
-function makeRepo(): {
+function makeRepo(initial: Book | null = null): {
   repo: LibraryRepository
   insertBook: ReturnType<typeof vi.fn>
+  getBook: ReturnType<typeof vi.fn>
+  replaceDecoded: ReturnType<typeof vi.fn>
   calls: InsertCall[]
+  setBook(next: Book | null): void
 } {
   const calls: InsertCall[] = []
+  let stored = initial
   const insertBook = vi.fn((record: NewBookRecord, chapters: NewChapterRecord[]): Book => {
     calls.push({ record, chapters })
     return {
@@ -58,7 +63,29 @@ function makeRepo(): {
       lastOpenedAt: null
     }
   })
-  return { repo: { insertBook } as unknown as LibraryRepository, insertBook, calls }
+  const getBook = vi.fn((): Book | null => stored)
+  const replaceDecoded = vi.fn(
+    (bookId: string, decoded: { encoding: Book['encoding']; charCount: number }, chapters: NewChapterRecord[]): void => {
+      if (stored && stored.id === bookId) {
+        stored = {
+          ...stored,
+          encoding: decoded.encoding,
+          charCount: decoded.charCount,
+          chapterCount: chapters.length
+        }
+      }
+    }
+  )
+  return {
+    repo: { insertBook, getBook, replaceDecoded } as unknown as LibraryRepository,
+    insertBook,
+    getBook,
+    replaceDecoded,
+    calls,
+    setBook(next: Book | null): void {
+      stored = next
+    }
+  }
 }
 
 let root = ''
@@ -212,6 +239,132 @@ describe('ImportService.importFile 内联分支（worker 文件缺失）', () =>
     expect(calls[0].record.contentMode).toBe('sliced')
     expect(book.contentMode).toBe('sliced')
     expect(existsSync(join(bookDir(root, book.id), 'chapters'))).toBe(true)
+  })
+})
+
+describe('ImportService.redecode（换编码重解，原始文件不动）', () => {
+  const BOOK_ID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
+
+  function makeBook(patch: Partial<Book> = {}): Book {
+    return {
+      id: BOOK_ID,
+      title: '十二阅读',
+      author: '林某',
+      format: 'txt',
+      encoding: 'utf-8',
+      byteSize: 100,
+      charCount: 12,
+      chapterCount: 1,
+      contentMode: 'single',
+      coverSeed: 1,
+      addedAt: 1,
+      lastOpenedAt: null,
+      ...patch
+    }
+  }
+
+  /** 摆出「这本书已经导入过、source.bin 还在」的目录。 */
+  async function seedBook(bytes: Uint8Array): Promise<void> {
+    await mkdir(bookDir(root, BOOK_ID), { recursive: true })
+    await writeFile(sourcePath(root, BOOK_ID), bytes)
+  }
+
+  it('复用 source.bin 重解：不新增书，更新编码与字数，正文不再乱码', async () => {
+    const { repo, insertBook, replaceDecoded, getBook } = makeRepo(makeBook())
+    await seedBook(bytesGbk(SAMPLE_TEXT))
+    const events: ImportProgress[] = []
+    const service = new ImportService({ root, repo }, (progress) => events.push(progress))
+
+    const updated = await service.redecode(BOOK_ID, 'gb18030', 'task-r1')
+
+    expect(insertBook).not.toHaveBeenCalled()
+    expect(replaceDecoded).toHaveBeenCalledTimes(1)
+    expect(replaceDecoded.mock.calls[0][0]).toBe(BOOK_ID)
+    expect(replaceDecoded.mock.calls[0][1]).toEqual({
+      encoding: 'gb18030',
+      charCount: SAMPLE_TEXT.length
+    })
+    expect(replaceDecoded.mock.calls[0][2]).toHaveLength(2)
+    expect(getBook).toHaveBeenCalledWith(BOOK_ID)
+    expect(updated.encoding).toBe('gb18030')
+    expect(updated.charCount).toBe(SAMPLE_TEXT.length)
+    expect(updated.chapterCount).toBe(2)
+    expect(await readFile(contentPath(root, BOOK_ID), 'utf8')).toBe(SAMPLE_TEXT)
+    // 进度用「书名（重新解码）」当名字，书架上的导入条才看得懂
+    expect(events[0]).toEqual({
+      taskId: 'task-r1',
+      filePath: '十二阅读（重新解码）',
+      stage: 'reading',
+      ratio: 0.01,
+      message: undefined
+    })
+    expect(events.at(-1)).toMatchObject({ stage: 'done', ratio: 1 })
+  })
+
+  it('手工指定 big5 也能解出繁体书', async () => {
+    const text = '第一章 起点\n繁體中文測試，這是一本老書。\n'
+    const { repo } = makeRepo(makeBook())
+    await seedBook(new Uint8Array(iconv.encode(text, 'big5')))
+    const service = new ImportService({ root, repo })
+
+    const updated = await service.redecode(BOOK_ID, 'big5', 'task-r2')
+
+    expect(updated.encoding).toBe('big5')
+    expect(await readFile(contentPath(root, BOOK_ID), 'utf8')).toBe(text)
+  })
+
+  it('auto 就是再猜一次：source 是 GBK 且书名允许时能猜对', async () => {
+    const { repo } = makeRepo(makeBook())
+    await seedBook(bytesUtf8(SAMPLE_TEXT))
+    const service = new ImportService({ root, repo })
+
+    const updated = await service.redecode(BOOK_ID, 'auto', 'task-r3')
+
+    expect(updated.encoding).toBe('utf-8')
+    expect(updated.charCount).toBe(SAMPLE_TEXT.length)
+  })
+
+  it('书不在库里报 db-error，且不碰磁盘', async () => {
+    const { repo } = makeRepo(null)
+    const service = new ImportService({ root, repo })
+
+    const error = await service.redecode(BOOK_ID, 'gb18030', 'task-r4').then(
+      () => null,
+      (cause: unknown) => cause
+    )
+
+    expect(error).toBeInstanceOf(ImportError)
+    expect((error as ImportError).code).toBe('db-error')
+    expect((error as ImportError).message).toBe('这本书不在书库里')
+    // 连 books/ 都不该被创建
+    expect(existsSync(booksRoot(root))).toBe(false)
+  })
+
+  it('source.bin 丢了报 io-error，并且保留书目录（进度和正文都还在）', async () => {
+    const { repo } = makeRepo(makeBook())
+    await mkdir(bookDir(root, BOOK_ID), { recursive: true })
+    await writeFile(contentPath(root, BOOK_ID), SAMPLE_TEXT, 'utf8')
+    const events: ImportProgress[] = []
+    const service = new ImportService({ root, repo }, (progress) => events.push(progress))
+
+    const error = await service.redecode(BOOK_ID, 'gb18030', 'task-r5').then(
+      () => null,
+      (cause: unknown) => cause
+    )
+
+    expect((error as ImportError).code).toBe('io-error')
+    expect((error as ImportError).message).toBe('找不到这本书的原始文件，只能重新导入')
+    expect(events).toEqual([
+      {
+        taskId: 'task-r5',
+        filePath: '十二阅读（重新解码）',
+        stage: 'error',
+        ratio: 1,
+        message: '找不到这本书的原始文件，只能重新导入'
+      }
+    ])
+    // 与 importFile 不同：重解码失败不能删掉用户已经读过的书
+    expect(await readdir(bookDir(root, BOOK_ID))).toContain('content.txt')
   })
 })
 

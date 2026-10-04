@@ -1,4 +1,12 @@
-import type { Book, Chapter, ImportProgress, Progress, ReaderSettings, ShelfBook } from './types'
+import type {
+  Book,
+  Chapter,
+  ImportProgress,
+  ManualEncoding,
+  Progress,
+  ReaderSettings,
+  ShelfBook
+} from './types'
 
 /**
  * 渲染进程可见的 API 契约（TECH.md 4.2）。
@@ -25,6 +33,11 @@ export interface ReaderApi {
   listBooks(): Promise<ShelfBook[]>
   getBook(bookId: string): Promise<Book | null>
   renameBook(bookId: string, title: string): Promise<Book>
+  /**
+   * 用指定编码把已导入的书重新解码一遍（原始字节留在 books/<id>/source.bin）。
+   * 重新解码后字符偏移全部变化，所以这本书的阅读进度会被清零。
+   */
+  redecodeBook(bookId: string, encoding: ManualEncoding): Promise<Book>
   deleteBook(bookId: string): Promise<void>
   chapters(bookId: string): Promise<Chapter[]>
   readChapter(bookId: string, index: number): Promise<string>

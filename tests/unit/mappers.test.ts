@@ -104,6 +104,7 @@ describe('数据库行映射', () => {
 
   it('枚举白名单之外的取值回落', () => {
     expect(asEncoding('utf-8-bom')).toBe('utf-8-bom')
+    expect(asEncoding('big5')).toBe('big5')
     expect(asEncoding('shift-jis')).toBe('unknown')
     expect(asContentMode('sliced')).toBe('sliced')
     expect(asChapterKind('segment')).toBe('segment')

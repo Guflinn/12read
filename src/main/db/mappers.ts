@@ -19,6 +19,7 @@ const ENCODINGS: readonly Encoding[] = [
   'utf-16le',
   'utf-16be',
   'gb18030',
+  'big5',
   'unknown'
 ]
 

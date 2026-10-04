@@ -72,6 +72,7 @@ function makeHarness(
     listBooks: vi.fn(async () => [book]),
     getBook,
     renameBook: vi.fn(),
+    redecodeBook: vi.fn(async () => book),
     deleteBook: vi.fn(),
     chapters: vi.fn(async () => chapters),
     readChapter,

@@ -71,7 +71,11 @@ const SETTINGS: ReaderSettings = {
 function makeContext(): {
   ctx: IpcContext
   order: string[]
-  importer: { importFile: ReturnType<typeof vi.fn>; cancel: ReturnType<typeof vi.fn> }
+  importer: {
+    importFile: ReturnType<typeof vi.fn>
+    redecode: ReturnType<typeof vi.fn>
+    cancel: ReturnType<typeof vi.fn>
+  }
   library: Record<string, ReturnType<typeof vi.fn>>
   content: Record<string, ReturnType<typeof vi.fn>>
   progress: Record<string, ReturnType<typeof vi.fn>>
@@ -82,6 +86,10 @@ function makeContext(): {
     importFile: vi.fn(async (filePath: string) => {
       order.push('import:' + filePath)
       return BOOK
+    }),
+    redecode: vi.fn(async (bookId: string, encoding: string): Promise<Book> => {
+      order.push('redecode:' + encoding)
+      return { ...BOOK, id: bookId, encoding: encoding as Book['encoding'] }
     }),
     cancel: vi.fn((taskId: string) => {
       order.push('cancel:' + taskId)
@@ -244,6 +252,42 @@ describe('IPC 注册与转发', () => {
     const { order } = setup()
     await call(CH.bookDelete, { bookId: BOOK_ID })
     expect(order).toEqual(['remove:' + BOOK_ID, 'invalidate:' + BOOK_ID])
+  })
+
+  it('book:redecode 把编码交给导入服务，并清掉正文缓存', async () => {
+    const { order, importer, content } = setup()
+
+    const updated = await call(CH.bookRedecode, { bookId: BOOK_ID, encoding: 'big5' })
+
+    expect(updated).toMatchObject({ id: BOOK_ID, encoding: 'big5' })
+    expect(importer.redecode).toHaveBeenCalledTimes(1)
+    const [bookId, encoding, taskId] = importer.redecode.mock.calls[0]
+    expect(bookId).toBe(BOOK_ID)
+    expect(encoding).toBe('big5')
+    expect(typeof taskId).toBe('string')
+    expect(content.invalidate).toHaveBeenCalledWith(BOOK_ID)
+    expect(order).toEqual(['redecode:big5', 'invalidate:' + BOOK_ID])
+  })
+
+  it('book:redecode 失败时翻成带 code 的中文提示，缓存不动', async () => {
+    const { importer, content } = setup()
+    importer.redecode.mockRejectedValueOnce(new Error('找不到这本书的原始文件，只能重新导入'))
+
+    const error = await call(CH.bookRedecode, { bookId: BOOK_ID, encoding: 'gb18030' }).then(
+      () => null,
+      (cause: unknown) => cause
+    )
+
+    expect((error as Error).message).toBe('重新解码失败（unknown）：找不到这本书的原始文件，只能重新导入')
+    expect(content.invalidate).not.toHaveBeenCalled()
+  })
+
+  it('book:redecode 编码不合法时直接被拒', async () => {
+    const { importer } = setup()
+    await expect(call(CH.bookRedecode, { bookId: BOOK_ID, encoding: 'shift-jis' })).rejects.toThrow(
+      '参数校验失败: ' + CH.bookRedecode
+    )
+    expect(importer.redecode).not.toHaveBeenCalled()
   })
 
   it('chapter:read 转发 bookId 与章序号，负序号被拒', async () => {

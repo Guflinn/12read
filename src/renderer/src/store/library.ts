@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { ImportProgress, ShelfBook } from '@shared/types'
+import type { ImportProgress, ManualEncoding, ShelfBook } from '@shared/types'
 import { readerApi } from '@/core/api'
 
 export interface LibraryState {
@@ -13,6 +13,8 @@ export interface LibraryState {
   importPaths(paths: readonly string[]): Promise<number>
   pickAndImport(): Promise<void>
   rename(bookId: string, title: string): Promise<void>
+  /** 换一个编码重新解码这本书（进度会清零），成功后刷新书架。 */
+  redecode(bookId: string, encoding: ManualEncoding): Promise<void>
   remove(bookId: string): Promise<void>
   applyProgress(progress: ImportProgress): void
   clearError(): void
@@ -76,6 +78,16 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       set({ books: get().books.map((b) => (b.id === bookId ? { ...b, ...updated } : b)) })
     } catch (cause) {
       set({ error: '重命名失败：' + messageOf(cause) })
+    }
+  },
+
+  async redecode(bookId: string, encoding: ManualEncoding): Promise<void> {
+    try {
+      await readerApi().redecodeBook(bookId, encoding)
+      await get().load()
+      set({ error: null, importing: [] })
+    } catch (cause) {
+      set({ error: '重新解码失败：' + messageOf(cause), importing: [] })
     }
   },
 

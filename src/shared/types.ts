@@ -14,8 +14,18 @@ export type BookId = string
 
 export type BookFormat = 'txt'
 
-/** 检测到的源文件编码。unknown 表示解码结果可疑，仅附警告，不阻塞导入。 */
-export type Encoding = 'utf-8' | 'utf-8-bom' | 'utf-16le' | 'utf-16be' | 'gb18030' | 'unknown'
+/**
+ * 检测到的源文件编码。unknown 表示解码结果可疑，仅附警告，不阻塞导入。
+ * big5 只可能来自用户手工指定（繁体老书常见），自动检测永远不会给出它。
+ */
+export type Encoding = 'utf-8' | 'utf-8-bom' | 'utf-16le' | 'utf-16be' | 'gb18030' | 'big5' | 'unknown'
+
+/** 用户在「重新解码」里能选的编码；auto = 重新走一遍自动检测。 */
+export const MANUAL_ENCODINGS = ['auto', 'utf-8', 'gb18030', 'big5', 'utf-16le', 'utf-16be'] as const
+export type ManualEncoding = (typeof MANUAL_ENCODINGS)[number]
+
+/** 手工指定时真正生效的编码（auto 不算）。 */
+export type ForcedEncoding = Exclude<ManualEncoding, 'auto'>
 
 /** single：整本解码文本按偏移 slice；sliced：导入时按章切文件。 */
 export type ContentMode = 'single' | 'sliced'

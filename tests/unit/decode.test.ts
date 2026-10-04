@@ -1,6 +1,7 @@
+import * as iconv from 'iconv-lite'
 import { describe, expect, it } from 'vitest'
 import { ImportError } from '@main/services/import-error'
-import { decodeBytes, normalizeNewlines } from '@main/services/decode'
+import { decodeBytes, decodeBytesWith, normalizeNewlines } from '@main/services/decode'
 import {
   CRLF_TEXT,
   SAMPLE_TEXT,
@@ -14,6 +15,36 @@ import {
 } from '../fixtures/texts'
 
 const REPLACEMENT = String.fromCharCode(0xfffd)
+
+const BIG5_TEXT = '第一章 起点\n繁體中文測試，這是一本老書。\n'
+
+describe('按指定编码解码（重新解码用）', () => {
+  it('强制 big5 能解出繁体正文', () => {
+    const big5 = new Uint8Array(iconv.encode(BIG5_TEXT, 'big5'))
+    const out = decodeBytesWith(big5, 'big5')
+    expect(out.text).toBe(BIG5_TEXT)
+    expect(out.encoding).toBe('big5')
+    expect(out.suspicious).toBe(false)
+    // 同一批字节用自动检测会当成 GBK，解出来就是乱码
+    expect(decodeBytes(big5).text).not.toBe(BIG5_TEXT)
+  })
+
+  it('UTF-16 的 BOM 被摘掉，编码标记就是用户选的那个', () => {
+    const out = decodeBytesWith(bytesUtf16leBom(SAMPLE_TEXT), 'utf-16le')
+    expect(out.text).toBe(SAMPLE_TEXT)
+    expect(out.encoding).toBe('utf-16le')
+  })
+
+  it('编码选错只会可疑、不会抛错', () => {
+    const out = decodeBytesWith(bytesUtf8(SAMPLE_TEXT), 'gb18030')
+    expect(out.text).not.toBe(SAMPLE_TEXT)
+    expect(out.encoding).toBe('gb18030')
+  })
+
+  it('空文件解成空串', () => {
+    expect(decodeBytesWith(new Uint8Array(0), 'gb18030').text).toBe('')
+  })
+})
 
 describe('解码流水线', () => {
   it('无 BOM 的 UTF-8', () => {

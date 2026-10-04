@@ -219,6 +219,10 @@
     border: 1px solid var(--line); border-radius: 9px; }
   #shelf-match { font-size: 12.5px; color: var(--dim); white-space: nowrap; }
 
+  /* ---------- 重新解码（编码选择） ---------- */
+  .encoding-choices { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 6px; }
+  .modal-note { font-size: 12.5px; line-height: 1.7; color: var(--dim); margin: 8px 0 0; }
+
   /* ---------- 书架左下角的版本角标 ---------- */
   #app-version { position: fixed; left: 26px; bottom: 10px; font-size: 11.5px; letter-spacing: .4px;
     color: var(--dim); opacity: .85; pointer-events: none; user-select: none; }

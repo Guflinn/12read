@@ -27,9 +27,28 @@ export function decodeBody(encoding: Encoding, body: Uint8Array): string {
       return iconv.decode(buffer, 'utf-16be')
     case 'gb18030':
       return iconv.decode(buffer, 'gb18030')
+    case 'big5':
+      // big5 只在用户手工指定时出现（自动检测永远不给它），繁体老书用得上
+      return iconv.decode(buffer, 'big5')
     default:
       return new TextDecoder('utf-8').decode(body)
   }
+}
+
+/**
+ * 用户手工指定编码的解码路径：不做检测，直接按这个编码解，再跑一次健康检查。
+ * 编码不对时结果同样可疑，所以 suspicious 照样会给出来（只警告，不拦）。
+ */
+export function decodeBytesWith(bytes: Uint8Array, encoding: Encoding): DecodeOutcome {
+  let text: string
+  try {
+    text = decodeBody(encoding, bytes)
+  } catch (cause) {
+    throw new ImportError('decode-failed', '无法用这个编码解码该文件', cause)
+  }
+  // iconv 解出来的 BOM 会变成 U+FEFF 开头，手工解码时自己摘掉
+  const normalized = normalizeNewlines(text.charCodeAt(0) === 0xfeff ? text.slice(1) : text)
+  return { text: normalized, encoding, suspicious: assessDecodedText(normalized).suspicious }
 }
 
 export function decodeBytes(bytes: Uint8Array): DecodeOutcome {

@@ -291,6 +291,24 @@ describe('书库仓储', () => {
     db.close()
   })
 
+  it('replaceDecoded 换章、改编码与字数，并把进度清零', () => {
+    const { db, repo } = repoWithSchema()
+    repo.insertBook(makeBook('a', { title: '书' }), [makeChapter(0), makeChapter(1)])
+    repo.saveProgress(makeProgress('a'))
+    expect(repo.getProgress('a')).not.toBeNull()
+
+    repo.replaceDecoded('a', { encoding: 'big5', charCount: 1234 }, [makeChapter(0)])
+
+    const book = repo.getBook('a')
+    expect(book?.encoding).toBe('big5')
+    expect(book?.charCount).toBe(1234)
+    expect(book?.chapterCount).toBe(1)
+    expect(repo.listChapters('a')).toHaveLength(1)
+    // 重解码后所有字符偏移都变了，旧进度必须删掉
+    expect(repo.getProgress('a')).toBeNull()
+    db.close()
+  })
+
   it('deleteBook 靠外键级联删掉章节与进度', () => {
     const { db, repo } = repoWithSchema()
     repo.insertBook(makeBook('a', { title: '书' }), [makeChapter(0)])

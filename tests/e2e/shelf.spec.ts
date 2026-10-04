@@ -1,6 +1,14 @@
 import { join } from 'node:path'
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
-import { buildNovel, launchApp, makeTempDir, stubOpenDialog, writeNovelFile } from './helpers'
+import * as iconv from 'iconv-lite'
+import {
+  buildNovel,
+  launchApp,
+  makeTempDir,
+  stubOpenDialog,
+  writeBinaryFile,
+  writeNovelFile
+} from './helpers'
 
 // 书架这一层是 MVP 3.3 的验收面：书名清洗、最近阅读排序、重命名、删除、目录高亮、错误提示。
 // serial：每个用例都要独占一棵真实的 Electron 进程。
@@ -203,4 +211,40 @@ test('书架左下角显示版本号，进阅读器就不出现', async () => {
   await card(page, /^版本书$/).click()
   await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
   await expect(page.locator('#app-version')).toHaveCount(0)
+})
+
+test('重新解码：BIG5 繁体书认成乱码，在书卡上换编码重解一遍', async () => {
+  const sourceDir = makeTempDir('12read-big5-src-')
+  // 两个章名才会按章节切（只命中一个标记时整本定长分段，见 chapter-split）
+  const text =
+    '第一章 起点\n' +
+    '繁體中文測試，這是一本老書。\n'.repeat(20) +
+    '第二章 轉折\n' +
+    '繁體中文測試，這是一本老書。\n'.repeat(20)
+  const file = writeBinaryFile(sourceDir, '繁体老书.txt', iconv.encode(text, 'big5'))
+
+  page = await openApp(makeTempDir('12read-big5-'))
+  await importPaths(page, [file])
+  await expect(page.locator('.book-card')).toHaveCount(1)
+  await expect(card(page, /^繁体老书$/).locator('.book-title')).toHaveText('繁体老书')
+
+  // 自动检测认不出 BIG5：按可疑放行，正文是乱码，连章名都认不出（退化成按字数分段）
+  await card(page, /^繁体老书$/).click()
+  await expect(page.locator('.chapter-title')).toHaveText('分段 1')
+  await expect(page.locator('#reader-content')).not.toContainText('繁體中文測試')
+  await page.click('#btn-back')
+
+  // 书卡上点「编码」，挑 BIG5，确认后重解
+  await card(page, /^繁体老书$/).locator('.card-encoding').click()
+  await expect(page.locator('.modal h3')).toHaveText('重新解码')
+  await page.click('#redecode-big5')
+  await page.locator('.modal-actions .btn.primary').click()
+  await expect(page.locator('.modal')).toHaveCount(0)
+
+  // 重解后封面角标跟着变成 BIG5
+  await expect(card(page, /^繁体老书$/).locator('.cover-badge')).toHaveText('BIG5')
+
+  await card(page, /^繁体老书$/).click()
+  await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
+  await expect(page.locator('#reader-content')).toContainText('繁體中文測試')
 })

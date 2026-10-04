@@ -33,6 +33,7 @@ interface Harness {
   importFile: ReturnType<typeof vi.fn>
   listBooks: ReturnType<typeof vi.fn>
   renameBook: ReturnType<typeof vi.fn>
+  redecodeBook: ReturnType<typeof vi.fn>
   deleteBook: ReturnType<typeof vi.fn>
   pickFiles: ReturnType<typeof vi.fn>
   getProgress: ReturnType<typeof vi.fn>
@@ -48,6 +49,7 @@ function makeHarness(): Harness {
     makeShelfBook({ id: 'b' })
   ])
   const renameBook = vi.fn(async (bookId: string, title: string): Promise<Book> => makeBook({ id: bookId, title }))
+  const redecodeBook = vi.fn(async (bookId: string, encoding: string): Promise<Book> => makeBook({ id: bookId, encoding: encoding as Book['encoding'] }))
   const deleteBook = vi.fn(async (): Promise<void> => undefined)
   const pickFiles = vi.fn(async (): Promise<string[]> => ['x.txt'])
   const getProgress = vi.fn()
@@ -59,6 +61,7 @@ function makeHarness(): Harness {
     listBooks,
     getBook: vi.fn(),
     renameBook,
+    redecodeBook,
     deleteBook,
     chapters: vi.fn(),
     readChapter: vi.fn(),
@@ -70,7 +73,7 @@ function makeHarness(): Harness {
     pathForFile: vi.fn(() => '')
   } as unknown as ReaderApi
   setReaderApi(api)
-  return { api, importFile, listBooks, renameBook, deleteBook, pickFiles, getProgress }
+  return { api, importFile, listBooks, renameBook, redecodeBook, deleteBook, pickFiles, getProgress }
 }
 
 beforeEach(() => {
@@ -142,6 +145,38 @@ describe('library store', () => {
     await useLibraryStore.getState().load()
     await useLibraryStore.getState().rename('a', '   ')
     expect(harness.renameBook).not.toHaveBeenCalled()
+  })
+
+  it('重新解码成功后刷新书架，错误与任务行都清掉', async () => {
+    const harness = makeHarness()
+    await useLibraryStore.getState().load()
+    useLibraryStore.setState({
+      error: '旧错误',
+      importing: [{ taskId: 'task-1', filePath: 'x.txt', stage: 'decoding', ratio: 0.5 }]
+    })
+    const before = harness.listBooks.mock.calls.length
+
+    await useLibraryStore.getState().redecode('a', 'big5')
+
+    expect(harness.redecodeBook).toHaveBeenCalledWith('a', 'big5')
+    expect(harness.listBooks.mock.calls.length).toBe(before + 1)
+    expect(useLibraryStore.getState().error).toBeNull()
+    expect(useLibraryStore.getState().importing).toHaveLength(0)
+  })
+
+  it('重新解码失败落成可见错误，书架不动', async () => {
+    const harness = makeHarness()
+    await useLibraryStore.getState().load()
+    const before = useLibraryStore.getState().books
+    harness.redecodeBook.mockRejectedValueOnce(new Error('找不到这本书的原始文件，只能重新导入'))
+
+    await useLibraryStore.getState().redecode('a', 'gb18030')
+
+    expect(useLibraryStore.getState().error).toBe(
+      '重新解码失败：找不到这本书的原始文件，只能重新导入'
+    )
+    expect(useLibraryStore.getState().books).toBe(before)
+    expect(useLibraryStore.getState().importing).toHaveLength(0)
   })
 
   it('导入进度按 taskId 覆盖，done / error 之后移除', () => {

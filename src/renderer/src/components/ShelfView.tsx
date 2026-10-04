@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Book, ShelfBook } from '@shared/types'
+import type { Book, ManualEncoding, ShelfBook } from '@shared/types'
 import { readerApi } from '@/core/api'
 import {
   coverGradient,
@@ -9,6 +9,7 @@ import {
   formatPercent,
   formatRelative
 } from '@/core/reading'
+import { ENCODING_CHOICES } from '@/core/encoding-choices'
 import { SHELF_SORTS, shelfView, type ShelfSort } from '@/core/shelf'
 import { useLibraryStore } from '@/store/library'
 import { ImportStatus } from './ImportStatus'
@@ -21,6 +22,7 @@ function BookCard({
   now,
   onOpen,
   onRename,
+  onRedecode,
   onDelete
 }: {
   book: ShelfBook
@@ -28,6 +30,8 @@ function BookCard({
   now: number
   onOpen(): void
   onRename(): void
+  /** 编码认错时换一个编码重解，不用重新导入 */
+  onRedecode(): void
   onDelete(): void
 }): React.JSX.Element {
   return (
@@ -48,6 +52,15 @@ function BookCard({
         <span className="cover-badge">{book.encoding.toUpperCase()}</span>
       </div>
       <div className="card-actions">
+        <button
+          className="card-encoding"
+          onClick={(event) => {
+            event.stopPropagation()
+            onRedecode()
+          }}
+        >
+          编码
+        </button>
         <button
           className="card-rename"
           onClick={(event) => {
@@ -97,11 +110,14 @@ export function ShelfView({
   const importPaths = useLibraryStore((s) => s.importPaths)
   const pickAndImport = useLibraryStore((s) => s.pickAndImport)
   const rename = useLibraryStore((s) => s.rename)
+  const redecode = useLibraryStore((s) => s.redecode)
   const remove = useLibraryStore((s) => s.remove)
   const [hot, setHot] = useState(false)
   const [renaming, setRenaming] = useState<Book | null>(null)
   const [renameText, setRenameText] = useState('')
   const [deleting, setDeleting] = useState<Book | null>(null)
+  const [recoding, setRecoding] = useState<Book | null>(null)
+  const [recodingTo, setRecodingTo] = useState<ManualEncoding>('auto')
   const [scopeOpen, setScopeOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<ShelfSort>('recent')
@@ -233,6 +249,10 @@ export function ShelfView({
                 setRenaming(book)
                 setRenameText(book.title)
               }}
+              onRedecode={() => {
+                setRecoding(book)
+                setRecodingTo('auto')
+              }}
               onDelete={() => setDeleting(book)}
             />
           ))}
@@ -283,21 +303,58 @@ export function ShelfView({
         </Modal>
       ) : null}
 
+      {recoding ? (
+        <Modal
+          title="重新解码"
+          confirmLabel="开始重新解码"
+          onCancel={() => setRecoding(null)}
+          onConfirm={() => {
+            const target = recoding
+            setRecoding(null)
+            void redecode(target.id, recodingTo).then(() => toast('已按新编码重新解码'))
+          }}
+        >
+          <p className="modal-text">
+            《{recoding.title}》现在按 <b>{recoding.encoding.toUpperCase()}</b> 解码。正文如果是乱码，
+            换一个编码再解一遍——原始文件一直留着，不用重新导入。
+          </p>
+          <div className="encoding-choices" id="redecode-choices">
+            {ENCODING_CHOICES.map((choice) => (
+              <button
+                key={choice.value}
+                id={'redecode-' + choice.value}
+                className={recodingTo === choice.value ? 'pill on' : 'pill'}
+                data-encoding-choice={choice.value}
+                title={choice.hint}
+                onClick={() => setRecodingTo(choice.value)}
+              >
+                {choice.label}
+              </button>
+            ))}
+          </div>
+          <p className="modal-note">重新解码会把这本书的阅读进度清零（字符位置全变了）。</p>
+        </Modal>
+      ) : null}
+
       {scopeOpen ? (
         <Modal title="这个版本做什么" confirmLabel="知道了" cancelLabel="关闭" onCancel={() => setScopeOpen(false)} onConfirm={() => setScopeOpen(false)}>
           <p className="scope-h">现在能用</p>
           <ul className="scope-list">
             <li>导入本地 .txt：拖入或选择文件，自动识别 UTF-8 / GBK / UTF-16 编码</li>
             <li>自动分章：识别「第 N 章」这类标题，识别不到就按字数分段</li>
-            <li>阅读：上下滚动、上一章/下一章、目录跳转、字号 / 行距 / 日夜间</li>
-            <li>进度：关掉再打开，回到上次读到的那个字</li>
+            <li>
+              阅读：← / → 翻一屏（Ctrl + ← → 切章）、目录跳转、字号 / 行距 / 字重 / 字体 / 宽度 / 日夜间
+            </li>
+            <li>书架：搜索书名或作者，按最近阅读 / 导入时间 / 书名 / 进度排序</li>
+            <li>进度：关掉再打开，回到上次读到的那个字；顶栏「上次位置」来回对照</li>
+            <li>乱码书重新解码：在书封面上点「编码」，挑 UTF-8 / GBK / BIG5 / UTF-16 重解一遍，不用重新导入</li>
           </ul>
           <p className="scope-h">还不在范围内</p>
           <ul className="scope-list">
             <li>书签、笔记、划线、全文搜索</li>
             <li>EPUB / PDF / MOBI（数据结构已为 EPUB 预留）</li>
             <li>账号、云同步、在线书城、TTS 朗读</li>
-            <li>手动改分章、手动指定编码、导出备份</li>
+            <li>手动改分章、导出备份</li>
           </ul>
         </Modal>
       ) : null}

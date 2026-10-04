@@ -9,6 +9,7 @@ import {
   importArgsSchema,
   progressSchema,
   readChapterArgsSchema,
+  redecodeArgsSchema,
   renameArgsSchema,
   settingsSchema
 } from '@shared/schema'
@@ -94,6 +95,19 @@ export function registerIpc(ctx: IpcContext): void {
   handle(CH.bookDelete, getArgsSchema, async ({ bookId }): Promise<void> => {
     await ctx.library.remove(bookId)
     ctx.content.invalidate(bookId)
+  })
+
+  handle(CH.bookRedecode, redecodeArgsSchema, async ({ bookId, encoding }): Promise<Book> => {
+    const taskId = newBookId()
+    try {
+      const book = await ctx.importer.redecode(bookId, encoding, taskId)
+      // 正文整份换了，64MB 的章节缓存必须丢掉，否则读到的还是旧解码
+      ctx.content.invalidate(bookId)
+      return book
+    } catch (cause) {
+      const error = toImportError(cause)
+      throw new Error('重新解码失败（' + error.code + '）：' + error.message)
+    }
   })
 
   handle(CH.bookChapters, getArgsSchema, ({ bookId }): Promise<Chapter[]> =>

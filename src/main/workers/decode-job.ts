@@ -1,8 +1,15 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { splitChapters } from '@shared/core/chapter-split'
-import type { ChapterKind, CharOffset, ContentMode, Encoding, ImportStage } from '@shared/types'
-import { decodeBytes } from '../services/decode'
+import type {
+  ChapterKind,
+  CharOffset,
+  ContentMode,
+  Encoding,
+  ForcedEncoding,
+  ImportStage
+} from '@shared/types'
+import { decodeBytes, decodeBytesWith } from '../services/decode'
 import { CHAPTERS_DIR, CONTENT_FILE, SOURCE_FILE, chapterFileName } from '../services/layout'
 
 /**
@@ -14,6 +21,8 @@ export interface DecodeJob {
   sourcePath: string
   destDir: string
   contentMode: ContentMode
+  /** 重新解码时用户指定的编码；不填 = 走自动检测。 */
+  encoding?: ForcedEncoding
 }
 
 export interface DecodedChapter {
@@ -55,7 +64,8 @@ export async function runDecodeJob(job: DecodeJob, onProgress: ProgressReporter)
   const bytes = await readFile(job.sourcePath)
 
   onProgress('detecting', 0.1)
-  const decoded = decodeBytes(bytes)
+  // 指定了编码（重新解码）就不猜了，直接按它解
+  const decoded = job.encoding ? decodeBytesWith(bytes, job.encoding) : decodeBytes(bytes)
 
   onProgress('decoding', 0.25)
   const split = splitChapters(decoded.text)
@@ -67,6 +77,8 @@ export async function runDecodeJob(job: DecodeJob, onProgress: ProgressReporter)
 
   if (job.contentMode === 'sliced') {
     const target = join(job.destDir, CHAPTERS_DIR)
+    // 重新解码后章节数可能变少，旧章文件先清掉，别留下过期正文
+    await rm(target, { recursive: true, force: true })
     await mkdir(target, { recursive: true })
     await runPool(split.chapters.length, WRITE_CONCURRENCY, async (index) => {
       const chapter = split.chapters[index]

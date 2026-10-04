@@ -4,12 +4,12 @@ import { join } from 'node:path'
 import { Worker } from 'node:worker_threads'
 import { cleanTitleFromPath } from '@shared/core/filename'
 import { newBookId } from '@shared/core/ids'
-import type { Book, ImportProgress, ImportStage } from '@shared/types'
+import type { Book, ImportProgress, ImportStage, ManualEncoding } from '@shared/types'
 import { SLICE_MODE_BYTES } from '@shared/types'
 import type { LibraryRepository } from '../db/library-repository'
 import { runDecodeJob, type DecodeJob, type DecodeJobResult } from '../workers/decode-job'
 import { ImportError, toImportError } from './import-error'
-import { bookDir, booksRoot } from './layout'
+import { bookDir, booksRoot, sourcePath } from './layout'
 
 export interface ImportServiceOptions {
   root: string
@@ -104,6 +104,51 @@ export class ImportService {
       return book
     } catch (cause) {
       await rm(destDir, { recursive: true, force: true }).catch(() => undefined)
+      const error = toImportError(cause)
+      report('error', 1, error.message)
+      throw error
+    }
+  }
+
+  /**
+   * 手动指定编码重新解码。
+   * 原始字节一直留在 books/<id>/source.bin（TECH.md 5.2），所以乱码书不用重新导入；
+   * 代价是所有字符偏移都变了，这本书的阅读进度会被清零。
+   */
+  async redecode(bookId: string, encoding: ManualEncoding, taskId: string): Promise<Book> {
+    const { root, repo } = this.options
+    const book = repo.getBook(bookId)
+    if (!book) throw new ImportError('db-error', '这本书不在书库里')
+
+    const source = sourcePath(root, bookId)
+    const report = (stage: ImportStage, ratio: number, message?: string): void => {
+      this.emit({ taskId, filePath: book.title + '（重新解码）', stage, ratio, message })
+    }
+    if (!existsSync(source)) {
+      const error = new ImportError('io-error', '找不到这本书的原始文件，只能重新导入')
+      report('error', 1, error.message)
+      throw error
+    }
+
+    report('reading', 0.01)
+    try {
+      const result = await this.runJob({
+        taskId,
+        sourcePath: source,
+        destDir: bookDir(root, bookId),
+        contentMode: book.contentMode,
+        encoding: encoding === 'auto' ? undefined : encoding
+      })
+      repo.replaceDecoded(
+        bookId,
+        { encoding: result.encoding, charCount: result.charCount },
+        result.chapters
+      )
+      const updated = repo.getBook(bookId)
+      if (!updated) throw new ImportError('db-error', '重新解码后读不回这本书')
+      report('done', 1)
+      return updated
+    } catch (cause) {
       const error = toImportError(cause)
       report('error', 1, error.message)
       throw error

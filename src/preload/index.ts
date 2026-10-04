@@ -10,10 +10,19 @@ import {
   importProgressSchema,
   progressSchema,
   readChapterArgsSchema,
+  redecodeArgsSchema,
   renameArgsSchema,
   settingsSchema
 } from '@shared/schema'
-import type { Book, Chapter, ImportProgress, Progress, ReaderSettings, ShelfBook } from '@shared/types'
+import type {
+  Book,
+  Chapter,
+  ImportProgress,
+  ManualEncoding,
+  Progress,
+  ReaderSettings,
+  ShelfBook
+} from '@shared/types'
 
 /**
  * contextBridge 暴露层（TECH.md 2.1 铁律 1、4.2）。
@@ -37,6 +46,8 @@ const readerApi: ReaderApi = {
   getBook: (bookId: string): Promise<Book | null> => invoke(CH.bookGet, getArgsSchema, { bookId }),
   renameBook: (bookId: string, title: string): Promise<Book> =>
     invoke(CH.bookRename, renameArgsSchema, { bookId, title }),
+  redecodeBook: (bookId: string, encoding: ManualEncoding): Promise<Book> =>
+    invoke(CH.bookRedecode, redecodeArgsSchema, { bookId, encoding }),
   deleteBook: (bookId: string): Promise<void> => invoke(CH.bookDelete, getArgsSchema, { bookId }),
   chapters: (bookId: string): Promise<Chapter[]> =>
     invoke(CH.bookChapters, getArgsSchema, { bookId }),

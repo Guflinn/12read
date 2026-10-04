@@ -65,6 +65,7 @@ function makeApi(): ApiMock {
     listHighlights: vi.fn(async () => []),
     addHighlight: vi.fn(),
     removeHighlight: vi.fn(),
+    searchBook: vi.fn(),
     readChapter: vi.fn(async () => TEXT),
     getProgress: vi.fn(async () => PROGRESS),
     saveProgress: vi.fn(async () => undefined),
@@ -95,7 +96,14 @@ beforeEach(() => {
     percent: 0,
     bookmark: null,
     bookmarks: [],
-    highlights: []
+    highlights: [],
+    searchOpen: false,
+    searchQuery: '',
+    searchScope: 'book',
+    searching: false,
+    searchError: null,
+    searchResult: null,
+    flash: null
   })
 })
 

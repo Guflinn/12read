@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { clampOffset, makeAnchor, relocateOffset } from '@shared/core/anchor'
+import { normalizeQuery } from '@shared/core/search'
 import {
   CHUNK_FIRST_RENDER_CHARS,
   CHUNK_THRESHOLD_CHARS,
@@ -9,7 +10,10 @@ import {
   type CharOffset,
   type Chapter,
   type Highlight,
-  type Progress
+  type Progress,
+  type SearchHit,
+  type SearchResult,
+  type SearchScope
 } from '@shared/types'
 import { excerptAt, normalizeSelection, orderBookmarks, orderHighlights } from '@/core/annotations'
 import { readerApi } from '@/core/api'
@@ -75,6 +79,23 @@ export interface ReaderState {
   /** 把选中的一段文字划下来；文字过长会截到 schema 允许的上限。 */
   addHighlight(startOffset: CharOffset, endOffset: CharOffset, text: string): Promise<void>
   removeHighlight(id: AnnotationId): Promise<void>
+  /** 搜索面板是否展开（0.1.3 第 7 项）。 */
+  searchOpen: boolean
+  /** 上一次真正发出去的关键词（归一化后的），面板回显用。 */
+  searchQuery: string
+  searchScope: SearchScope
+  searching: boolean
+  searchError: string | null
+  searchResult: SearchResult | null
+  /** 刚跳到的命中位置：ReaderView 拿它给所在段落闪一下高亮。 */
+  flash: { chapterIndex: number; offset: CharOffset } | null
+  setSearch(open: boolean): void
+  /** 跑一次搜索；迟到的结果会被丢弃（同一时刻只认最后一次）。 */
+  runSearch(query: string, scope: SearchScope): Promise<void>
+  /** 跳到某条命中，并让那一小段闪一下。 */
+  jumpToHit(hit: SearchHit): Promise<void>
+  clearFlash(): void
+  clearSearch(): void
   flush(): void
   /** 关窗前的同步落盘（TECH.md 6.3），主进程写完才返回。 */
   flushSync(): void
@@ -90,6 +111,8 @@ let lastOffset = 0
 let seq = 0
 /** 书签跳转自己会触发一次「停顿」，那一次不能算新位置，否则来回跳会互相覆盖。 */
 let skipNextSettle = false
+/** 搜索请求序号：连打几个关键词时只认最后一次的结果。 */
+let searchSeq = 0
 
 function messageOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause)
@@ -215,6 +238,13 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
   bookmark: null,
   bookmarks: [],
   highlights: [],
+  searchOpen: false,
+  searchQuery: '',
+  searchScope: 'book',
+  searching: false,
+  searchError: null,
+  searchResult: null,
+  flash: null,
 
   async open(bookId: string): Promise<void> {
     const api = readerApi()
@@ -233,7 +263,13 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       bookmarks: [],
       highlights: [],
       tocOpen: false,
-      sheetOpen: false
+      sheetOpen: false,
+      searchOpen: false,
+      searchQuery: '',
+      searching: false,
+      searchError: null,
+      searchResult: null,
+      flash: null
     })
     try {
       const [book, chapters, progress, bookmarks, highlights] = await Promise.all([
@@ -280,6 +316,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     saver.cancel()
     const saving = persist()
     seq += 1
+    searchSeq += 1
     set({
       book: null,
       chapters: [],
@@ -293,6 +330,12 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       highlights: [],
       tocOpen: false,
       sheetOpen: false,
+      searchOpen: false,
+      searchQuery: '',
+      searching: false,
+      searchError: null,
+      searchResult: null,
+      flash: null,
       error: null
     })
     // 等落盘完成再让调用方接着做（App 会等它结束后再刷新书架，顺序才确定）
@@ -460,6 +503,48 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     } catch (cause) {
       set({ error: '删除划线失败：' + messageOf(cause) })
     }
+  },
+
+  setSearch(open: boolean): void {
+    set({ searchOpen: open })
+  },
+
+  async runSearch(query: string, scope: SearchScope): Promise<void> {
+    const state = get()
+    const book = state.book
+    if (!book) return
+    const needle = normalizeQuery(query)
+    if (needle.length === 0) {
+      // 输入框清空：结果跟着下架，序号 +1 把在路上的那次请求作废
+      searchSeq += 1
+      set({ searchQuery: '', searchResult: null, searchError: null, searching: false })
+      return
+    }
+    const mine = (searchSeq += 1)
+    set({ searchQuery: needle, searchScope: scope, searching: true, searchError: null })
+    try {
+      const result = await readerApi().searchBook(book.id, needle, scope, state.chapterIndex)
+      if (mine !== searchSeq) return
+      set({ searchResult: result, searching: false })
+    } catch (cause) {
+      if (mine !== searchSeq) return
+      set({ searching: false, searchError: '搜索失败：' + messageOf(cause) })
+    }
+  },
+
+  async jumpToHit(hit: SearchHit): Promise<void> {
+    // 先把要闪的位置记下：goto 之后 ReaderView 按这个给所在段落加一次性高亮
+    set({ flash: { chapterIndex: hit.chapterIndex, offset: hit.charOffset } })
+    await get().goto(hit.chapterIndex, hit.charOffset)
+  },
+
+  clearFlash(): void {
+    set({ flash: null })
+  },
+
+  clearSearch(): void {
+    searchSeq += 1
+    set({ searchQuery: '', searchResult: null, searchError: null, searching: false, flash: null })
   },
 
   flush(): void {

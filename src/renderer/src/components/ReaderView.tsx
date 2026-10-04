@@ -5,6 +5,7 @@ import { offsetForScrollTop, scrollTopForOffset, splitParagraphs } from '@/core/
 import { chapterLabel, progressLabel } from '@/core/reading'
 import { BOOKMARK_REST_MS, useReaderStore } from '@/store/reader'
 import { useSettingsStore } from '@/store/settings'
+import { SearchPanel } from './SearchPanel'
 import { SettingsSheet } from './SettingsSheet'
 import { TocDrawer } from './TocDrawer'
 import { toast } from './Toast'
@@ -13,6 +14,8 @@ import { toast } from './Toast'
 const DRIFT_TOLERANCE_PX = 4
 /** 分块渲染的大章节，滚到离底部这么近就继续渲染。 */
 const AUTOLOAD_REMAINING_PX = 600
+/** 跳到某条搜索结果后，那一小段亮这么久（0.1.3 第 7 项）。 */
+const FLASH_MS = 1600
 
 /** 选中文字后浮出来的小工具条：要么划线，要么删掉点中的那条划线。 */
 type Toolbar =
@@ -55,6 +58,7 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
   const percent = useReaderStore((s) => s.percent)
   const bookmark = useReaderStore((s) => s.bookmark)
   const highlights = useReaderStore((s) => s.highlights)
+  const flash = useReaderStore((s) => s.flash)
   const addBookmark = useReaderStore((s) => s.addBookmark)
   const addHighlight = useReaderStore((s) => s.addHighlight)
   const removeHighlight = useReaderStore((s) => s.removeHighlight)
@@ -103,6 +107,22 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
     () => rangesOfChapter(highlights, chapterIndex),
     [highlights, chapterIndex]
   )
+
+  /** 刚跳到的搜索命中落在第几段（-1 = 不在本章）：闪一下好让人一眼找到。 */
+  const flashIndex = useMemo(() => {
+    if (!flash || flash.chapterIndex !== chapterIndex) return -1
+    return body.findIndex(
+      (paragraph) =>
+        flash.offset >= paragraph.offset && flash.offset < paragraph.offset + paragraph.text.length
+    )
+  }, [flash, chapterIndex, body])
+
+  // 闪一下就撤，别让下次滚动还误以为是新命中
+  useEffect(() => {
+    if (!flash) return
+    const timer = window.setTimeout(() => useReaderStore.getState().clearFlash(), FLASH_MS)
+    return () => window.clearTimeout(timer)
+  }, [flash])
 
   const measureTops = useCallback((): number[] => {
     const scroll = scrollRef.current
@@ -186,7 +206,15 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
     const onKey = (event: KeyboardEvent): void => {
       const target = event.target as HTMLElement | null
       const tag = target ? target.tagName : ''
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return
+      const typing = tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable === true
+      // 阅读器里的「查找」= 打开搜索面板（0.1.3 第 7 项）。
+      // 在搜索框里再按一次也要认，否则面板收起后焦点还在框里，快捷键就成了哑键。
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f' && (!typing || target?.id === 'search-input')) {
+        event.preventDefault()
+        useReaderStore.getState().setSearch(true)
+        return
+      }
+      if (typing) return
       const store = useReaderStore.getState()
       if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
         // ← / → 翻页（每次一屏、留 40px 重叠，跟 PageUp/PageDown 同一个动作）；
@@ -214,7 +242,8 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
           jumpEdge(event.key === 'Home' ? 'top' : 'bottom')
         }
       } else if (event.key === 'Escape') {
-        if (store.tocOpen) store.setToc(false)
+        if (store.searchOpen) store.setSearch(false)
+        else if (store.tocOpen) store.setToc(false)
         else if (store.sheetOpen) store.setSheet(false)
         else onBack()
       }
@@ -325,6 +354,15 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
         >
           ⑂ 拆分
         </button>
+        <button
+          id="btn-search"
+          className="icon-btn"
+          aria-label="在本书里搜索"
+          title="搜索（Ctrl/Cmd + F）"
+          onClick={() => useReaderStore.getState().setSearch(true)}
+        >
+          🔍 搜索
+        </button>
         <button id="btn-toc" className="icon-btn" onClick={() => useReaderStore.getState().setToc(true)}>
           目录
         </button>
@@ -359,6 +397,7 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
                 <p
                   key={paragraph.offset}
                   data-offset={paragraph.offset}
+                  className={flashIndex === index ? 'hit' : undefined}
                   ref={(el) => {
                     paraRefs.current[index] = el
                   }}
@@ -470,6 +509,7 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
         </div>
       ) : null}
 
+      <SearchPanel />
       <TocDrawer />
       <SettingsSheet />
     </section>

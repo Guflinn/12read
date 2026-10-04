@@ -8,7 +8,9 @@ import {
   type Chapter,
   type Highlight,
   type HighlightInput,
-  type Progress
+  type Progress,
+  type SearchHit,
+  type SearchResult
 } from '@shared/types'
 import { setReaderApi } from '@/core/api'
 import { setDeviceId } from '@/core/session'
@@ -75,6 +77,7 @@ interface Harness {
   removeHighlight: ReturnType<typeof vi.fn>
   listBookmarks: ReturnType<typeof vi.fn>
   listHighlights: ReturnType<typeof vi.fn>
+  searchBook: ReturnType<typeof vi.fn>
 }
 
 function makeHarness(
@@ -108,6 +111,17 @@ function makeHarness(
   )
   const removeBookmark = vi.fn(async (): Promise<void> => undefined)
   const removeHighlight = vi.fn(async (): Promise<void> => undefined)
+  // 搜索默认给「一处都没找到」：单个用例再按需 mockResolvedValueOnce
+  const searchBook = vi.fn(
+    async (): Promise<SearchResult> => ({
+      query: '',
+      scope: 'book',
+      total: 0,
+      counts: [],
+      hits: [],
+      truncated: false
+    })
+  )
   const api = {
     appInfo: vi.fn(),
     pickFiles: vi.fn(async () => []),
@@ -128,6 +142,7 @@ function makeHarness(
     listHighlights,
     addHighlight,
     removeHighlight,
+    searchBook,
     readChapter,
     getProgress,
     saveProgress,
@@ -151,7 +166,8 @@ function makeHarness(
     addHighlight,
     removeHighlight,
     listBookmarks,
-    listHighlights
+    listHighlights,
+    searchBook
   }
 }
 
@@ -170,7 +186,14 @@ beforeEach(() => {
     percent: 0,
     bookmark: null,
     bookmarks: [],
-    highlights: []
+    highlights: [],
+    searchOpen: false,
+    searchQuery: '',
+    searchScope: 'book',
+    searching: false,
+    searchError: null,
+    searchResult: null,
+    flash: null
   })
   setDeviceId('device-test')
 })
@@ -704,4 +727,148 @@ describe('reader store: 书签与划线', () => {
     expect(useReaderStore.getState().highlights).toEqual([])
   })
 })
+
+describe('reader store: 搜索', () => {
+  const HIT: SearchHit = {
+    chapterIndex: 1,
+    chapterTitle: '第二章',
+    charOffset: 7,
+    before: '前面的话',
+    match: '山川',
+    after: '后面的话'
+  }
+
+  function searchResult(patch: Partial<SearchResult> = {}): SearchResult {
+    return {
+      query: '山川',
+      scope: 'book',
+      total: 1,
+      counts: [{ chapterIndex: 1, count: 1 }],
+      hits: [HIT],
+      truncated: false,
+      ...patch
+    }
+  }
+
+  it('搜一次：关键词去掉首尾空白，带上当前章号，结果落进 state', async () => {
+    const harness = makeHarness()
+    harness.searchBook.mockResolvedValueOnce(searchResult())
+    await useReaderStore.getState().open(BOOK_ID)
+    await useReaderStore.getState().runSearch('  山川  ', 'book')
+
+    expect(harness.searchBook).toHaveBeenCalledWith(BOOK_ID, '山川', 'book', 0)
+    const state = useReaderStore.getState()
+    expect(state.searchResult?.hits[0]).toEqual(HIT)
+    expect(state.searchQuery).toBe('山川')
+    expect(state.searchScope).toBe('book')
+    expect(state.searching).toBe(false)
+    expect(state.searchError).toBeNull()
+  })
+
+  it('超长关键词截到上限再发出去', async () => {
+    const harness = makeHarness()
+    await useReaderStore.getState().open(BOOK_ID)
+    await useReaderStore.getState().runSearch('x'.repeat(120), 'chapter')
+
+    expect(harness.searchBook).toHaveBeenCalledWith(BOOK_ID, 'x'.repeat(80), 'chapter', 0)
+  })
+
+  it('空关键词清掉旧结果，也不发请求', async () => {
+    const harness = makeHarness()
+    harness.searchBook.mockResolvedValueOnce(searchResult())
+    await useReaderStore.getState().open(BOOK_ID)
+    await useReaderStore.getState().runSearch('山川', 'book')
+    expect(useReaderStore.getState().searchResult).not.toBeNull()
+
+    await useReaderStore.getState().runSearch('   ', 'book')
+    expect(harness.searchBook).toHaveBeenCalledTimes(1)
+    expect(useReaderStore.getState().searchResult).toBeNull()
+    expect(useReaderStore.getState().searchQuery).toBe('')
+  })
+
+  it('迟到的结果不会盖掉后一次搜索', async () => {
+    const harness = makeHarness()
+    let release: (value: SearchResult) => void = () => undefined
+    harness.searchBook.mockImplementationOnce(
+      () =>
+        new Promise<SearchResult>((resolve) => {
+          release = resolve
+        })
+    )
+    await useReaderStore.getState().open(BOOK_ID)
+
+    const pending = useReaderStore.getState().runSearch('旧词', 'book')
+    useReaderStore.getState().clearSearch()
+    release(searchResult({ query: '旧词' }))
+    await pending
+
+    expect(useReaderStore.getState().searchResult).toBeNull()
+    expect(useReaderStore.getState().searching).toBe(false)
+  })
+
+  it('搜索失败时写中文提示，好赖都不弹出结果', async () => {
+    const harness = makeHarness()
+    harness.searchBook.mockRejectedValueOnce(new Error('翻页翻丢了'))
+    await useReaderStore.getState().open(BOOK_ID)
+    await useReaderStore.getState().runSearch('山川', 'book')
+
+    expect(useReaderStore.getState().searchError).toBe('搜索失败：翻页翻丢了')
+    expect(useReaderStore.getState().searching).toBe(false)
+    expect(useReaderStore.getState().searchResult).toBeNull()
+  })
+
+  it('没打开书时不发请求', async () => {
+    const harness = makeHarness()
+    await useReaderStore.getState().runSearch('山川', 'book')
+    expect(harness.searchBook).not.toHaveBeenCalled()
+  })
+
+  it('点一条命中：先记下要闪的位置，再跳到那一处', async () => {
+    const harness = makeHarness()
+    await useReaderStore.getState().open(BOOK_ID)
+    await useReaderStore.getState().jumpToHit(HIT)
+
+    const state = useReaderStore.getState()
+    expect(harness.readChapter).toHaveBeenCalledWith(BOOK_ID, 1)
+    expect(state.chapterIndex).toBe(1)
+    expect(state.pendingOffset).toBe(7)
+    expect(state.flash).toEqual({ chapterIndex: 1, offset: 7 })
+
+    useReaderStore.getState().clearFlash()
+    expect(useReaderStore.getState().flash).toBeNull()
+  })
+
+  it('clearSearch 把面板状态收干净', async () => {
+    const harness = makeHarness()
+    harness.searchBook.mockResolvedValueOnce(searchResult())
+    await useReaderStore.getState().open(BOOK_ID)
+    useReaderStore.getState().setSearch(true)
+    await useReaderStore.getState().runSearch('山川', 'book')
+
+    useReaderStore.getState().clearSearch()
+    const state = useReaderStore.getState()
+    expect(state.searchQuery).toBe('')
+    expect(state.searchResult).toBeNull()
+    expect(state.searchError).toBeNull()
+    expect(state.searching).toBe(false)
+    expect(state.flash).toBeNull()
+    // 面板开合由 UI 决定，clearSearch 不替它关
+    expect(state.searchOpen).toBe(true)
+  })
+
+  it('open 与 leave 都把搜索状态收掉', async () => {
+    makeHarness()
+    await useReaderStore.getState().open(BOOK_ID)
+    useReaderStore.getState().setSearch(true)
+    expect(useReaderStore.getState().searchOpen).toBe(true)
+
+    useReaderStore.getState().leave()
+    const left = useReaderStore.getState()
+    expect(left.searchOpen).toBe(false)
+    expect(left.searchQuery).toBe('')
+    expect(left.searchResult).toBeNull()
+    expect(left.flash).toBeNull()
+  })
+})
+
 

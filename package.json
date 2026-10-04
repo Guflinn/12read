@@ -1,6 +1,6 @@
 {
   "name": "12read",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "十二阅读 —— 本地优先的 TXT 桌面阅读器",
   "main": "./out/main/index.js",
   "private": true,

@@ -10,6 +10,7 @@
 | 日期 | 变更 |
 | --- | --- |
 | 2026 | 首版。形态决策由 MVP.md 第 1 节的「Web/PWA，后续可套 Tauri 壳」改为「Electron 桌面应用，核心保持平台无关」。 |
+| 2026-10-04 | 0.1.2：阅读器顶栏加独立的日/夜间切换按钮；新增「上次位置」书签（`reader` store 的 `bookmark` + `settleBookmark` / `backToBookmark`，来回切换靠「把当前位置换进书签」）；`ReaderSettings` 增加 `bold`，加粗写 `--fw`（schema 用 `default(false)`，0.1.1 的旧设置不会整份回退默认）。 |
 | 2026-10-03 | 0.1.1：主题与排版变量从 `.app` 上移到 `<html>`（原来 `body` 取不到夜间变量，整页花屏）；`book:list` 返回 `ShelfBook[]`（带 `percent`，一次 LEFT JOIN，取代书架 N+1）；大章节续渲染由「一次全给」改为每次 2 万字。 |
 
 ## 1. 形态决策：Electron
@@ -331,7 +332,7 @@ CREATE INDEX idx_book_recent ON book(last_opened_at DESC);
 
 ### 8.2 排版
 
-- 字号、行距、主题全部走 CSS 变量（--fs / --lh / --theme-*），切换只改根节点属性，React 不重渲染正文
+- 字号、行距、字重、主题全部走 CSS 变量（--fs / --lh / --fw / --theme-*），切换只改根节点属性，React 不重渲染正文。字重只作用到 `.reader-content p`，章标题保持自己的 600
 - 变量与 `data-theme` 写在 `document.documentElement`（`<html>`）上，见 `src/renderer/src/core/theme.ts` 的 `applyTheme(settings, root)`；写在 `.app` 内部会让 `body` 拿不到夜间配色（深底压深字）
 - 重排后的位置保持见第 9 节锚点重定位
 

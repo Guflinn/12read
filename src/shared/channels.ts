@@ -13,7 +13,6 @@ export const CH = {
   /** 目录里手动改分章：改名 / 合并 / 在指定字符位置拆开。 */
   chapterRename: 'chapter:rename',
   chapterMerge: 'chapter:merge',
-  chapterSplit: 'chapter:split',
   /** 书签与划线：章号 + 章内偏移，跟进度同一套定位语义。 */
   bookmarkList: 'bookmark:list',
   bookmarkAdd: 'bookmark:add',

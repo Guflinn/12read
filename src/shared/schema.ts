@@ -42,7 +42,7 @@ export const readChapterArgsSchema = z.object({
   index: chapterIndexSchema
 })
 
-/** 手动改分章：改名 / 与下一章合并 / 在章内偏移处拆分（偏移是相对章首的字符数，1 起）。 */
+/** 手动改分章：改名 / 与下一章合并。 */
 export const renameChapterArgsSchema = z.object({
   bookId: bookIdSchema,
   index: chapterIndexSchema,
@@ -52,12 +52,6 @@ export const renameChapterArgsSchema = z.object({
 export const mergeChapterArgsSchema = z.object({
   bookId: bookIdSchema,
   index: chapterIndexSchema
-})
-
-export const splitChapterArgsSchema = z.object({
-  bookId: bookIdSchema,
-  index: chapterIndexSchema,
-  offset: z.number().int().min(1, '拆分位置要落在章节中间')
 })
 
 /** 书签与划线（0.1.3 第 6 项）：偏移语义与 progress 一致。 */

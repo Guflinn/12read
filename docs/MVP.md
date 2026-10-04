@@ -93,7 +93,7 @@ MVP 只用一句话定义成功标准：
 - 书签、划线、笔记
 - 章节内搜索
 - 阅读统计
-- 手动修正章节（合并/拆分/重命名）
+- 手动修正章节（合并/重命名）
 - 手动指定编码并重新解码
 - 数据导出 / 备份
 - PWA 离线
@@ -208,7 +208,7 @@ MVP 只用一句话定义成功标准：
 | 2 | 阅读排版（瘦身版） | **已完成（commit 40fb69f）**：新增 `src/renderer/src/core/typography.ts`，ReaderSettings 加 `fontFamily` / `pageWidth`，写 `--font-body` / `--page-w` | 护眼（sepia）主题与全屏沉浸用户 2026-10-04 明确不要，留到以后再说 |
 | 3 | 左右翻动翻页 | **已完成（commit 1f9d9b3）**：阅读器键盘 ← / → 翻页（沿用按屏翻页的 40px 重叠），切章改为 Ctrl + ← / → | 叫「左右翻动」不叫「左右滑动」——不是触摸滑动，而是把翻页的方向键从「切章」改成「翻页」。起因：用户的 PageUp / PageDown 被其他程序占用、空格只能向下 |
 | 4 | 手动指定编码重解码 | **已完成（commit bfb8c0a）**：新增 `book:redecode` 通道与 `ImportService.redecode`，复用 `books/<id>/source.bin` 重解；`decodeBytesWith` 支持手工 `big5`（自动检测不会给出它）；书架书卡加「编码」按钮 + 重解码 Modal | 乱码书不用重导；重解码清掉该书的进度（偏移全变了） |
-| 5 | 手动修正分章 | **已完成（commit 5e1f090）**：新增 `src/main/services/chapter-editor.ts`（只重写章节表，进度按编辑前的绝对字符位置重新落位）与 `chapter:rename` / `chapter:merge` / `chapter:split` 三个通道；目录每节可改名 / 合并，顶栏「拆分」在当前位置拆开本章 | 合并 / 拆分 / 改章节标题；拆分后半自动叫「原标题（续）」 |
+| 5 | 手动修正分章 | **已完成（commit 5e1f090）**：新增 `src/main/services/chapter-editor.ts`（只重写章节表，进度按编辑前的绝对字符位置重新落位）与 `chapter:rename` / `chapter:merge` 两个通道；目录每节可改名 / 合并 | 合并 / 改章节标题。发布前按用户反馈删掉了顶栏「拆分」（不好用，2026-10-04） |
 | 6 | 书签与划线 | **已完成（commit ed20635 / fcba50b / 545c012）**：schema v2 迁移（`schema-v2.ts` 建 `bookmark` / `highlight` / `reading_stat` 与三个索引，`annotations-repository.ts` 读写），新增 `bookmark:list/add/remove` 与 `highlight:list/add/remove` 六个通道；顶栏「🔖 书签」、正文选区浮出工具条划线、点已有划线浮出删除，抽屉拆成目录 / 书签 / 划线三页 | 划线按解码后文本的字符偏移存，与进度同一套语义；笔记不做，`highlight.note` 字段先留在表里；第 8 项阅读统计复用这次建好的 `reading_stat` |
 | 7 | 章节内搜索 + 全书搜索 | **已完成（commit 2b250d3 / 9c59286）**：新增纯函数 `src/shared/core/search.ts`（`findMatches` / `contextAround` / `chapterMatches`）与 `src/main/services/search.ts`（`BookSearchService` 逐章扫正文，每章最多 30 条、全书最多 200 条，主进程逐章 yield 事件循环），通道 `book:search`；顶栏「🔍 搜索」/ Ctrl+F 开面板，可切「本章 / 全书」，命中列表带章号与前后 24 字，点一条跳过去并闪一下 | **不用 SQLite FTS5**（见下方已定问题）；不需要新表，schema v2 的迁移与这次无关 |
 | 8 | 阅读统计 | **已完成（commit 284b43b / 4157df5）**：复用第 6 项建好的 `reading_stat` 表，`ReadingStatRepository` 按 `(book_id, day)` 累加，`ReadingStatsService` 出「今天 / 累计 / 连续天数 / 最近 14 天 / 读得最多的 5 本」，通道 `stat:add` / `stat:get`；渲染层 `core/reading-clock.ts` 每 15 秒记一段（窗口可见且 60 秒内有活动才算），字数按同章前进的章内偏移差累计，书架「阅读统计」按钮打开面板 | 不画折线图，只给 14 根柱；时长是「窗口开着且人还在」的近似值，不追求精确 |

@@ -109,23 +109,6 @@ describe('ChapterEditor.merge', () => {
   })
 })
 
-describe('ChapterEditor.split', () => {
-  it('在章内偏移处拆成两半，长度守恒，后半标题带（续）', () => {
-    const harness = makeHarness(THREE)
-    const next = harness.editor.split(BOOK_ID, 1, 80)
-    expect(next).toHaveLength(4)
-    expect(next[1]).toMatchObject({ title: '第二章 转折', startOffset: 100, charLength: 80 })
-    expect(next[2]).toMatchObject({ title: '第二章 转折（续）', startOffset: 180, charLength: 120 })
-    expect(next[3]).toMatchObject({ title: '第三章 归途', startOffset: 300 })
-  })
-
-  it('拆分位置不在章节中间时报错', () => {
-    const harness = makeHarness(THREE)
-    expect(() => harness.editor.split(BOOK_ID, 1, 0)).toThrow('拆分位置要落在这一章中间')
-    expect(() => harness.editor.split(BOOK_ID, 1, 200)).toThrow('拆分位置要落在这一章中间')
-  })
-})
-
 describe('ChapterEditor 与进度联动', () => {
   it('合并到正在读的那一章时，进度按绝对字符位置重新落位', () => {
     // 进度在第二章开头往后 30 字（绝对位置 130）
@@ -134,13 +117,6 @@ describe('ChapterEditor 与进度联动', () => {
     expect(next).toHaveLength(2)
     expect(harness.saveProgress).toHaveBeenCalledTimes(1)
     expect(harness.progress()).toMatchObject({ chapterIndex: 0, charOffset: 130 })
-  })
-
-  it('拆分之后进度落在后半章', () => {
-    const harness = makeHarness(THREE, makeProgress({ chapterIndex: 1, charOffset: 150 }))
-    harness.editor.split(BOOK_ID, 1, 80)
-    // 绝对位置 100+150 = 250，落进新第二章（180 起，120 长）
-    expect(harness.progress()).toMatchObject({ chapterIndex: 2, charOffset: 70 })
   })
 
   it('没有进度就不写进度', () => {

@@ -58,7 +58,6 @@ function makeApi(): ApiMock {
     chapters: vi.fn(async () => CHAPTERS),
     renameChapter: vi.fn(),
     mergeChapter: vi.fn(),
-    splitChapter: vi.fn(),
     listBookmarks: vi.fn(async () => []),
     addBookmark: vi.fn(),
     removeBookmark: vi.fn(),

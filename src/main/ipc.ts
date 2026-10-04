@@ -18,7 +18,6 @@ import {
   renameChapterArgsSchema,
   searchArgsSchema,
   settingsSchema,
-  splitChapterArgsSchema,
   statAddArgsSchema,
   statGetArgsSchema
 } from '@shared/schema'
@@ -170,10 +169,6 @@ export function registerIpc(ctx: IpcContext): void {
 
   handle(CH.chapterMerge, mergeChapterArgsSchema, ({ bookId, index }): Chapter[] =>
     runChapterEdit(() => ctx.chapters.merge(bookId, index))
-  )
-
-  handle(CH.chapterSplit, splitChapterArgsSchema, ({ bookId, index, offset }): Chapter[] =>
-    runChapterEdit(() => ctx.chapters.split(bookId, index, offset))
   )
 
   // 书签与划线：id 与时间戳一律由主进程生成，渲染进程只报位置

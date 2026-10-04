@@ -52,7 +52,6 @@ export interface ReaderApi {
   /** 手动改分章（目录里用）：都返回改完的整份章节表，进度按字符位置重新落位。 */
   renameChapter(bookId: string, index: number, title: string): Promise<Chapter[]>
   mergeChapter(bookId: string, index: number): Promise<Chapter[]>
-  splitChapter(bookId: string, index: number, offset: number): Promise<Chapter[]>
   readChapter(bookId: string, index: number): Promise<string>
   /**
    * 书签与划线（0.1.3 第 6 项）：都按「章号 + 章内偏移」定位，与进度同一套语义；

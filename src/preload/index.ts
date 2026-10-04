@@ -19,7 +19,6 @@ import {
   searchArgsSchema,
   renameChapterArgsSchema,
   settingsSchema,
-  splitChapterArgsSchema,
   statAddArgsSchema,
   statGetArgsSchema
 } from '@shared/schema'
@@ -73,8 +72,6 @@ const readerApi: ReaderApi = {
     invoke(CH.chapterRename, renameChapterArgsSchema, { bookId, index, title }),
   mergeChapter: (bookId: string, index: number): Promise<Chapter[]> =>
     invoke(CH.chapterMerge, mergeChapterArgsSchema, { bookId, index }),
-  splitChapter: (bookId: string, index: number, offset: number): Promise<Chapter[]> =>
-    invoke(CH.chapterSplit, splitChapterArgsSchema, { bookId, index, offset }),
   readChapter: (bookId: string, index: number): Promise<string> =>
     invoke(CH.chapterRead, readChapterArgsSchema, { bookId, index }),
   listBookmarks: (bookId: string): Promise<Bookmark[]> =>

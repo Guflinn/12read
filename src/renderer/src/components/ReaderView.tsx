@@ -348,20 +348,7 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
           onClick={() => applySettings({ theme: theme === 'night' ? 'day' : 'night' })}
         >
           {theme === 'night' ? '☀ 日间' : '☾ 夜间'}
-        </button>
-        <button
-          id="btn-split"
-          className="icon-btn"
-          aria-label="在当前位置把本章拆成两章"
-          title="在当前位置把本章拆成两章"
-          onClick={() => {
-            const store = useReaderStore.getState()
-            void store.splitChapter(store.chapterIndex, lastOffsetRef.current)
-          }}
-        >
-          ⑂ 拆分
-        </button>
-        <button
+        </button>        <button
           id="btn-search"
           className="icon-btn"
           aria-label="在本书里搜索"

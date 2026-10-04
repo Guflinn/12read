@@ -182,8 +182,7 @@ function makeContext(): {
   }
   const chapters = {
     rename: vi.fn((): Chapter[] => CHAPTERS),
-    merge: vi.fn((): Chapter[] => CHAPTERS),
-    split: vi.fn((): Chapter[] => CHAPTERS)
+    merge: vi.fn((): Chapter[] => CHAPTERS)
   }
   const annotations = {
     listBookmarks: vi.fn((): Bookmark[] => [BOOKMARK]),
@@ -451,16 +450,6 @@ describe('IPC 注册与转发', () => {
     await expect(call(CH.chapterMerge, { bookId: BOOK_ID, index: 0 })).rejects.toThrow(
       '改分章失败（db-error）：这已经是最后一章，后面没有可以合并的章节'
     )
-  })
-
-  it('chapter:split 转发拆分位置，章首与越界位置直接被拒', async () => {
-    const { chapters } = setup()
-    expect(await call(CH.chapterSplit, { bookId: BOOK_ID, index: 0, offset: 5 })).toEqual(CHAPTERS)
-    expect(chapters.split.mock.calls[0]).toEqual([BOOK_ID, 0, 5])
-    await expect(call(CH.chapterSplit, { bookId: BOOK_ID, index: 0, offset: 0 })).rejects.toThrow(
-      '参数校验失败: ' + CH.chapterSplit
-    )
-    expect(chapters.split).toHaveBeenCalledTimes(1)
   })
 
   it('bookmark:list / add / remove 转发，id 与时间戳由主进程生成', async () => {

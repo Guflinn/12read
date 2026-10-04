@@ -14,7 +14,7 @@ interface DraftChapter {
 /**
  * 手动改分章（MVP 0.1.3 第 5 项）。
  * 正文一个字都不动，只重写章节表；进度按「绝对字符位置」重新落位，
- * 所以合并 / 拆分 / 改名都不会把人从正在读的地方弹走。
+ * 所以合并 / 改名都不会把人从正在读的地方弹走。
  */
 export class ChapterEditor {
   constructor(private readonly repo: LibraryRepository) {}
@@ -38,25 +38,6 @@ export class ChapterEditor {
     }
     head.charLength = tail.startOffset + tail.charLength - head.startOffset
     chapters.splice(index + 1, 1)
-    return this.apply(bookId, chapters, absolute)
-  }
-
-  /** 在第 index 章的章内偏移 offset 处拆成两章，后半自动叫「原标题（续）」。 */
-  split(bookId: string, index: number, offset: number): Chapter[] {
-    const chapters = this.load(bookId)
-    const absolute = this.absoluteOf(bookId, chapters)
-    const target = this.pick(chapters, index)
-    if (offset <= 0 || offset >= target.charLength) {
-      throw new ImportError('db-error', '拆分位置要落在这一章中间')
-    }
-    const tail: DraftChapter = {
-      title: target.title + '（续）',
-      startOffset: target.startOffset + offset,
-      charLength: target.charLength - offset,
-      kind: target.kind
-    }
-    target.charLength = offset
-    chapters.splice(index + 1, 0, tail)
     return this.apply(bookId, chapters, absolute)
   }
 

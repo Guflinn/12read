@@ -69,8 +69,6 @@ export interface ReaderState {
   renameChapter(index: number, title: string): Promise<void>
   /** 把第 index+1 章并进第 index 章。 */
   mergeChapter(index: number): Promise<void>
-  /** 在第 index 章的章内偏移 offset 处拆成两章。 */
-  splitChapter(index: number, offset: CharOffset): Promise<void>
   /** 本书的书签，按正文顺序排（打开时随章节一起带回）。 */
   bookmarks: Bookmark[]
   /** 本书的划线，按正文顺序排。 */
@@ -498,14 +496,6 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
 
   async mergeChapter(index: number): Promise<void> {
     await applyChapterEdit((bookId) => readerApi().mergeChapter(bookId, index))
-  },
-
-  async splitChapter(index: number, offset: CharOffset): Promise<void> {
-    if (offset < 1) {
-      set({ error: '拆分位置要落在这一章中间：先往下读一点，再在想要断开的地方拆' })
-      return
-    }
-    await applyChapterEdit((bookId) => readerApi().splitChapter(bookId, index, offset))
   },
 
   async addBookmark(): Promise<void> {

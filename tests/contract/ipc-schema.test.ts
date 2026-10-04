@@ -14,7 +14,6 @@ import {
   renameChapterArgsSchema,
   searchArgsSchema,
   settingsSchema,
-  splitChapterArgsSchema,
   statAddArgsSchema,
   statGetArgsSchema
 } from '@shared/schema'
@@ -75,7 +74,7 @@ describe('IPC 入参校验：合法用例', () => {
     }
   })
 
-  it('改分章入参：改名去空白，合并与拆分接受正整数', () => {
+  it('改分章入参：改名去空白，合并接受正整数', () => {
     const renamed = renameChapterArgsSchema.safeParse({
       bookId: VALID_ID,
       index: 2,
@@ -84,9 +83,6 @@ describe('IPC 入参校验：合法用例', () => {
     expect(renamed.success).toBe(true)
     if (renamed.success) expect(renamed.data.title).toBe('卷二 归途')
     expect(mergeChapterArgsSchema.safeParse({ bookId: VALID_ID, index: 0 }).success).toBe(true)
-    expect(splitChapterArgsSchema.safeParse({ bookId: VALID_ID, index: 1, offset: 120 }).success).toBe(
-      true
-    )
   })
 
   it('书签与划线入参：章内偏移接受 0，去掉不用的字段', () => {
@@ -208,7 +204,7 @@ describe('IPC 入参校验：非法用例', () => {
     expect(redecodeArgsSchema.safeParse({ bookId: 'nope', encoding: 'auto' }).success).toBe(false)
   })
 
-  it('改分章入参：空标题、坏下标、章首拆分都被拒', () => {
+  it('改分章入参：空标题、坏下标、小数下标都被拒', () => {
     expect(renameChapterArgsSchema.safeParse({ bookId: VALID_ID, index: 0, title: '   ' }).success).toBe(
       false
     )
@@ -216,12 +212,6 @@ describe('IPC 入参校验：非法用例', () => {
       renameChapterArgsSchema.safeParse({ bookId: VALID_ID, index: -1, title: '序章' }).success
     ).toBe(false)
     expect(mergeChapterArgsSchema.safeParse({ bookId: VALID_ID, index: 1.5 }).success).toBe(false)
-    expect(splitChapterArgsSchema.safeParse({ bookId: VALID_ID, index: 0, offset: 0 }).success).toBe(
-      false
-    )
-    expect(
-      splitChapterArgsSchema.safeParse({ bookId: VALID_ID, index: 0, offset: -3 }).success
-    ).toBe(false)
   })
 
   it('书签与划线入参：负偏移、空 id、空文字、超长摘录都被拒', () => {

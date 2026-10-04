@@ -73,7 +73,6 @@ interface Harness {
   getBook: ReturnType<typeof vi.fn>
   renameChapter: ReturnType<typeof vi.fn>
   mergeChapter: ReturnType<typeof vi.fn>
-  splitChapter: ReturnType<typeof vi.fn>
   addBookmark: ReturnType<typeof vi.fn>
   removeBookmark: ReturnType<typeof vi.fn>
   addHighlight: ReturnType<typeof vi.fn>
@@ -100,7 +99,6 @@ function makeHarness(
   const getBook = vi.fn(async (bookId: string): Promise<Book | null> => (bookId === BOOK_ID ? book : null))
   const renameChapter = vi.fn(async (): Promise<Chapter[]> => chapters)
   const mergeChapter = vi.fn(async (): Promise<Chapter[]> => chapters)
-  const splitChapter = vi.fn(async (): Promise<Chapter[]> => chapters)
   const listBookmarks = vi.fn(async (): Promise<Bookmark[]> => storedAnnotations.bookmarks ?? [])
   const listHighlights = vi.fn(async (): Promise<Highlight[]> => storedAnnotations.highlights ?? [])
   // 主进程负责补 id 与 createdAt，这里照做，store 拿回来的就是完整记录
@@ -155,7 +153,6 @@ function makeHarness(
     chapters: vi.fn(async () => chapters),
     renameChapter,
     mergeChapter,
-    splitChapter,
     listBookmarks,
     addBookmark,
     removeBookmark,
@@ -183,7 +180,6 @@ function makeHarness(
     getBook,
     renameChapter,
     mergeChapter,
-    splitChapter,
     addBookmark,
     removeBookmark,
     addHighlight,
@@ -519,18 +515,6 @@ describe('reader store: 手动改分章', () => {
   const merged: Chapter[] = [
     { bookId: BOOK_ID, index: 0, title: '第一章', startOffset: 0, charLength: 300, kind: 'chapter' }
   ]
-  const split: Chapter[] = [
-    { bookId: BOOK_ID, index: 0, title: '第一章', startOffset: 0, charLength: 50, kind: 'chapter' },
-    {
-      bookId: BOOK_ID,
-      index: 1,
-      title: '第一章（续）',
-      startOffset: 50,
-      charLength: 50,
-      kind: 'chapter'
-    },
-    { bookId: BOOK_ID, index: 2, title: '第二章', startOffset: 100, charLength: 200, kind: 'chapter' }
-  ]
 
   it('合并到当前章：按编辑前的绝对位置落位，并强制重读变长后的正文', async () => {
     const harness = makeHarness(storedProgress({ chapterIndex: 1, charOffset: 40 }))
@@ -568,34 +552,6 @@ describe('reader store: 手动改分章', () => {
     expect(state.pendingOffset).toBe(30)
     expect(state.bookmark).toEqual({ chapterIndex: 0, charOffset: 30 })
     expect(state.chapterText).toBe(DEFAULT_TEXTS[0])
-  })
-
-  it('拆分后位置与书签都落到后半章', async () => {
-    const harness = makeHarness(storedProgress({ chapterIndex: 0, charOffset: 80 }))
-    await useReaderStore.getState().open(BOOK_ID)
-
-    // 假正文要够长，否则偏移会被夹到正文长度（真实数据里两者是一致的）
-    const tailText = '後'.repeat(60)
-    harness.splitChapter.mockResolvedValueOnce(split)
-    harness.readChapter.mockResolvedValueOnce(tailText)
-    await useReaderStore.getState().splitChapter(0, 80)
-
-    const state = useReaderStore.getState()
-    expect(harness.splitChapter).toHaveBeenCalledWith(BOOK_ID, 0, 80)
-    // 绝对位置 80 落进新的「第一章（续）」（50 起）
-    expect(state.chapterIndex).toBe(1)
-    expect(state.pendingOffset).toBe(30)
-    expect(state.chapterText).toBe(tailText)
-    expect(state.bookmark).toEqual({ chapterIndex: 1, charOffset: 30 })
-  })
-
-  it('拆分位置在章首时给出提示，不发请求', async () => {
-    const harness = makeHarness()
-    await useReaderStore.getState().open(BOOK_ID)
-    await useReaderStore.getState().splitChapter(0, 0)
-
-    expect(harness.splitChapter).not.toHaveBeenCalled()
-    expect(useReaderStore.getState().error).toContain('拆分位置要落在这一章中间')
   })
 
   it('主进程拒绝时把原因写成「改分章失败」', async () => {

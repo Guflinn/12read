@@ -208,7 +208,7 @@ MVP 只用一句话定义成功标准：
 | 2 | 阅读排版（瘦身版） | **已完成（commit 40fb69f）**：新增 `src/renderer/src/core/typography.ts`，ReaderSettings 加 `fontFamily` / `pageWidth`，写 `--font-body` / `--page-w` | 护眼（sepia）主题与全屏沉浸用户 2026-10-04 明确不要，留到以后再说 |
 | 3 | 左右翻动翻页 | **已完成（commit 1f9d9b3）**：阅读器键盘 ← / → 翻页（沿用按屏翻页的 40px 重叠），切章改为 Ctrl + ← / → | 叫「左右翻动」不叫「左右滑动」——不是触摸滑动，而是把翻页的方向键从「切章」改成「翻页」。起因：用户的 PageUp / PageDown 被其他程序占用、空格只能向下 |
 | 4 | 手动指定编码重解码 | **已完成（commit bfb8c0a）**：新增 `book:redecode` 通道与 `ImportService.redecode`，复用 `books/<id>/source.bin` 重解；`decodeBytesWith` 支持手工 `big5`（自动检测不会给出它）；书架书卡加「编码」按钮 + 重解码 Modal | 乱码书不用重导；重解码清掉该书的进度（偏移全变了） |
-| 5 | 手动修正分章 | 章节表重写 + 目录/阅读器联动 | 合并 / 拆分 / 改章节标题 |
+| 5 | 手动修正分章 | **已完成（commit 5e1f090）**：新增 `src/main/services/chapter-editor.ts`（只重写章节表，进度按编辑前的绝对字符位置重新落位）与 `chapter:rename` / `chapter:merge` / `chapter:split` 三个通道；目录每节可改名 / 合并，顶栏「拆分」在当前位置拆开本章 | 合并 / 拆分 / 改章节标题；拆分后半自动叫「原标题（续）」 |
 | 6 | 书签与划线 | 新表 + 选中交互 + 列表跳转 | 需要 schema v2 迁移 |
 | 7 | 章节内搜索 + 全书搜索 | 搜索服务扫描 content.txt / chapters/*.txt，命中列表带上下文 | 与第 6 项合并进同一次迁移 |
 | 8 | 阅读统计 | 新表（阅读时长 / 字数 / 每日） | 与第 6 项合并进同一次迁移 |

@@ -348,13 +348,14 @@ export function ShelfView({
             <li>书架：搜索书名或作者，按最近阅读 / 导入时间 / 书名 / 进度排序</li>
             <li>进度：关掉再打开，回到上次读到的那个字；顶栏「上次位置」来回对照</li>
             <li>乱码书重新解码：在书封面上点「编码」，挑 UTF-8 / GBK / BIG5 / UTF-16 重解一遍，不用重新导入</li>
+            <li>手动改分章：目录里给每一节改名或合并到上一节，顶栏「拆分」在当前位置拆成两节</li>
           </ul>
           <p className="scope-h">还不在范围内</p>
           <ul className="scope-list">
             <li>书签、笔记、划线、全文搜索</li>
             <li>EPUB / PDF / MOBI（数据结构已为 EPUB 预留）</li>
             <li>账号、云同步、在线书城、TTS 朗读</li>
-            <li>手动改分章、导出备份</li>
+            <li>导出备份</li>
           </ul>
         </Modal>
       ) : null}

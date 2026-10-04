@@ -1,9 +1,9 @@
 # 十二阅读（12read）
 
-本地优先的 TXT 桌面阅读器：导入一本 .txt，从头读到尾，关掉再打开回到原处。
+本地优先的 TXT 桌面阅读器：导入一本 .txt，从头读到尾，关掉再打开回到原处。  
 没有账号、没有服务器、不联网——书和进度只存在这台电脑上。
 
-产品范围见 [docs/MVP.md](docs/MVP.md)，技术方案见 [docs/TECH.md](docs/TECH.md)，
+产品范围见 [docs/MVP.md](docs/MVP.md)，技术方案见 [docs/TECH.md](docs/TECH.md)，  
 界面原型见 [demo/index.html](demo/index.html)（静态演示，带演示数据），版本改动见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 现在能做什么
@@ -28,22 +28,22 @@ pnpm install          # better-sqlite3 走 N-API 预编译包，不需要本机 
 pnpm dev              # 开发模式（HMR）
 ```
 
-Windows + PowerShell 上如果直接敲 `pnpm` 报「禁止运行脚本」，执行一次
-`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` 即可（用户级设置，随时可回退）——
+Windows + PowerShell 上如果直接敲 `pnpm` 报「禁止运行脚本」，执行一次  
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` 即可（用户级设置，随时可回退）——  
 它放行的是本机 npm 全局安装的 `pnpm.ps1`。
 
 配置都放在 `pnpm-workspace.yaml` 里（pnpm 11 起构建脚本白名单写作 `allowBuilds:`，`electron`、`better-sqlite3` 等已设为 `true`），仓库里刻意不放 `.npmrc`：hoist 与 peer 相关行为用 pnpm 默认值即可。
 
 常用命令：
 
-| 命令 | 作用 |
-| --- | --- |
-| `pnpm dev` | 开发模式启动 Electron |
-| `pnpm build` | electron-vite 产出 `out/` |
-| `pnpm verify` | eslint + 三份 tsconfig 类型检查 + 单测 + 契约测试 |
-| `pnpm test:coverage` | 单测覆盖率（行覆盖率门槛 90%） |
-| `pnpm test:e2e` | Playwright 驱动真实 Electron（会先自动 build） |
-| `pnpm dist` | 打包到 `release/`（`electron-builder --dir`） |
+| 命令                   | 作用                                       |
+| -------------------- | ---------------------------------------- |
+| `pnpm dev`           | 开发模式启动 Electron                          |
+| `pnpm build`         | electron-vite 产出 `out/`                  |
+| `pnpm verify`        | eslint + 三份 tsconfig 类型检查 + 单测 + 契约测试    |
+| `pnpm test:coverage` | 单测覆盖率（行覆盖率门槛 90%）                        |
+| `pnpm test:e2e`      | Playwright 驱动真实 Electron（会先自动 build）     |
+| `pnpm dist`          | 打包到 `release/`（`electron-builder --dir`） |
 
 ## 数据放在哪
 
@@ -102,7 +102,7 @@ pnpm build && pnpm exec electron-builder --win nsis   # release/twelve-read-setu
 
 ## 已知边界
 
-不在这个版本里：笔记、EPUB/PDF/MOBI、账号与云同步、书城、TTS、导出备份、分页/全屏/页边距（这些都在 docs/MVP.md 的「暂不做」里）。手动指定编码重解码、手动改分章、书签与划线（含 schema v2 迁移）、章节内 + 全书搜索已在 0.1.3 交付。
+不在这个版本里：笔记、EPUB/PDF/MOBI、账号与云同步、书城、TTS、导出备份、分页/全屏/页边距（这些都在 docs/MVP.md 的「暂不做」里）。手动指定编码重解码、手动改分章、书签与划线（含 schema v2 迁移）、章节内 + 全书搜索已在 0.1.3 交付。  
 其它已知取舍：导入取消目前只对 worker 生效（内联兜底路径不中断）；重排后的位置漂移允许一行以内；外部文件引用模式（只引用不复制）特意没做，避免用户移动源文件后书变空白。
 
 ## 里程碑

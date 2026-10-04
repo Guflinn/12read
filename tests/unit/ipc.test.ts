@@ -59,7 +59,7 @@ const PROGRESS: Progress = {
   deviceId: 'device-1'
 }
 
-const SETTINGS: ReaderSettings = { fontSize: 19, lineHeight: 1.9, theme: 'day' }
+const SETTINGS: ReaderSettings = { fontSize: 19, lineHeight: 1.9, theme: 'day', bold: false }
 
 function makeContext(): {
   ctx: IpcContext
@@ -280,7 +280,7 @@ describe('IPC 注册与转发', () => {
   it('settings:get / settings:save 转发设置，非法主题被拒', async () => {
     const { settings } = setup()
     expect(await call(CH.settingsGet)).toEqual(SETTINGS)
-    const next = { fontSize: 22, lineHeight: 2.25, theme: 'night' as const }
+    const next = { fontSize: 22, lineHeight: 2.25, theme: 'night' as const, bold: true }
     expect(await call(CH.settingsSave, next)).toEqual(next)
     expect(settings.set.mock.calls[0]?.[0]).toEqual(next)
     await expect(call(CH.settingsSave, { ...next, theme: 'sepia' })).rejects.toThrow(

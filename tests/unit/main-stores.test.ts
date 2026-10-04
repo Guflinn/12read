@@ -120,9 +120,19 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
   })
 
   it('已有合法 JSON 时解析返回', () => {
-    const stored = { fontSize: 21, lineHeight: 2.1, theme: 'night' as const }
+    const stored = { fontSize: 21, lineHeight: 2.1, theme: 'night' as const, bold: true }
     const meta = makeMetaHarness({ [KEY]: JSON.stringify(stored) })
     expect(new SettingsStore(meta.repo).get()).toEqual(stored)
+  })
+
+  it('老版本存的设置没有 bold：补 false，其余照样保留', () => {
+    const meta = makeMetaHarness({ [KEY]: JSON.stringify({ fontSize: 21, lineHeight: 2.1, theme: 'night' }) })
+    expect(new SettingsStore(meta.repo).get()).toEqual({
+      fontSize: 21,
+      lineHeight: 2.1,
+      theme: 'night',
+      bold: false
+    })
   })
 
   it('坏 JSON 不会把界面搞崩，回退默认', () => {
@@ -137,7 +147,7 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
 
   it('set 合法时写库并返回解析后的值', () => {
     const meta = makeMetaHarness()
-    const next = { fontSize: 20, lineHeight: 2, theme: 'night' as const }
+    const next = { fontSize: 20, lineHeight: 2, theme: 'night' as const, bold: true }
     const returned = new SettingsStore(meta.repo).set(next)
     expect(returned).toEqual(next)
     expect(meta.set).toHaveBeenCalledWith(KEY, JSON.stringify(next))
@@ -145,7 +155,7 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
 
   it('set 非法时不动库，返回当前 get() 的结果', () => {
     const meta = makeMetaHarness({ [KEY]: JSON.stringify(DEFAULT_SETTINGS) })
-    const returned = new SettingsStore(meta.repo).set({ fontSize: 5, lineHeight: 1, theme: 'night' })
+    const returned = new SettingsStore(meta.repo).set({ fontSize: 5, lineHeight: 1, theme: 'night', bold: true })
     expect(returned).toEqual(DEFAULT_SETTINGS)
     expect(meta.set).not.toHaveBeenCalled()
   })

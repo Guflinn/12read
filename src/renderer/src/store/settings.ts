@@ -14,7 +14,8 @@ function normalize(next: ReaderSettings): ReaderSettings {
   return {
     fontSize: clampFontSize(next.fontSize),
     lineHeight: Number.isFinite(next.lineHeight) ? next.lineHeight : DEFAULT_SETTINGS.lineHeight,
-    theme: next.theme === 'night' ? 'night' : 'day'
+    theme: next.theme === 'night' ? 'night' : 'day',
+    bold: next.bold === true
   }
 }
 

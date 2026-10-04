@@ -8,7 +8,7 @@ const LINE_HEIGHT_LABELS: ReadonlyArray<{ value: number; label: string }> = [
   { value: 2.25, label: '宽松' }
 ]
 
-/** 设置面板：字号 / 行距 / 主题。改字号只重排版，进度按字符偏移保持不动（TECH.md 6.4）。 */
+/** 设置面板：字号 / 行距 / 字重 / 主题。改字号只重排版，进度按字符偏移保持不动（TECH.md 6.4）。 */
 export function SettingsSheet(): React.JSX.Element {
   const settings = useSettingsStore((s) => s.settings)
   const apply = useSettingsStore((s) => s.apply)
@@ -55,6 +55,28 @@ export function SettingsSheet(): React.JSX.Element {
               {item.label}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className="sheet-row">
+        <span className="label">字重</span>
+        <div className="grow">
+          <button
+            className={settings.bold ? 'pill' : 'pill on'}
+            id="bold-off"
+            data-bold-choice="off"
+            onClick={() => apply({ bold: false })}
+          >
+            常规
+          </button>
+          <button
+            className={settings.bold ? 'pill on' : 'pill'}
+            id="bold-on"
+            data-bold-choice="on"
+            onClick={() => apply({ bold: true })}
+          >
+            加粗
+          </button>
         </div>
       </div>
 

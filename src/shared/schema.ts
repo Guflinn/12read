@@ -41,7 +41,9 @@ export const cancelArgsSchema = z.object({ taskId: z.string().min(1) })
 export const settingsSchema = z.object({
   fontSize: z.number().int().min(12).max(40),
   lineHeight: z.number().min(1.2).max(3),
-  theme: z.enum(['day', 'night'])
+  theme: z.enum(['day', 'night']),
+  // 0.1.1 及更早存的设置里没有 bold：用 default 补上，别让整份设置回退成默认值
+  bold: z.boolean().default(false)
 })
 
 /** 导入进度是 main -> renderer 的推送，双侧同样校验。 */

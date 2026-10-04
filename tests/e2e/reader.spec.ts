@@ -246,3 +246,39 @@ test('回到上次位置：停稳后点一下就回去，再点一下回到刚�
   await expect.poll(() => topParagraphIndex(page)).toBeLessThanOrEqual(1)
 })
 
+test('字重开关：设置里点加粗，正文变粗并且重启后还记着', async () => {
+  const dataDir = makeTempDir('12read-bold-')
+  const bookPath = writeNovelFile(makeTempDir('12read-bold-src-'), '字重书.txt', buildNovel())
+
+  let page = await openApp(dataDir)
+  await importPath(page, bookPath)
+  await page.click('.book-card')
+  await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
+
+  const weight = (): Promise<string> =>
+    page.locator('#reader-content p').first().evaluate((el) => getComputedStyle(el).fontWeight)
+  expect(await weight()).toBe('400')
+
+  await page.click('#btn-settings')
+  await expect(page.locator('#settings-sheet')).toHaveClass(/on/)
+  await page.click('#bold-on')
+  await expect.poll(weight).toBe('600')
+  await expect(page.locator('#bold-on')).toHaveClass(/on/)
+  await page.click('#bold-off')
+  await expect.poll(weight).toBe('400')
+  await page.click('#bold-on')
+  await expect.poll(weight).toBe('600')
+  await page.keyboard.press('Escape')
+  expect(await cssVar(page, '--fw')).toBe('600')
+
+  // 重启后还记着加粗
+  await app!.close()
+  app = null
+  page = await openApp(dataDir)
+  await page.click('.book-card')
+  await expect.poll(weight).toBe('600')
+  await page.click('#btn-settings')
+  await expect(page.locator('#bold-on')).toHaveClass(/on/)
+})
+
+

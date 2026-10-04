@@ -21,4 +21,5 @@ export function applyTheme(settings: ReaderSettings, root: ThemeRoot): void {
   if (root.dataset.theme !== settings.theme) root.dataset.theme = settings.theme
   root.style.setProperty('--fs', settings.fontSize + 'px')
   root.style.setProperty('--lh', String(settings.lineHeight))
+  root.style.setProperty('--fw', settings.bold ? '600' : '400')
 }

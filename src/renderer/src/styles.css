@@ -12,6 +12,7 @@
     --shadow: 0 1px 2px rgba(60,50,40,.06), 0 8px 24px rgba(60,50,40,.06);
     --fs: 19px;
     --lh: 1.9;
+    --fw: 400;
   }
   [data-theme="night"] {
     color-scheme: dark;
@@ -112,7 +113,7 @@
     font-size: var(--fs); line-height: var(--lh); letter-spacing: .01em; }
   .chapter-title { font-size: calc(var(--fs) * 1.22); line-height: 1.5; margin: 0 0 calc(var(--fs) * 1.5);
     font-weight: 600; text-align: center; letter-spacing: .02em; }
-  .reader-content p { margin: 0 0 .85em; text-indent: 2em; text-align: justify; }
+  .reader-content p { margin: 0 0 .85em; text-indent: 2em; text-align: justify; font-weight: var(--fw, 400); }
   .chapter-end { text-align: center; color: var(--dim); font-size: .72em; margin: 2.4em 0 2em; letter-spacing: .3em; }
   .chapter-nav { max-width: 40rem; margin: 0 auto; display: flex; align-items: center; justify-content: space-between;
     gap: 12px; padding: 22px 0 30px; border-top: 1px solid var(--line); }

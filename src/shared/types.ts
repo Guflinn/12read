@@ -122,12 +122,15 @@ export interface ReaderSettings {
   fontSize: number
   lineHeight: number
   theme: 'day' | 'night'
+  /** 正文加粗：写给 --fw，.reader-content 读它。 */
+  bold: boolean
 }
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
   fontSize: 19,
   lineHeight: 1.9,
-  theme: 'day'
+  theme: 'day',
+  bold: false
 }
 
 /** 单章渲染上限之上的分块阈值，见 TECH.md 8.1。 */

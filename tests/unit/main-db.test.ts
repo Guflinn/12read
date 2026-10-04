@@ -7,7 +7,7 @@ import { applyConnectionPragmas, type SqlDatabase, type SqlStatement } from '@ma
 import { openDatabase } from '@main/db/better-sqlite3-driver'
 import { LibraryRepository, type NewBookRecord, type NewChapterRecord } from '@main/db/library-repository'
 import { MetaRepository } from '@main/db/meta-repository'
-import { runMigrations } from '@main/db/migrate'
+import { MIGRATIONS, runMigrations } from '@main/db/migrate'
 import { coverSeedFromTitle } from '@main/db/mappers'
 
 /**
@@ -388,8 +388,9 @@ describe('meta 仓储', () => {
     runMigrations(db)
     const meta = new MetaRepository(db)
 
-    // 迁移会把 schema_version 写进去
-    expect(meta.get('schema_version')).toBe('1')
+    // 迁移会把最新版本号写进去（跟着迁移表走，升到 v2 之后不用再改这里）
+    const latest = MIGRATIONS[MIGRATIONS.length - 1]?.version
+    expect(meta.get('schema_version')).toBe(String(latest))
 
     meta.set('reader.settings', '{"fontSize":19}')
     expect(meta.get('reader.settings')).toBe('{"fontSize":19}')

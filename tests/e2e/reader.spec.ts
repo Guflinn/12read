@@ -281,4 +281,47 @@ test('字重开关：设置里点加粗，正文变粗并且重启后还记着',
   await expect(page.locator('#bold-on')).toHaveClass(/on/)
 })
 
+test('字体与栏宽：设置里换字体、换宽度，正文跟着变并且重启后还记着', async () => {
+  const dataDir = makeTempDir('12read-type-')
+  const bookPath = writeNovelFile(makeTempDir('12read-type-src-'), '排版书.txt', buildNovel())
+
+  let page = await openApp(dataDir)
+  await importPath(page, bookPath)
+  await page.click('.book-card')
+  await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
+
+  const fontFamily = (): Promise<string> =>
+    page.locator('#reader-content').evaluate((el) => getComputedStyle(el).fontFamily)
+  const maxWidth = (): Promise<string> =>
+    page.locator('#reader-content').evaluate((el) => getComputedStyle(el).maxWidth)
+
+  // 默认：宋体 + 40rem（16px 根字号下 = 640px）
+  expect(await fontFamily()).toContain('Songti')
+  expect(await maxWidth()).toBe('640px')
+
+  await page.click('#btn-settings')
+  await expect(page.locator('#settings-sheet')).toHaveClass(/on/)
+  await page.click('#font-kai')
+  await expect(page.locator('#font-kai')).toHaveClass(/on/)
+  await expect.poll(fontFamily).toContain('KaiTi')
+
+  await page.click('#width-wide')
+  await expect(page.locator('#width-wide')).toHaveClass(/on/)
+  await expect.poll(maxWidth).toBe('832px')
+
+  await page.keyboard.press('Escape')
+  expect(await cssVar(page, '--font-body')).toContain('KaiTi')
+  expect(await cssVar(page, '--page-w')).toBe('52rem')
+
+  // 重启后还记着字体与栏宽
+  await app!.close()
+  app = null
+  page = await openApp(dataDir)
+  await page.click('.book-card')
+  await expect.poll(fontFamily).toContain('KaiTi')
+  await expect.poll(maxWidth).toBe('832px')
+  await page.click('#btn-settings')
+  await expect(page.locator('#width-wide')).toHaveClass(/on/)
+})
+
 

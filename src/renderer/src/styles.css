@@ -13,6 +13,8 @@
     --fs: 19px;
     --lh: 1.9;
     --fw: 400;
+  --font-body: "Songti SC", "SimSun", "Noto Serif CJK SC", serif;
+  --page-w: 40rem;
   }
   [data-theme="night"] {
     color-scheme: dark;
@@ -108,14 +110,14 @@
   .icon-btn:hover { background: var(--surface); border-color: var(--line); }
 
   .reader-scroll { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; scroll-behavior: auto; padding: 0 20px 60px; }
-  .reader-content { max-width: 40rem; margin: 0 auto; padding-top: 46px;
-    font-family: "Songti SC", "SimSun", "Noto Serif CJK SC", serif;
+  .reader-content { max-width: var(--page-w); margin: 0 auto; padding-top: 46px;
+    font-family: var(--font-body);
     font-size: var(--fs); line-height: var(--lh); letter-spacing: .01em; }
   .chapter-title { font-size: calc(var(--fs) * 1.22); line-height: 1.5; margin: 0 0 calc(var(--fs) * 1.5);
     font-weight: 600; text-align: center; letter-spacing: .02em; }
   .reader-content p { margin: 0 0 .85em; text-indent: 2em; text-align: justify; font-weight: var(--fw, 400); }
   .chapter-end { text-align: center; color: var(--dim); font-size: .72em; margin: 2.4em 0 2em; letter-spacing: .3em; }
-  .chapter-nav { max-width: 40rem; margin: 0 auto; display: flex; align-items: center; justify-content: space-between;
+  .chapter-nav { max-width: var(--page-w); margin: 0 auto; display: flex; align-items: center; justify-content: space-between;
     gap: 12px; padding: 22px 0 30px; border-top: 1px solid var(--line); }
   .chapter-nav .pos { font-size: 13px; color: var(--dim); }
 
@@ -199,7 +201,7 @@
   .import-row .progress-track { margin-top: 8px; }
 
   /* ---------- 阅读器补充 ---------- */
-  .reader-loading { max-width: 40rem; margin: 0 auto; padding-top: 46px; font-size: 14px; }
+  .reader-loading { max-width: var(--page-w); margin: 0 auto; padding-top: 46px; font-size: 14px; }
   .load-more { display: block; margin: 26px auto 10px; }
   .reader-content p.blank { text-indent: 0; }
   .toc-kind { display: inline-block; margin-right: 6px; padding: 0 4px; border: 1px solid var(--line);

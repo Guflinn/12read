@@ -1,4 +1,5 @@
 import type { ReaderSettings } from '@shared/types'
+import { fontStackOf, pageWidthOf } from '@/core/typography'
 
 /**
  * applyTheme 只用得到 <html> 上的这两个能力。显式写出来有两个好处：
@@ -22,4 +23,6 @@ export function applyTheme(settings: ReaderSettings, root: ThemeRoot): void {
   root.style.setProperty('--fs', settings.fontSize + 'px')
   root.style.setProperty('--lh', String(settings.lineHeight))
   root.style.setProperty('--fw', settings.bold ? '600' : '400')
+  root.style.setProperty('--font-body', fontStackOf(settings.fontFamily))
+  root.style.setProperty('--page-w', pageWidthOf(settings.pageWidth))
 }

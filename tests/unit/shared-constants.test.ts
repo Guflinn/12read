@@ -13,6 +13,8 @@ describe('共享常量', () => {
     expect(DEFAULT_SETTINGS.lineHeight).toBeGreaterThanOrEqual(1.2)
     expect(DEFAULT_SETTINGS.lineHeight).toBeLessThanOrEqual(3)
     expect(DEFAULT_SETTINGS.theme).toBe('day')
+    expect(DEFAULT_SETTINGS.fontFamily).toBe('song')
+    expect(DEFAULT_SETTINGS.pageWidth).toBe('medium')
   })
 
   it('sliced 阈值是 32MB', () => {

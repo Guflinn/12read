@@ -46,6 +46,22 @@ describe('IPC 入参校验：合法用例', () => {
       true
     )
     expect(settingsSchema.safeParse({ fontSize: 40, lineHeight: 3, theme: 'day' }).success).toBe(true)
+    expect(
+      settingsSchema.safeParse({
+        fontSize: 19,
+        lineHeight: 1.9,
+        theme: 'day',
+        bold: true,
+        fontFamily: 'kai',
+        pageWidth: 'full'
+      }).success
+    ).toBe(true)
+  })
+
+  it('缺字体与栏宽时补默认值', () => {
+    const parsed = settingsSchema.parse({ fontSize: 19, lineHeight: 1.9, theme: 'day' })
+    expect(parsed.fontFamily).toBe('song')
+    expect(parsed.pageWidth).toBe('medium')
   })
 })
 
@@ -75,6 +91,14 @@ describe('IPC 入参校验：非法用例', () => {
     expect(settingsSchema.safeParse({ fontSize: 19, lineHeight: 1.9, theme: 'sepia' }).success).toBe(
       false
     )
+    expect(
+      settingsSchema.safeParse({ fontSize: 19, lineHeight: 1.9, theme: 'day', fontFamily: 'comic' })
+        .success
+    ).toBe(false)
+    expect(
+      settingsSchema.safeParse({ fontSize: 19, lineHeight: 1.9, theme: 'day', pageWidth: 'huge' })
+        .success
+    ).toBe(false)
   })
 
   it('拒绝越界的进度值', () => {

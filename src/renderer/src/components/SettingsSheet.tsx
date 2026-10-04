@@ -1,4 +1,5 @@
 import { LINE_HEIGHTS } from '@/core/reading'
+import { FONT_FAMILIES, PAGE_WIDTHS } from '@/core/typography'
 import { useReaderStore } from '@/store/reader'
 import { useSettingsStore } from '@/store/settings'
 
@@ -8,7 +9,7 @@ const LINE_HEIGHT_LABELS: ReadonlyArray<{ value: number; label: string }> = [
   { value: 2.25, label: '宽松' }
 ]
 
-/** 设置面板：字号 / 行距 / 字重 / 主题。改字号只重排版，进度按字符偏移保持不动（TECH.md 6.4）。 */
+/** 设置面板：字号 / 行距 / 字重 / 字体 / 宽度 / 主题。改字号只重排版，进度按字符偏移保持不动（TECH.md 6.4）。 */
 export function SettingsSheet(): React.JSX.Element {
   const settings = useSettingsStore((s) => s.settings)
   const apply = useSettingsStore((s) => s.apply)
@@ -77,6 +78,40 @@ export function SettingsSheet(): React.JSX.Element {
           >
             加粗
           </button>
+        </div>
+      </div>
+
+      <div className="sheet-row">
+        <span className="label">字体</span>
+        <div className="grow">
+          {FONT_FAMILIES.map((item) => (
+            <button
+              key={item.value}
+              id={'font-' + item.value}
+              className={settings.fontFamily === item.value ? 'pill on' : 'pill'}
+              data-font={item.value}
+              onClick={() => apply({ fontFamily: item.value })}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="sheet-row">
+        <span className="label">宽度</span>
+        <div className="grow">
+          {PAGE_WIDTHS.map((item) => (
+            <button
+              key={item.value}
+              id={'width-' + item.value}
+              className={settings.pageWidth === item.value ? 'pill on' : 'pill'}
+              data-width={item.value}
+              onClick={() => apply({ pageWidth: item.value })}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
       </div>
 

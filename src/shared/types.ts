@@ -118,19 +118,31 @@ export interface ImportOutcome {
   warnings: ImportWarning[]
 }
 
+/** 正文字体：只用系统自带字体，不额外打包字体文件（选项表见 renderer/src/core/typography.ts）。 */
+export type FontFamilyKey = 'song' | 'hei' | 'kai' | 'fang' | 'deng'
+
+/** 正文栏宽：一行放多少字（选项表见 renderer/src/core/typography.ts）。 */
+export type PageWidthKey = 'narrow' | 'medium' | 'wide' | 'full'
+
 export interface ReaderSettings {
   fontSize: number
   lineHeight: number
   theme: 'day' | 'night'
   /** 正文加粗：写给 --fw，.reader-content 读它。 */
   bold: boolean
+  /** 正文字体，写给 --font-body。 */
+  fontFamily: FontFamilyKey
+  /** 正文栏宽，写给 --page-w。 */
+  pageWidth: PageWidthKey
 }
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
   fontSize: 19,
   lineHeight: 1.9,
   theme: 'day',
-  bold: false
+  bold: false,
+  fontFamily: 'song',
+  pageWidth: 'medium'
 }
 
 /** 单章渲染上限之上的分块阈值，见 TECH.md 8.1。 */

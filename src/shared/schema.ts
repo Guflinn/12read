@@ -43,7 +43,10 @@ export const settingsSchema = z.object({
   lineHeight: z.number().min(1.2).max(3),
   theme: z.enum(['day', 'night']),
   // 0.1.1 及更早存的设置里没有 bold：用 default 补上，别让整份设置回退成默认值
-  bold: z.boolean().default(false)
+  bold: z.boolean().default(false),
+  // 0.1.2 及更早没有字体与栏宽，同样补默认值
+  fontFamily: z.enum(['song', 'hei', 'kai', 'fang', 'deng']).default('song'),
+  pageWidth: z.enum(['narrow', 'medium', 'wide', 'full']).default('medium')
 })
 
 /** 导入进度是 main -> renderer 的推送，双侧同样校验。 */

@@ -25,6 +25,7 @@ function parseHash(hash: string): Route {
 export default function App(): React.JSX.Element {
   const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash))
   const [ready, setReady] = useState(false)
+  const [appVersion, setAppVersion] = useState('')
   const settings = useSettingsStore((s) => s.settings)
 
   // 启动：读设备 id / 设置 / 书架，并订阅导入进度
@@ -34,7 +35,10 @@ export default function App(): React.JSX.Element {
     const bootstrap = async (): Promise<void> => {
       try {
         const info = await api.appInfo()
-        if (alive) setDeviceId(info.deviceId)
+        if (alive) {
+          setDeviceId(info.deviceId)
+          setAppVersion(info.version)
+        }
       } catch (cause) {
         console.error('[12read] 读取运行信息失败', cause)
       }
@@ -126,7 +130,7 @@ export default function App(): React.JSX.Element {
         {route.name === 'reader' ? (
           <ReaderView onBack={backToShelf} />
         ) : (
-          <ShelfView onOpen={openBook} />
+          <ShelfView onOpen={openBook} version={appVersion} />
         )}
         <ToastHost />
       </div>

@@ -84,7 +84,14 @@ function BookCard({
   )
 }
 
-export function ShelfView({ onOpen }: { onOpen(bookId: string): void }): React.JSX.Element {
+export function ShelfView({
+  onOpen,
+  version
+}: {
+  onOpen(bookId: string): void
+  /** 应用版本号，钉在书架左下角；拿不到就什么都不显示 */
+  version: string
+}): React.JSX.Element {
   const books = useLibraryStore((s) => s.books)
   const loading = useLibraryStore((s) => s.loading)
   const importPaths = useLibraryStore((s) => s.importPaths)
@@ -231,6 +238,12 @@ export function ShelfView({ onOpen }: { onOpen(bookId: string): void }): React.J
           ))}
         </div>
       </div>
+
+      {version ? (
+        <footer className="app-version" id="app-version" title={'十二阅读 ' + version}>
+          v{version}
+        </footer>
+      ) : null}
 
       {renaming ? (
         <Modal

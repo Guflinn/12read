@@ -175,3 +175,32 @@ test('书架搜索与排序：搜作者也能命中，进度可排序', async ()
   await page.selectOption('#shelf-sort', 'progress')
   await expect(page.locator('.book-title').first()).toHaveText('乙书')
 })
+
+test('书架左下角显示版本号，进阅读器就不出现', async () => {
+  const sourceDir = makeTempDir('12read-version-src-')
+  writeNovelFile(sourceDir, '版本书.txt', buildNovel())
+
+  page = await openApp(makeTempDir('12read-version-'))
+  if (!app) throw new Error('应用还没启动')
+  // 版本号取真实的应用版本，别把 package.json 里的版本抄进断言（一升版就红）
+  const version = String(await app.evaluate(({ app: electronApp }) => electronApp.getVersion()))
+  expect(version).toMatch(/^\d+\.\d+\.\d+/)
+
+  const label = page.locator('#app-version')
+  await expect(label).toHaveText('v' + version)
+  await expect(label).toHaveAttribute('title', '十二阅读 ' + version)
+
+  // 钉在窗口左下角：横向落在左半边，纵向贴着底边
+  const box = await label.boundingBox()
+  const view = await page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }))
+  if (!box) throw new Error('版本角标没有盒子')
+  expect(box.x).toBeLessThan(view.w / 2)
+  expect(box.y + box.height).toBeGreaterThan(view.h - 40)
+
+  // 不影响阅读：进了阅读器这个角标就不存在
+  await importPaths(page, [join(sourceDir, '版本书.txt')])
+  await expect(page.locator('.book-card')).toHaveCount(1)
+  await card(page, /^版本书$/).click()
+  await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
+  await expect(page.locator('#app-version')).toHaveCount(0)
+})

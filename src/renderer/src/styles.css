@@ -216,3 +216,7 @@
   .shelf-sort select { padding: 7px 8px; font: inherit; font-size: 13px; color: var(--text); background: var(--surface);
     border: 1px solid var(--line); border-radius: 9px; }
   #shelf-match { font-size: 12.5px; color: var(--dim); white-space: nowrap; }
+
+  /* ---------- 书架左下角的版本角标 ---------- */
+  #app-version { position: fixed; left: 26px; bottom: 10px; font-size: 11.5px; letter-spacing: .4px;
+    color: var(--dim); opacity: .85; pointer-events: none; user-select: none; }

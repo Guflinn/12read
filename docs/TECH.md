@@ -10,6 +10,7 @@
 | 日期 | 变更 |
 | --- | --- |
 | 2026 | 首版。形态决策由 MVP.md 第 1 节的「Web/PWA，后续可套 Tauri 壳」改为「Electron 桌面应用，核心保持平台无关」。 |
+| 2026-10-04 | 0.1.3：schema v2 迁移（`src/main/db/schema-v2.ts` 建 `bookmark` / `highlight` / `reading_stat` 与三个索引，`annotations-repository.ts` 提供读写），新增 `bookmark:list/add/remove`、`highlight:list/add/remove` 六个通道；渲染层 `core/annotations.ts` 放纯函数（`splitHighlighted` 把章内偏移切成划线片段、`excerptAt`、`normalizeSelection`），目录抽屉拆成目录 / 书签 / 划线三页。 |
 | 2026-10-04 | 0.1.3：正文字体（`--font-body`）与栏宽（`--page-w`）可选；阅读器 ← / → 翻一屏、Ctrl + ← / → 切章；新增 `book:redecode` 手动指定编码重解码（含手工 `big5` 分支）。 |
 | 2026-10-04 | 0.1.3：手动改分章（`chapter:rename` / `chapter:merge` / `chapter:split` + `ChapterEditor`）：正文一字不动，只重写章节表，进度按编辑前的绝对字符位置重新落位。 |
 | 2026-10-04 | 0.1.2：阅读器顶栏加独立的日/夜间切换按钮；新增「上次位置」书签（`reader` store 的 `bookmark` + `settleBookmark` / `backToBookmark`，来回切换靠「把当前位置换进书签」）；`ReaderSettings` 增加 `bold`，加粗写 `--fw`（schema 用 `default(false)`，0.1.1 的旧设置不会整份回退默认）。 |

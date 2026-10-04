@@ -120,3 +120,41 @@ test('夜间模式：整页底色与文字一起变暗，顶栏不再深底深�
     .poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundColor), { timeout: 3000 })
     .toBe('rgb(246, 243, 237)')
 })
+
+test('顶栏主题按钮：独立放在目录左边，点一下切夜间，再点回日间', async () => {
+  const dataDir = makeTempDir('12read-theme-btn-')
+  const bookPath = writeNovelFile(makeTempDir('12read-theme-btn-src-'), '按钮测试书.txt', buildNovel())
+  const page = await openApp(dataDir)
+
+  await stubOpenDialog(app!, [bookPath])
+  await page.click('#btn-import')
+  await page.waitForSelector('.book-card')
+  await page.click('.book-card')
+  await page.waitForSelector('.chapter-title')
+
+  const btn = page.locator('#btn-theme')
+  await expect(btn).toHaveAttribute('data-theme-now', 'day')
+  await expect(btn).toContainText('夜间')
+  // 「独立在目录和字体选项的左边」：顶栏按钮顺序把这条钉住
+  const order = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.reader-top button')).map((el) => el.id)
+  )
+  expect(order.indexOf('btn-theme')).toBeLessThan(order.indexOf('btn-toc'))
+  expect(order.indexOf('btn-toc')).toBeLessThan(order.indexOf('btn-settings'))
+
+  await btn.click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'night')
+  await expect(btn).toHaveAttribute('data-theme-now', 'night')
+  await expect(btn).toContainText('日间')
+  await expect
+    .poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundColor), { timeout: 3000 })
+    .toBe('rgb(22, 23, 26)')
+
+  await btn.click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'day')
+  await expect(btn).toHaveAttribute('data-theme-now', 'day')
+  await expect(btn).toContainText('夜间')
+  await expect
+    .poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundColor), { timeout: 3000 })
+    .toBe('rgb(246, 243, 237)')
+})

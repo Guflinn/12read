@@ -22,6 +22,8 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
   const percent = useReaderStore((s) => s.percent)
   const fontSize = useSettingsStore((s) => s.settings.fontSize)
   const lineHeight = useSettingsStore((s) => s.settings.lineHeight)
+  const theme = useSettingsStore((s) => s.settings.theme)
+  const applySettings = useSettingsStore((s) => s.apply)
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const paraRefs = useRef<Array<HTMLParagraphElement | null>>([])
@@ -179,6 +181,16 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
           <strong id="reader-book">{book ? book.title : '十二阅读'}</strong>
           <span id="reader-chapter-label">{chapterLabel(chapter, chapters.length)}</span>
         </div>
+        <button
+          id="btn-theme"
+          className="icon-btn"
+          data-theme-now={theme}
+          aria-label={theme === 'night' ? '切换到日间模式' : '切换到夜间模式'}
+          title={theme === 'night' ? '切换到日间模式' : '切换到夜间模式'}
+          onClick={() => applySettings({ theme: theme === 'night' ? 'day' : 'night' })}
+        >
+          {theme === 'night' ? '☀ 日间' : '☾ 夜间'}
+        </button>
         <button id="btn-toc" className="icon-btn" onClick={() => useReaderStore.getState().setToc(true)}>
           目录
         </button>

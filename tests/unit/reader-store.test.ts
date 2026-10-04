@@ -9,9 +9,11 @@ import {
   type Highlight,
   type HighlightInput,
   type Progress,
+  type ReadingStats,
   type SearchHit,
   type SearchResult
 } from '@shared/types'
+import { STAT_IDLE_MS, STAT_REPORT_MS } from '@shared/core/stats'
 import { setReaderApi } from '@/core/api'
 import { setDeviceId } from '@/core/session'
 import { excerptAt } from '@/core/annotations'
@@ -78,6 +80,8 @@ interface Harness {
   listBookmarks: ReturnType<typeof vi.fn>
   listHighlights: ReturnType<typeof vi.fn>
   searchBook: ReturnType<typeof vi.fn>
+  addReadingStat: ReturnType<typeof vi.fn>
+  getReadingStats: ReturnType<typeof vi.fn>
 }
 
 function makeHarness(
@@ -112,6 +116,19 @@ function makeHarness(
   const removeBookmark = vi.fn(async (): Promise<void> => undefined)
   const removeHighlight = vi.fn(async (): Promise<void> => undefined)
   // 搜索默认给「一处都没找到」：单个用例再按需 mockResolvedValueOnce
+  const addReadingStat = vi.fn(async (): Promise<void> => undefined)
+  const getReadingStats = vi.fn(
+    async (): Promise<ReadingStats> => ({
+      todayMs: 0,
+      todayChars: 0,
+      totalMs: 0,
+      totalChars: 0,
+      streakDays: 0,
+      days: [],
+      topBooks: []
+    })
+  )
+  // 搜索默认给「一处都没找到」：单个用例再按需 mockResolvedValueOnce
   const searchBook = vi.fn(
     async (): Promise<SearchResult> => ({
       query: '',
@@ -143,6 +160,8 @@ function makeHarness(
     addHighlight,
     removeHighlight,
     searchBook,
+    addReadingStat,
+    getReadingStats,
     readChapter,
     getProgress,
     saveProgress,
@@ -167,7 +186,9 @@ function makeHarness(
     removeHighlight,
     listBookmarks,
     listHighlights,
-    searchBook
+    searchBook,
+    addReadingStat,
+    getReadingStats
   }
 }
 
@@ -868,6 +889,72 @@ describe('reader store: 搜索', () => {
     expect(left.searchQuery).toBe('')
     expect(left.searchResult).toBeNull()
     expect(left.flash).toBeNull()
+  })
+})
+
+describe('reader store: 阅读统计', () => {
+  it('在读的时候每 15 秒报一段时长，往前读了字也一起报', async () => {
+    vi.useFakeTimers()
+    const harness = makeHarness(storedProgress({ chapterIndex: 0, charOffset: 0 }))
+    await useReaderStore.getState().open(BOOK_ID)
+
+    // 打开就把节拍挂上：安静读了 15 秒，先只有时长
+    vi.advanceTimersByTime(STAT_REPORT_MS)
+    expect(harness.addReadingStat.mock.calls[0]).toEqual([BOOK_ID, STAT_REPORT_MS, 0])
+
+    // 往前读 50 字：先让进度落盘（noteReadChars 在 persist 里记字数），再走到下一拍
+    useReaderStore.getState().onScrolled(50)
+    vi.advanceTimersByTime(PROGRESS_THROTTLE_MS)
+    expect(harness.saveProgress).toHaveBeenCalledTimes(1)
+    vi.advanceTimersByTime(STAT_REPORT_MS - PROGRESS_THROTTLE_MS)
+    expect(harness.addReadingStat.mock.calls[1]).toEqual([BOOK_ID, STAT_REPORT_MS, 50])
+  })
+
+  it('一分钟没人动就停表，挂机时间不算读', async () => {
+    vi.useFakeTimers()
+    const harness = makeHarness(storedProgress())
+    await useReaderStore.getState().open(BOOK_ID)
+
+    vi.advanceTimersByTime(STAT_IDLE_MS * 3)
+    // 只有前 60 秒内的四拍算数：15 / 30 / 45 / 60 秒
+    expect(harness.addReadingStat).toHaveBeenCalledTimes(4)
+    const reported = harness.addReadingStat.mock.calls.reduce((sum, call) => sum + (call[1] as number), 0)
+    expect(reported).toBe(STAT_REPORT_MS * 4)
+  })
+
+  it('离开阅读器时把攒着还没报的字数补上', async () => {
+    vi.useFakeTimers()
+    const harness = makeHarness(storedProgress())
+    await useReaderStore.getState().open(BOOK_ID)
+    useReaderStore.getState().onScrolled(30)
+    vi.advanceTimersByTime(PROGRESS_THROTTLE_MS)
+    harness.addReadingStat.mockClear()
+
+    useReaderStore.getState().leave()
+    expect(harness.addReadingStat).toHaveBeenCalledTimes(1)
+    expect(harness.addReadingStat.mock.calls[0]?.[0]).toBe(BOOK_ID)
+    expect(harness.addReadingStat.mock.calls[0]?.[1]).toBe(0)
+    expect(harness.addReadingStat.mock.calls[0]?.[2]).toBe(30)
+  })
+
+  it('只往回翻或者跳章不算读新字', async () => {
+    vi.useFakeTimers()
+    const harness = makeHarness(storedProgress())
+    await useReaderStore.getState().open(BOOK_ID)
+    useReaderStore.getState().onScrolled(60)
+    vi.advanceTimersByTime(PROGRESS_THROTTLE_MS)
+    // 回到前面：不涨字数
+    useReaderStore.getState().onScrolled(20)
+    vi.advanceTimersByTime(PROGRESS_THROTTLE_MS)
+    // 跳章：基准挪到新章，也不算
+    await useReaderStore.getState().goto(1, 10)
+    useReaderStore.getState().onScrolled(40)
+    vi.advanceTimersByTime(PROGRESS_THROTTLE_MS)
+    // 走到下一拍，把攒下的字数报出来
+    vi.advanceTimersByTime(STAT_REPORT_MS)
+
+    const chars = harness.addReadingStat.mock.calls.reduce((sum, call) => sum + (call[2] as number), 0)
+    expect(chars).toBe(60)
   })
 })
 

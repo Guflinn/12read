@@ -14,6 +14,7 @@ import { SHELF_SORTS, shelfView, type ShelfSort } from '@/core/shelf'
 import { useLibraryStore } from '@/store/library'
 import { ImportStatus } from './ImportStatus'
 import { Modal } from './Modal'
+import { StatsSheet } from './StatsSheet'
 import { toast } from './Toast'
 
 function BookCard({
@@ -119,6 +120,7 @@ export function ShelfView({
   const [recoding, setRecoding] = useState<Book | null>(null)
   const [recodingTo, setRecodingTo] = useState<ManualEncoding>('auto')
   const [scopeOpen, setScopeOpen] = useState(false)
+  const [statsOpen, setStatsOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<ShelfSort>('recent')
   const now = Date.now()
@@ -158,6 +160,9 @@ export function ShelfView({
           <div className="shelf-actions">
             <button id="btn-import" className="btn primary" onClick={() => void pickAndImport()}>
               ＋ 导入 TXT
+            </button>
+            <button id="btn-stats" className="btn ghost" onClick={() => setStatsOpen(true)}>
+              阅读统计
             </button>
             <button id="btn-scope" className="btn ghost" onClick={() => setScopeOpen(true)}>
               范围说明
@@ -336,6 +341,8 @@ export function ShelfView({
         </Modal>
       ) : null}
 
+      <StatsSheet open={statsOpen} onClose={() => setStatsOpen(false)} />
+
       {scopeOpen ? (
         <Modal title="这个版本做什么" confirmLabel="知道了" cancelLabel="关闭" onCancel={() => setScopeOpen(false)} onConfirm={() => setScopeOpen(false)}>
           <p className="scope-h">现在能用</p>
@@ -349,10 +356,13 @@ export function ShelfView({
             <li>进度：关掉再打开，回到上次读到的那个字；顶栏「上次位置」来回对照</li>
             <li>乱码书重新解码：在书封面上点「编码」，挑 UTF-8 / GBK / BIG5 / UTF-16 重解一遍，不用重新导入</li>
             <li>手动改分章：目录里给每一节改名或合并到上一节，顶栏「拆分」在当前位置拆成两节</li>
+            <li>书签与划线：顶栏 🔖 记位置，选中一段字划线；目录抽屉里分「书签 / 划线」两页</li>
+            <li>搜索：Ctrl + F 在章节内或全书找词，结果上是章名与上下文</li>
+            <li>阅读统计：书架右上角「阅读统计」，看今天 / 累计时长与字数、连续天数、最近两周、读得最多的书</li>
           </ul>
           <p className="scope-h">还不在范围内</p>
           <ul className="scope-list">
-            <li>书签、笔记、划线、全文搜索</li>
+            <li>笔记（划线只能记原文，还不能在旁边写字）、导出备份</li>
             <li>EPUB / PDF / MOBI（数据结构已为 EPUB 预留）</li>
             <li>账号、云同步、在线书城、TTS 朗读</li>
             <li>导出备份</li>

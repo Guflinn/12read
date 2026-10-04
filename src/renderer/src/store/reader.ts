@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { clampOffset, makeAnchor, relocateOffset } from '@shared/core/anchor'
 import { normalizeQuery } from '@shared/core/search'
+import { STAT_MAX_STEP_CHARS } from '@shared/core/stats'
 import {
   CHUNK_FIRST_RENDER_CHARS,
   CHUNK_THRESHOLD_CHARS,
@@ -18,6 +19,7 @@ import {
 import { excerptAt, normalizeSelection, orderBookmarks, orderHighlights } from '@/core/annotations'
 import { readerApi } from '@/core/api'
 import { percentOf } from '@/core/reading'
+import { browserClockDeps, createReadingClock } from '@/core/reading-clock'
 import { currentDeviceId } from '@/core/session'
 import { createThrottle, type Throttler } from '@/core/throttle'
 
@@ -169,12 +171,59 @@ function buildProgress(): Progress | null {
 async function persist(): Promise<void> {
   const progress = buildProgress()
   if (!progress) return
+  // 在第一个 await 之前记字数：buildProgress 是同步快照，基准不会错位
+  noteReadChars(progress)
   try {
     await readerApi().saveProgress(progress)
   } catch (cause) {
     console.error('[12read] 保存进度失败', cause)
   }
 }
+
+/** 还没落库的阅读时长与字数（0.1.3 第 8 项）。 */
+let pendingStatMs = 0
+let pendingStatChars = 0
+/** 上一次算字数的落点，用来求「这一段读了多少字」。 */
+let lastStatSpot: ReadingSpot | null = null
+
+/**
+ * 把攒下的时长与字数交给主进程。失败只记日志、不重试：
+ * 统计是「大概读了多久」，不值得为它挡着看书或者把界面弄脏。
+ */
+function flushStats(): void {
+  const book = useReaderStore.getState().book
+  const ms = pendingStatMs
+  const chars = pendingStatChars
+  if (!book || (ms <= 0 && chars <= 0)) return
+  pendingStatMs = 0
+  pendingStatChars = 0
+  void readerApi()
+    .addReadingStat(book.id, ms, chars)
+    .catch((cause: unknown) => {
+      console.error('[12read] 保存阅读统计失败', cause)
+    })
+}
+
+/**
+ * 记下「上一次落点 → 这一次落点」之间新读的字数。
+ * 跳章或者往回翻不算读了新字，只把基准挪过去，
+ * 否则来回翻两下就把同一段数了两遍。
+ */
+function noteReadChars(progress: Progress): void {
+  const spot: ReadingSpot = { chapterIndex: progress.chapterIndex, charOffset: progress.charOffset }
+  const previous = lastStatSpot
+  lastStatSpot = spot
+  if (!previous || previous.chapterIndex !== spot.chapterIndex) return
+  const step = spot.charOffset - previous.charOffset
+  if (step <= 0 || step > STAT_MAX_STEP_CHARS) return
+  pendingStatChars += step
+}
+
+/** 阅读计时：窗口在看着、人也没走开，每 15 秒算一段（详见 core/reading-clock.ts）。 */
+const statClock = createReadingClock(browserClockDeps(), (ms) => {
+  pendingStatMs += ms
+  flushStats()
+})
 
 const saver: Throttler = createThrottle(PROGRESS_THROTTLE_MS, () => {
   void persist()
@@ -249,6 +298,12 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
   async open(bookId: string): Promise<void> {
     const api = readerApi()
     const mine = (seq += 1)
+    // 换书前先把上一本没落库的统计收尾
+    statClock.stop()
+    flushStats()
+    pendingStatMs = 0
+    pendingStatChars = 0
+    lastStatSpot = null
     set({
       loading: true,
       error: null,
@@ -302,6 +357,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         highlights: orderHighlights(highlights),
         loading: false
       })
+      lastStatSpot = { chapterIndex: index, charOffset: offset }
+      statClock.start()
       skipNextSettle = false
     } catch (cause) {
       if (mine !== seq) return
@@ -314,7 +371,9 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     // 书架排序（last_opened_at）和「已读 x%」就不依赖用户是否滚动过。
     // persist() 会在第一个 await 之前同步取出进度快照，所以可以先拿住快照再清空 state。
     saver.cancel()
+    statClock.stop()
     const saving = persist()
+    flushStats()
     seq += 1
     searchSeq += 1
     set({
@@ -549,9 +608,11 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
 
   flush(): void {
     saver.flush()
+    flushStats()
   },
 
   flushSync(): void {
+    flushStats()
     const progress = buildProgress()
     if (!progress) return
     try {

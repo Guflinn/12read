@@ -7,13 +7,17 @@ import {
   emptyArgsSchema,
   getArgsSchema,
   importArgsSchema,
+  mergeChapterArgsSchema,
   progressSchema,
   readChapterArgsSchema,
   redecodeArgsSchema,
   renameArgsSchema,
-  settingsSchema
+  renameChapterArgsSchema,
+  settingsSchema,
+  splitChapterArgsSchema
 } from '@shared/schema'
 import type { Book, Chapter, Progress, ReaderSettings, ShelfBook } from '@shared/types'
+import type { ChapterEditor } from './services/chapter-editor'
 import type { FileContentReader } from './services/content-reader'
 import { toImportError, type ImportError } from './services/import-error'
 import type { ImportService } from './services/importer'
@@ -24,6 +28,8 @@ import type { SettingsStore } from './services/settings-store'
 export interface IpcContext {
   importer: ImportService
   library: LibraryService
+  /** 手动改分章：只重写章节表，正文不动（0.1.3 第 5 项）。 */
+  chapters: ChapterEditor
   content: FileContentReader
   progress: SqlProgressStore
   settings: SettingsStore
@@ -49,6 +55,16 @@ function handle<TSchema extends z.ZodTypeAny, TResult>(
 
 function describeImportError(error: ImportError): string {
   return '导入失败（' + error.code + '）：' + error.message
+}
+
+/** 改分章失败统一翻成带 code 的中文提示（正文没动，所以不用清正文缓存）。 */
+function runChapterEdit(edit: () => Chapter[]): Chapter[] {
+  try {
+    return edit()
+  } catch (cause) {
+    const error = toImportError(cause)
+    throw new Error('改分章失败（' + error.code + '）：' + error.message)
+  }
 }
 
 export function registerIpc(ctx: IpcContext): void {
@@ -116,6 +132,19 @@ export function registerIpc(ctx: IpcContext): void {
 
   handle(CH.chapterRead, readChapterArgsSchema, ({ bookId, index }): Promise<string> =>
     ctx.content.readChapter(bookId, index)
+  )
+
+  // 手动改分章：正文一个字都不动，只重写章节表；进度按字符位置重新落位
+  handle(CH.chapterRename, renameChapterArgsSchema, ({ bookId, index, title }): Chapter[] =>
+    runChapterEdit(() => ctx.chapters.rename(bookId, index, title))
+  )
+
+  handle(CH.chapterMerge, mergeChapterArgsSchema, ({ bookId, index }): Chapter[] =>
+    runChapterEdit(() => ctx.chapters.merge(bookId, index))
+  )
+
+  handle(CH.chapterSplit, splitChapterArgsSchema, ({ bookId, index, offset }): Chapter[] =>
+    runChapterEdit(() => ctx.chapters.split(bookId, index, offset))
   )
 
   handle(CH.progressGet, getArgsSchema, ({ bookId }): Promise<Progress | null> =>

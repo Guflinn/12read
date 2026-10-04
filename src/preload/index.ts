@@ -9,10 +9,13 @@ import {
   importArgsSchema,
   importProgressSchema,
   progressSchema,
+  mergeChapterArgsSchema,
   readChapterArgsSchema,
   redecodeArgsSchema,
   renameArgsSchema,
-  settingsSchema
+  renameChapterArgsSchema,
+  settingsSchema,
+  splitChapterArgsSchema
 } from '@shared/schema'
 import type {
   Book,
@@ -51,6 +54,12 @@ const readerApi: ReaderApi = {
   deleteBook: (bookId: string): Promise<void> => invoke(CH.bookDelete, getArgsSchema, { bookId }),
   chapters: (bookId: string): Promise<Chapter[]> =>
     invoke(CH.bookChapters, getArgsSchema, { bookId }),
+  renameChapter: (bookId: string, index: number, title: string): Promise<Chapter[]> =>
+    invoke(CH.chapterRename, renameChapterArgsSchema, { bookId, index, title }),
+  mergeChapter: (bookId: string, index: number): Promise<Chapter[]> =>
+    invoke(CH.chapterMerge, mergeChapterArgsSchema, { bookId, index }),
+  splitChapter: (bookId: string, index: number, offset: number): Promise<Chapter[]> =>
+    invoke(CH.chapterSplit, splitChapterArgsSchema, { bookId, index, offset }),
   readChapter: (bookId: string, index: number): Promise<string> =>
     invoke(CH.chapterRead, readChapterArgsSchema, { bookId, index }),
   getProgress: (bookId: string): Promise<Progress | null> =>

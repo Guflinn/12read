@@ -53,6 +53,12 @@ export interface ReaderState {
   settleBookmark(offset: CharOffset): void
   /** 回到上次停留的位置；再点一次回到刚才离开的地方。 */
   backToBookmark(): Promise<void>
+  /** 改章节标题（只动章节表，正文一个字都不动）。 */
+  renameChapter(index: number, title: string): Promise<void>
+  /** 把第 index+1 章并进第 index 章。 */
+  mergeChapter(index: number): Promise<void>
+  /** 在第 index 章的章内偏移 offset 处拆成两章。 */
+  splitChapter(index: number, offset: CharOffset): Promise<void>
   flush(): void
   /** 关窗前的同步落盘（TECH.md 6.3），主进程写完才返回。 */
   flushSync(): void
@@ -77,6 +83,24 @@ function clampIndex(index: number, length: number): number {
   if (length <= 0) return 0
   if (!Number.isFinite(index)) return 0
   return Math.min(length - 1, Math.max(0, Math.trunc(index)))
+}
+
+/** 全书绝对字符位置 → 新章节表里的章号 + 章内偏移。 */
+function spotAt(chapters: Chapter[], absolute: number): ReadingSpot {
+  let index = chapters.findIndex((chapter) => absolute < chapter.startOffset + chapter.charLength)
+  if (index < 0) index = Math.max(0, chapters.length - 1)
+  const chapter: Chapter | undefined = chapters[index]
+  return {
+    chapterIndex: index,
+    charOffset: chapter ? Math.max(0, absolute - chapter.startOffset) : 0
+  }
+}
+
+/** 章号 + 章内偏移 → 全书绝对字符位置；章节表对不上时返回 null。 */
+function absoluteOfSpot(chapters: Chapter[], spot: ReadingSpot): number | null {
+  const chapter: Chapter | undefined = chapters[spot.chapterIndex]
+  if (!chapter) return null
+  return chapter.startOffset + clampOffset(spot.charOffset, chapter.charLength)
 }
 
 function initialVisible(text: string): number {
@@ -116,6 +140,49 @@ async function persist(): Promise<void> {
 const saver: Throttler = createThrottle(PROGRESS_THROTTLE_MS, () => {
   void persist()
 })
+
+/**
+ * 改分章的统一流程：先记下「编辑前的绝对字符位置」，改完按新章节表落位，
+ * 再强制重读正文 —— 合并会让同一章的正文变长，只改 pendingOffset 会读到旧长度。
+ */
+async function applyChapterEdit(run: (bookId: string) => Promise<Chapter[]>): Promise<void> {
+  const state = useReaderStore.getState()
+  const book = state.book
+  if (!book) return
+  const here = absoluteOfSpot(state.chapters, {
+    chapterIndex: state.chapterIndex,
+    charOffset: clampOffset(lastOffset, state.chapterText.length)
+  })
+  const bookmarkAbsolute =
+    state.bookmark === null ? null : absoluteOfSpot(state.chapters, state.bookmark)
+  const mine = (seq += 1)
+  useReaderStore.setState({ loading: true, error: null })
+  try {
+    const chapters = await run(book.id)
+    if (mine !== seq) return
+    const spot = here === null ? { chapterIndex: 0, charOffset: 0 } : spotAt(chapters, here)
+    const text =
+      chapters.length > 0 ? await readerApi().readChapter(book.id, spot.chapterIndex) : ''
+    if (mine !== seq) return
+    const offset = clampOffset(spot.charOffset, text.length)
+    lastOffset = offset
+    const chapter: Chapter | undefined = chapters[spot.chapterIndex]
+    skipNextSettle = true
+    useReaderStore.setState({
+      chapters,
+      chapterIndex: spot.chapterIndex,
+      chapterText: text,
+      visibleChars: initialVisible(text),
+      pendingOffset: offset,
+      percent: percentOf(book.charCount, chapter ? chapter.startOffset : 0, offset),
+      bookmark: bookmarkAbsolute === null ? null : spotAt(chapters, bookmarkAbsolute),
+      loading: false
+    })
+  } catch (cause) {
+    if (mine !== seq) return
+    useReaderStore.setState({ loading: false, error: '改分章失败：' + messageOf(cause) })
+  }
+}
 
 export const useReaderStore = create<ReaderState>((set, get) => ({
   book: null,
@@ -292,6 +359,22 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     set({ bookmark: here })
     skipNextSettle = true
     await get().goto(target.chapterIndex, target.charOffset)
+  },
+
+  async renameChapter(index: number, title: string): Promise<void> {
+    await applyChapterEdit((bookId) => readerApi().renameChapter(bookId, index, title))
+  },
+
+  async mergeChapter(index: number): Promise<void> {
+    await applyChapterEdit((bookId) => readerApi().mergeChapter(bookId, index))
+  },
+
+  async splitChapter(index: number, offset: CharOffset): Promise<void> {
+    if (offset < 1) {
+      set({ error: '拆分位置要落在这一章中间：先往下读一点，再在想要断开的地方拆' })
+      return
+    }
+    await applyChapterEdit((bookId) => readerApi().splitChapter(bookId, index, offset))
   },
 
   flush(): void {

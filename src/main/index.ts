@@ -8,6 +8,7 @@ import { LibraryRepository } from './db/library-repository'
 import { MetaRepository } from './db/meta-repository'
 import { runMigrations } from './db/migrate'
 import { registerIpc } from './ipc'
+import { ChapterEditor } from './services/chapter-editor'
 import { FileContentReader } from './services/content-reader'
 import { deviceIdOf } from './services/device-id'
 import { ImportService } from './services/importer'
@@ -59,6 +60,7 @@ function bootstrap(): void {
   registerIpc({
     importer,
     library: new LibraryService(root, repo),
+    chapters: new ChapterEditor(repo),
     content: new FileContentReader(root, repo),
     progress: new SqlProgressStore(repo),
     settings: new SettingsStore(meta),

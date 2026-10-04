@@ -10,6 +10,10 @@ export const CH = {
   bookRedecode: 'book:redecode',
   bookChapters: 'book:chapters',
   chapterRead: 'chapter:read',
+  /** 目录里手动改分章：改名 / 合并 / 在指定字符位置拆开。 */
+  chapterRename: 'chapter:rename',
+  chapterMerge: 'chapter:merge',
+  chapterSplit: 'chapter:split',
   progressGet: 'progress:get',
   progressSave: 'progress:save',
   /** 退出前的同步落盘：beforeunload 里异步 IPC 未必来得及（TECH.md 6.3）。 */

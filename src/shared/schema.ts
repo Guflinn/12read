@@ -32,6 +32,24 @@ export const readChapterArgsSchema = z.object({
   index: chapterIndexSchema
 })
 
+/** 手动改分章：改名 / 与下一章合并 / 在章内偏移处拆分（偏移是相对章首的字符数，1 起）。 */
+export const renameChapterArgsSchema = z.object({
+  bookId: bookIdSchema,
+  index: chapterIndexSchema,
+  title: z.string().trim().min(1, '章节标题不能为空').max(120)
+})
+
+export const mergeChapterArgsSchema = z.object({
+  bookId: bookIdSchema,
+  index: chapterIndexSchema
+})
+
+export const splitChapterArgsSchema = z.object({
+  bookId: bookIdSchema,
+  index: chapterIndexSchema,
+  offset: z.number().int().min(1, '拆分位置要落在章节中间')
+})
+
 export const progressSchema = z.object({
   bookId: bookIdSchema,
   chapterIndex: chapterIndexSchema,

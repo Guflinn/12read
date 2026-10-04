@@ -3,11 +3,14 @@ import {
   bookIdSchema,
   cancelArgsSchema,
   importArgsSchema,
+  mergeChapterArgsSchema,
   progressSchema,
   readChapterArgsSchema,
   redecodeArgsSchema,
   renameArgsSchema,
-  settingsSchema
+  renameChapterArgsSchema,
+  settingsSchema,
+  splitChapterArgsSchema
 } from '@shared/schema'
 
 const VALID_ID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
@@ -63,6 +66,20 @@ describe('IPC 入参校验：合法用例', () => {
     for (const encoding of ['auto', 'utf-8', 'gb18030', 'big5', 'utf-16le', 'utf-16be']) {
       expect(redecodeArgsSchema.safeParse({ bookId: VALID_ID, encoding }).success).toBe(true)
     }
+  })
+
+  it('改分章入参：改名去空白，合并与拆分接受正整数', () => {
+    const renamed = renameChapterArgsSchema.safeParse({
+      bookId: VALID_ID,
+      index: 2,
+      title: '  卷二 归途  '
+    })
+    expect(renamed.success).toBe(true)
+    if (renamed.success) expect(renamed.data.title).toBe('卷二 归途')
+    expect(mergeChapterArgsSchema.safeParse({ bookId: VALID_ID, index: 0 }).success).toBe(true)
+    expect(splitChapterArgsSchema.safeParse({ bookId: VALID_ID, index: 1, offset: 120 }).success).toBe(
+      true
+    )
   })
 
   it('缺字体与栏宽时补默认值', () => {
@@ -126,6 +143,22 @@ describe('IPC 入参校验：非法用例', () => {
     expect(redecodeArgsSchema.safeParse({ bookId: VALID_ID, encoding: 'shift-jis' }).success).toBe(false)
     expect(redecodeArgsSchema.safeParse({ bookId: VALID_ID }).success).toBe(false)
     expect(redecodeArgsSchema.safeParse({ bookId: 'nope', encoding: 'auto' }).success).toBe(false)
+  })
+
+  it('改分章入参：空标题、坏下标、章首拆分都被拒', () => {
+    expect(renameChapterArgsSchema.safeParse({ bookId: VALID_ID, index: 0, title: '   ' }).success).toBe(
+      false
+    )
+    expect(
+      renameChapterArgsSchema.safeParse({ bookId: VALID_ID, index: -1, title: '序章' }).success
+    ).toBe(false)
+    expect(mergeChapterArgsSchema.safeParse({ bookId: VALID_ID, index: 1.5 }).success).toBe(false)
+    expect(splitChapterArgsSchema.safeParse({ bookId: VALID_ID, index: 0, offset: 0 }).success).toBe(
+      false
+    )
+    expect(
+      splitChapterArgsSchema.safeParse({ bookId: VALID_ID, index: 0, offset: -3 }).success
+    ).toBe(false)
   })
 
   it('拒绝空 filePath 与空 taskId', () => {

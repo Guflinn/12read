@@ -59,6 +59,10 @@ const PROGRESS: Progress = {
   deviceId: 'device-1'
 }
 
+const CHAPTERS: Chapter[] = [
+  { bookId: BOOK_ID, index: 0, title: '第一章', startOffset: 0, charLength: 10, kind: 'chapter' }
+]
+
 const SETTINGS: ReaderSettings = {
   fontSize: 19,
   lineHeight: 1.9,
@@ -77,6 +81,7 @@ function makeContext(): {
     cancel: ReturnType<typeof vi.fn>
   }
   library: Record<string, ReturnType<typeof vi.fn>>
+  chapters: Record<string, ReturnType<typeof vi.fn>>
   content: Record<string, ReturnType<typeof vi.fn>>
   progress: Record<string, ReturnType<typeof vi.fn>>
   settings: Record<string, ReturnType<typeof vi.fn>>
@@ -102,9 +107,12 @@ function makeContext(): {
     remove: vi.fn(async (bookId: string) => {
       order.push('remove:' + bookId)
     }),
-    chapters: vi.fn(async (): Promise<Chapter[]> => [
-      { bookId: BOOK_ID, index: 0, title: '第一章', startOffset: 0, charLength: 10, kind: 'chapter' }
-    ])
+    chapters: vi.fn(async (): Promise<Chapter[]> => CHAPTERS)
+  }
+  const chapters = {
+    rename: vi.fn((): Chapter[] => CHAPTERS),
+    merge: vi.fn((): Chapter[] => CHAPTERS),
+    split: vi.fn((): Chapter[] => CHAPTERS)
   }
   const content = {
     readChapter: vi.fn(async (): Promise<string> => '正文'),
@@ -120,9 +128,9 @@ function makeContext(): {
     get: vi.fn((): ReaderSettings => SETTINGS),
     set: vi.fn((next: ReaderSettings): ReaderSettings => next)
   }
-  const ctx = { importer, library, content, progress, settings, deviceId: 'device-1' } as unknown as IpcContext
+  const ctx = { importer, library, chapters, content, progress, settings, deviceId: 'device-1' } as unknown as IpcContext
   registerIpc(ctx)
-  return { ctx, order, importer, library, content, progress, settings }
+  return { ctx, order, importer, library, chapters, content, progress, settings }
 }
 
 function call(channel: string, raw?: unknown): Promise<unknown> {
@@ -297,6 +305,41 @@ describe('IPC 注册与转发', () => {
     await expect(call(CH.chapterRead, { bookId: BOOK_ID, index: -1 })).rejects.toThrow(
       '参数校验失败: ' + CH.chapterRead
     )
+  })
+
+  it('chapter:rename 只改标题并把整份章节表回给渲染层', async () => {
+    const { chapters } = setup()
+    const renamed: Chapter[] = [{ ...CHAPTERS[0]!, title: '序章' }]
+    chapters.rename.mockReturnValueOnce(renamed)
+    expect(await call(CH.chapterRename, { bookId: BOOK_ID, index: 0, title: '序章' })).toEqual(
+      renamed
+    )
+    expect(chapters.rename.mock.calls[0]).toEqual([BOOK_ID, 0, '序章'])
+    await expect(
+      call(CH.chapterRename, { bookId: BOOK_ID, index: 0, title: '   ' })
+    ).rejects.toThrow('参数校验失败: ' + CH.chapterRename)
+  })
+
+  it('chapter:merge 把章序号交给编辑器，失败翻成中文提示', async () => {
+    const { chapters } = setup()
+    expect(await call(CH.chapterMerge, { bookId: BOOK_ID, index: 0 })).toEqual(CHAPTERS)
+    expect(chapters.merge.mock.calls[0]).toEqual([BOOK_ID, 0])
+    chapters.merge.mockImplementationOnce(() => {
+      throw new ImportError('db-error', '这已经是最后一章，后面没有可以合并的章节')
+    })
+    await expect(call(CH.chapterMerge, { bookId: BOOK_ID, index: 0 })).rejects.toThrow(
+      '改分章失败（db-error）：这已经是最后一章，后面没有可以合并的章节'
+    )
+  })
+
+  it('chapter:split 转发拆分位置，章首与越界位置直接被拒', async () => {
+    const { chapters } = setup()
+    expect(await call(CH.chapterSplit, { bookId: BOOK_ID, index: 0, offset: 5 })).toEqual(CHAPTERS)
+    expect(chapters.split.mock.calls[0]).toEqual([BOOK_ID, 0, 5])
+    await expect(call(CH.chapterSplit, { bookId: BOOK_ID, index: 0, offset: 0 })).rejects.toThrow(
+      '参数校验失败: ' + CH.chapterSplit
+    )
+    expect(chapters.split).toHaveBeenCalledTimes(1)
   })
 
   it('progress:get 返回进度或 null', async () => {

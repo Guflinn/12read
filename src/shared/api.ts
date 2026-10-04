@@ -40,6 +40,10 @@ export interface ReaderApi {
   redecodeBook(bookId: string, encoding: ManualEncoding): Promise<Book>
   deleteBook(bookId: string): Promise<void>
   chapters(bookId: string): Promise<Chapter[]>
+  /** 手动改分章（目录里用）：都返回改完的整份章节表，进度按字符位置重新落位。 */
+  renameChapter(bookId: string, index: number, title: string): Promise<Chapter[]>
+  mergeChapter(bookId: string, index: number): Promise<Chapter[]>
+  splitChapter(bookId: string, index: number, offset: number): Promise<Chapter[]>
   readChapter(bookId: string, index: number): Promise<string>
   getProgress(bookId: string): Promise<Progress | null>
   saveProgress(progress: Progress): Promise<void>

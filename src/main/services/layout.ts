@@ -11,6 +11,8 @@ export const BOOKS_DIR = 'books'
 export const SOURCE_FILE = 'source.bin'
 export const CONTENT_FILE = 'content.txt'
 export const CHAPTERS_DIR = 'chapters'
+/** 导出备份包里的清单文件名（0.1.3 第 9 项）。 */
+export const BACKUP_MANIFEST_FILE = '12read-backup.json'
 
 export function dbPath(root: string): string {
   return join(root, DB_FILE)

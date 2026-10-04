@@ -31,6 +31,14 @@ export function formatChars(chars: number): string {
   return (chars / 10000).toFixed(1) + ' 万字'
 }
 
+/** 备份包这类文件的体积：1024 进制，保留一位小数。 */
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB'
+  if (bytes < 1024) return Math.round(bytes) + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
 /**
  * 还剩多少字：percent 由「本章起始 + 章内偏移」推得，所以剩余量也按全书估算。
  * 只用于展示，不参与定位（TECH.md 6.2）。

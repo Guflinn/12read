@@ -5,6 +5,7 @@ import {
   coverGradient,
   coverInitial,
   describeBook,
+  formatBytes,
   formatChars,
   formatPercent,
   formatRelative
@@ -121,12 +122,32 @@ export function ShelfView({
   const [recodingTo, setRecodingTo] = useState<ManualEncoding>('auto')
   const [scopeOpen, setScopeOpen] = useState(false)
   const [statsOpen, setStatsOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<ShelfSort>('recent')
   const now = Date.now()
   const totalChars = books.reduce((sum, book) => sum + book.charCount, 0)
   const shown = shelfView(books, query, sort)
   const filtering = query.trim().length > 0
+
+  /**
+   * 导出备份：主进程弹「另存为」，然后把整库打包写出去。
+   * 期间按钮禁用，避免连点导出两份；用户取消返回 null，不当失败。
+   */
+  const exportBackup = (): void => {
+    if (exporting) return
+    setExporting(true)
+    void readerApi()
+      .exportBackup()
+      .then((result) => {
+        if (result === null) toast('已取消导出')
+        else toast('已导出备份（' + result.books + ' 本 · ' + formatBytes(result.bytes) + '）')
+      })
+      .catch((cause: unknown) => {
+        toast('导出失败：' + (cause instanceof Error ? cause.message : String(cause)))
+      })
+      .finally(() => setExporting(false))
+  }
 
   const importFiles = (files: FileList | null): void => {
     const list = files ? Array.from(files) : []
@@ -163,6 +184,14 @@ export function ShelfView({
             </button>
             <button id="btn-stats" className="btn ghost" onClick={() => setStatsOpen(true)}>
               阅读统计
+            </button>
+            <button
+              id="btn-export"
+              className="btn ghost"
+              disabled={exporting}
+              onClick={exportBackup}
+            >
+              {exporting ? '导出中…' : '导出备份'}
             </button>
             <button id="btn-scope" className="btn ghost" onClick={() => setScopeOpen(true)}>
               范围说明
@@ -359,13 +388,14 @@ export function ShelfView({
             <li>书签与划线：顶栏 🔖 记位置，选中一段字划线；目录抽屉里分「书签 / 划线」两页</li>
             <li>搜索：Ctrl + F 在章节内或全书找词，结果上是章名与上下文</li>
             <li>阅读统计：书架右上角「阅读统计」，看今天 / 累计时长与字数、连续天数、最近两周、读得最多的书</li>
+            <li>导出备份：整库打成一个 zip（数据库快照 + 每本书的原始文件 + 清单），存到你选的位置</li>
           </ul>
           <p className="scope-h">还不在范围内</p>
           <ul className="scope-list">
-            <li>笔记（划线只能记原文，还不能在旁边写字）、导出备份</li>
+            <li>备份还原（现在只能导出，还不能从备份还原回来）</li>
+            <li>笔记（划线只能记原文，还不能在旁边写字）</li>
             <li>EPUB / PDF / MOBI（数据结构已为 EPUB 预留）</li>
             <li>账号、云同步、在线书城、TTS 朗读</li>
-            <li>导出备份</li>
           </ul>
         </Modal>
       ) : null}

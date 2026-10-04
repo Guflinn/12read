@@ -195,6 +195,16 @@ export interface ReadingStats {
   topBooks: ReadingBookStat[]
 }
 
+/** 导出备份的结果（0.1.3 第 9 项）：取消导出时 IPC 返回 null。 */
+export interface BackupResult {
+  /** 用户选定的 zip 落盘位置。 */
+  path: string
+  /** 整份 zip 的字节数。 */
+  bytes: number
+  /** 清单里记了几本书（含原始文件缺失的）。 */
+  books: number
+}
+
 export type ImportStage =
   | 'reading'
   | 'detecting'

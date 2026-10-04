@@ -10,6 +10,7 @@ import { MetaRepository } from './db/meta-repository'
 import { ReadingStatRepository } from './db/reading-repository'
 import { runMigrations } from './db/migrate'
 import { registerIpc } from './ipc'
+import { BackupService } from './services/backup'
 import { ChapterEditor } from './services/chapter-editor'
 import { FileContentReader } from './services/content-reader'
 import { deviceIdOf } from './services/device-id'
@@ -72,6 +73,7 @@ function bootstrap(): void {
     content,
     search: new BookSearchService(content, repo),
     stats: new ReadingStatsService(new ReadingStatRepository(db)),
+    backup: new BackupService({ root, db, repo, version: app.getVersion() }),
     progress: new SqlProgressStore(repo),
     settings: new SettingsStore(meta),
     deviceId: deviceIdOf(meta)

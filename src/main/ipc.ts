@@ -23,6 +23,7 @@ import {
   statGetArgsSchema
 } from '@shared/schema'
 import type {
+  BackupResult,
   Book,
   Bookmark,
   Chapter,
@@ -34,6 +35,7 @@ import type {
   ShelfBook
 } from '@shared/types'
 import type { AnnotationsRepository } from './db/annotations-repository'
+import type { BackupService } from './services/backup'
 import type { ChapterEditor } from './services/chapter-editor'
 import type { FileContentReader } from './services/content-reader'
 import { toImportError, type ImportError } from './services/import-error'
@@ -56,6 +58,8 @@ export interface IpcContext {
   search: BookSearchService
   /** 阅读统计（0.1.3 第 8 项）。 */
   stats: ReadingStatsService
+  /** 导出备份（0.1.3 第 9 项）：只读本机数据打一个 zip。 */
+  backup: BackupService
   progress: SqlProgressStore
   settings: SettingsStore
   /** 本机设备 id，随 app:info 一次性交给渲染进程（TECH.md 6.1）。 */
@@ -235,6 +239,23 @@ export function registerIpc(ctx: IpcContext): void {
   })
 
   handle(CH.statGet, statGetArgsSchema, ({ days }): ReadingStats => ctx.stats.summary(days))
+
+  // 导出备份：位置由用户在「另存为」里选，取消返回 null；失败翻成中文提示
+  handle(CH.backupExport, emptyArgsSchema, async (): Promise<BackupResult | null> => {
+    const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+    const picked = await dialog.showSaveDialog({
+      title: '导出备份',
+      defaultPath: '十二阅读备份-' + stamp + '.zip',
+      filters: [{ name: 'ZIP 压缩包', extensions: ['zip'] }]
+    })
+    if (picked.canceled || picked.filePath === '') return null
+    try {
+      return await ctx.backup.exportTo(picked.filePath)
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause)
+      throw new Error('导出失败：' + message)
+    }
+  })
 
   handle(CH.progressGet, getArgsSchema, ({ bookId }): Promise<Progress | null> =>
     ctx.progress.get(bookId)

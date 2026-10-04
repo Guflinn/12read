@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReaderApi } from '@shared/api'
 import {
   CHUNK_FIRST_RENDER_CHARS,
+  type BackupResult,
   type Book,
   type Bookmark,
   type BookmarkInput,
@@ -82,6 +83,7 @@ interface Harness {
   searchBook: ReturnType<typeof vi.fn>
   addReadingStat: ReturnType<typeof vi.fn>
   getReadingStats: ReturnType<typeof vi.fn>
+  exportBackup: ReturnType<typeof vi.fn>
 }
 
 function makeHarness(
@@ -128,6 +130,7 @@ function makeHarness(
       topBooks: []
     })
   )
+  const exportBackup = vi.fn(async (): Promise<BackupResult | null> => null)
   // 搜索默认给「一处都没找到」：单个用例再按需 mockResolvedValueOnce
   const searchBook = vi.fn(
     async (): Promise<SearchResult> => ({
@@ -162,6 +165,7 @@ function makeHarness(
     searchBook,
     addReadingStat,
     getReadingStats,
+    exportBackup,
     readChapter,
     getProgress,
     saveProgress,
@@ -188,7 +192,8 @@ function makeHarness(
     listHighlights,
     searchBook,
     addReadingStat,
-    getReadingStats
+    getReadingStats,
+    exportBackup
   }
 }
 

@@ -55,6 +55,16 @@ export async function stubOpenDialog(app: ElectronApplication, filePaths: string
   }, filePaths)
 }
 
+/** 顶掉「另存为」框：传 null 表示用户取消 */
+export async function stubSaveDialog(app: ElectronApplication, filePath: string | null): Promise<void> {
+  await app.evaluate(({ dialog }, target) => {
+    dialog.showSaveDialog = (async () =>
+      target === null
+        ? { canceled: true, filePath: '' }
+        : { canceled: false, filePath: target }) as typeof dialog.showSaveDialog
+  }, filePath)
+}
+
 /** 三章、每章 30 段，足够滚动出进度 */
 export function buildNovel(): string {
   const filler = '山川湖海风雨星辰晨昏四季'

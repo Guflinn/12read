@@ -9,6 +9,7 @@ import {
   coverGradient,
   coverInitial,
   describeBook,
+  formatBytes,
   formatChars,
   formatPercent,
   formatRelative,
@@ -92,6 +93,16 @@ describe('书架展示', () => {
     expect(formatChars(0)).toBe('0 字')
     expect(formatChars(9999)).toBe('9999 字')
     expect(formatChars(123456)).toBe('12.3 万字')
+  })
+
+  it('备份体积按 KB / MB 换算', () => {
+    expect(formatBytes(0)).toBe('0 KB')
+    expect(formatBytes(-1)).toBe('0 KB')
+    expect(formatBytes(Number.NaN)).toBe('0 KB')
+    expect(formatBytes(512)).toBe('512 B')
+    expect(formatBytes(1024)).toBe('1.0 KB')
+    expect(formatBytes(2048)).toBe('2.0 KB')
+    expect(formatBytes(1536 * 1024)).toBe('1.5 MB')
   })
 
   it('剩余字数按全书百分比折算，边界都夹住', () => {

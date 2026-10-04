@@ -25,6 +25,7 @@ import {
 } from '@shared/schema'
 import type {
   AnnotationId,
+  BackupResult,
   Book,
   Bookmark,
   BookmarkInput,
@@ -99,6 +100,8 @@ const readerApi: ReaderApi = {
     invoke(CH.statAdd, statAddArgsSchema, { bookId, ms, chars }),
   getReadingStats: (days: number): Promise<ReadingStats> =>
     invoke(CH.statGet, statGetArgsSchema, { days }),
+  exportBackup: (): Promise<BackupResult | null> =>
+    invoke(CH.backupExport, emptyArgsSchema, undefined),
   getProgress: (bookId: string): Promise<Progress | null> =>
     invoke(CH.progressGet, getArgsSchema, { bookId }),
   saveProgress: (progress: Progress): Promise<void> =>

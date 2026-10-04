@@ -26,6 +26,8 @@ export const CH = {
   /** 阅读统计（0.1.3 第 8 项）：renderer 按段上报时长与字数，书架汇总看一眼。 */
   statAdd: 'stat:add',
   statGet: 'stat:get',
+  /** 导出备份（0.1.3 第 9 项）：整库打一个 zip，只导出不恢复。 */
+  backupExport: 'backup:export',
   progressGet: 'progress:get',
   progressSave: 'progress:save',
   /** 退出前的同步落盘：beforeunload 里异步 IPC 未必来得及（TECH.md 6.3）。 */

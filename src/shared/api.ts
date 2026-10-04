@@ -1,5 +1,6 @@
 import type {
   AnnotationId,
+  BackupResult,
   Book,
   Bookmark,
   BookmarkInput,
@@ -74,6 +75,11 @@ export interface ReaderApi {
    */
   addReadingStat(bookId: string, ms: number, chars: number): Promise<void>
   getReadingStats(days: number): Promise<ReadingStats>
+  /**
+   * 导出备份（0.1.3 第 9 项）：主进程弹「另存为」，把整库打成一个 zip。
+   * 用户取消返回 null；导出本身只读本机数据，不会动书库。
+   */
+  exportBackup(): Promise<BackupResult | null>
   getProgress(bookId: string): Promise<Progress | null>
   saveProgress(progress: Progress): Promise<void>
   /**

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CH } from '@shared/channels'
 import type {
+  BackupResult,
   Book,
   Bookmark,
   Chapter,
@@ -18,15 +19,16 @@ import { ImportError } from '@main/services/import-error'
 type Invoke = (event: unknown, raw: unknown) => Promise<unknown>
 type SyncHandler = (event: { returnValue: unknown }, raw: unknown) => void
 
-const { handlers, syncHandlers, showOpenDialog } = vi.hoisted(() => ({
+const { handlers, syncHandlers, showOpenDialog, showSaveDialog } = vi.hoisted(() => ({
   handlers: new Map<string, Invoke>(),
   syncHandlers: new Map<string, SyncHandler>(),
-  showOpenDialog: vi.fn()
+  showOpenDialog: vi.fn(),
+  showSaveDialog: vi.fn()
 }))
 
 vi.mock('electron', () => ({
   app: { getVersion: () => '9.9.9' },
-  dialog: { showOpenDialog },
+  dialog: { showOpenDialog, showSaveDialog },
   ipcMain: {
     handle: (channel: string, fn: Invoke) => {
       handlers.set(channel, fn)
@@ -122,6 +124,12 @@ const STATS: ReadingStats = {
   topBooks: [{ bookId: BOOK_ID, title: '测试书', ms: 60_000, chars: 500 }]
 }
 
+const BACKUP_RESULT: BackupResult = {
+  path: 'D:\\备份\\12read.zip',
+  bytes: 2048,
+  books: 2
+}
+
 const SETTINGS: ReaderSettings = {
   fontSize: 19,
   lineHeight: 1.9,
@@ -144,6 +152,7 @@ function makeContext(): {
   annotations: Record<string, ReturnType<typeof vi.fn>>
   search: Record<string, ReturnType<typeof vi.fn>>
   stats: Record<string, ReturnType<typeof vi.fn>>
+  backup: Record<string, ReturnType<typeof vi.fn>>
   content: Record<string, ReturnType<typeof vi.fn>>
   progress: Record<string, ReturnType<typeof vi.fn>>
   settings: Record<string, ReturnType<typeof vi.fn>>
@@ -197,6 +206,9 @@ function makeContext(): {
     }),
     summary: vi.fn((): ReadingStats => STATS)
   }
+  const backup = {
+    exportTo: vi.fn(async (): Promise<BackupResult> => BACKUP_RESULT)
+  }
   const content = {
     readChapter: vi.fn(async (): Promise<string> => '正文'),
     invalidate: vi.fn((bookId: string) => {
@@ -218,13 +230,27 @@ function makeContext(): {
     annotations,
     search,
     stats,
+    backup,
     content,
     progress,
     settings,
     deviceId: 'device-1'
   } as unknown as IpcContext
   registerIpc(ctx)
-  return { ctx, order, importer, library, chapters, annotations, search, stats, content, progress, settings }
+  return {
+    ctx,
+    order,
+    importer,
+    library,
+    chapters,
+    annotations,
+    search,
+    stats,
+    backup,
+    content,
+    progress,
+    settings
+  }
 }
 
 function call(channel: string, raw?: unknown): Promise<unknown> {
@@ -247,6 +273,7 @@ function setup(): ReturnType<typeof makeContext> {
   handlers.clear()
   syncHandlers.clear()
   showOpenDialog.mockReset()
+  showSaveDialog.mockReset()
   return makeContext()
 }
 
@@ -642,5 +669,44 @@ describe('IPC 注册与转发', () => {
     await expect(call(CH.statGet, { days: 91 })).rejects.toThrow('参数校验失败: ' + CH.statGet)
     await expect(call(CH.statGet, { days: 1.5 })).rejects.toThrow('参数校验失败: ' + CH.statGet)
     expect(stats.summary).toHaveBeenCalledTimes(1)
+  })
+
+  it('backup:export 取消时返回 null，位置提示与通道参数都对', async () => {
+    const { backup } = setup()
+    showSaveDialog.mockResolvedValueOnce({ canceled: true, filePath: '' })
+
+    expect(await call(CH.backupExport)).toBeNull()
+    expect(backup.exportTo).not.toHaveBeenCalled()
+
+    const options = showSaveDialog.mock.calls[0]?.[0] as {
+      defaultPath?: string
+      filters?: unknown
+    }
+    expect(options.filters).toEqual([{ name: 'ZIP 压缩包', extensions: ['zip'] }])
+    expect(String(options.defaultPath)).toMatch(/^十二阅读备份-\d{8}\.zip$/)
+  })
+
+  it('backup:export 把用户选的位置交给备份服务', async () => {
+    const { backup } = setup()
+    showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: 'D:\\备份\\12read.zip' })
+
+    expect(await call(CH.backupExport)).toEqual(BACKUP_RESULT)
+    expect(backup.exportTo.mock.calls[0]?.[0]).toBe('D:\\备份\\12read.zip')
+  })
+
+  it('backup:export 失败时翻成中文提示', async () => {
+    const { backup } = setup()
+    showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: 'D:\\备份\\12read.zip' })
+    backup.exportTo.mockRejectedValueOnce(new Error('磁盘满了'))
+
+    await expect(call(CH.backupExport)).rejects.toThrow('导出失败：磁盘满了')
+  })
+
+  it('backup:export 不收参数，传对象直接被拒', async () => {
+    setup()
+    await expect(call(CH.backupExport, { path: 'x' })).rejects.toThrow(
+      '参数校验失败: ' + CH.backupExport
+    )
+    expect(showSaveDialog).not.toHaveBeenCalled()
   })
 })

@@ -10,6 +10,7 @@
 | 日期 | 变更 |
 | --- | --- |
 | 2026 | 首版。形态决策由 MVP.md 第 1 节的「Web/PWA，后续可套 Tauri 壳」改为「Electron 桌面应用，核心保持平台无关」。 |
+| 2026-10-04 | 0.1.3：正文字体（`--font-body`）与栏宽（`--page-w`）可选；阅读器 ← / → 翻一屏、Ctrl + ← / → 切章；新增 `book:redecode` 手动指定编码重解码（含手工 `big5` 分支）。 |
 | 2026-10-04 | 0.1.2：阅读器顶栏加独立的日/夜间切换按钮；新增「上次位置」书签（`reader` store 的 `bookmark` + `settleBookmark` / `backToBookmark`，来回切换靠「把当前位置换进书签」）；`ReaderSettings` 增加 `bold`，加粗写 `--fw`（schema 用 `default(false)`，0.1.1 的旧设置不会整份回退默认）。 |
 | 2026-10-03 | 0.1.1：主题与排版变量从 `.app` 上移到 `<html>`（原来 `body` 取不到夜间变量，整页花屏）；`book:list` 返回 `ShelfBook[]`（带 `percent`，一次 LEFT JOIN，取代书架 N+1）；大章节续渲染由「一次全给」改为每次 2 万字。 |
 
@@ -151,6 +152,7 @@ export interface Ports {
 | book:get | R→M | bookId | Book 或 null | |
 | book:rename | R→M | bookId, title | Book | title 清洗后非空 |
 | book:delete | R→M | bookId | void | 级联删进度记录与正文目录 |
+| book:redecode | R→M | bookId, encoding | Book | encoding ∈ auto / utf-8 / gb18030 / big5 / utf-16le / utf-16be；复用 source.bin 重解，清掉该书进度 |
 | book:chapters | R→M | bookId | Chapter[] | 不含正文 |
 | chapter:read | R→M | bookId, index | string | |
 | progress:get | R→M | bookId | Progress 或 null | |

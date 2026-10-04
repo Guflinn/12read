@@ -21,6 +21,8 @@ export const CH = {
   highlightList: 'highlight:list',
   highlightAdd: 'highlight:add',
   highlightRemove: 'highlight:remove',
+  /** 章节内 / 全书搜索（0.1.3 第 7 项）：直接扫正文，不建索引。 */
+  bookSearch: 'book:search',
   progressGet: 'progress:get',
   progressSave: 'progress:save',
   /** 退出前的同步落盘：beforeunload 里异步 IPC 未必来得及（TECH.md 6.3）。 */

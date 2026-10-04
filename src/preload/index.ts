@@ -16,6 +16,7 @@ import {
   readChapterArgsSchema,
   redecodeArgsSchema,
   renameArgsSchema,
+  searchArgsSchema,
   renameChapterArgsSchema,
   settingsSchema,
   splitChapterArgsSchema
@@ -32,6 +33,8 @@ import type {
   ManualEncoding,
   Progress,
   ReaderSettings,
+  SearchResult,
+  SearchScope,
   ShelfBook
 } from '@shared/types'
 
@@ -82,6 +85,13 @@ const readerApi: ReaderApi = {
     invoke(CH.highlightAdd, highlightAddArgsSchema, input),
   removeHighlight: (id: AnnotationId): Promise<void> =>
     invoke(CH.highlightRemove, annotationIdArgsSchema, { id }),
+  searchBook: (
+    bookId: string,
+    query: string,
+    scope: SearchScope,
+    chapterIndex: number
+  ): Promise<SearchResult> =>
+    invoke(CH.bookSearch, searchArgsSchema, { bookId, query, scope, chapterIndex }),
   getProgress: (bookId: string): Promise<Progress | null> =>
     invoke(CH.progressGet, getArgsSchema, { bookId }),
   saveProgress: (progress: Progress): Promise<void> =>

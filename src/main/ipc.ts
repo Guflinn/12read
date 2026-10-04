@@ -16,6 +16,7 @@ import {
   redecodeArgsSchema,
   renameArgsSchema,
   renameChapterArgsSchema,
+  searchArgsSchema,
   settingsSchema,
   splitChapterArgsSchema
 } from '@shared/schema'
@@ -26,6 +27,7 @@ import type {
   Highlight,
   Progress,
   ReaderSettings,
+  SearchResult,
   ShelfBook
 } from '@shared/types'
 import type { AnnotationsRepository } from './db/annotations-repository'
@@ -35,6 +37,7 @@ import { toImportError, type ImportError } from './services/import-error'
 import type { ImportService } from './services/importer'
 import type { LibraryService } from './services/library'
 import type { SqlProgressStore } from './services/progress-store'
+import type { BookSearchService } from './services/search'
 import type { SettingsStore } from './services/settings-store'
 
 export interface IpcContext {
@@ -45,6 +48,8 @@ export interface IpcContext {
   /** 书签与划线（0.1.3 第 6 项）。 */
   annotations: AnnotationsRepository
   content: FileContentReader
+  /** 章节内 / 全书搜索（0.1.3 第 7 项）。 */
+  search: BookSearchService
   progress: SqlProgressStore
   settings: SettingsStore
   /** 本机设备 id，随 app:info 一次性交给渲染进程（TECH.md 6.1）。 */
@@ -209,6 +214,14 @@ export function registerIpc(ctx: IpcContext): void {
   handle(CH.highlightRemove, annotationIdArgsSchema, ({ id }): void => {
     ctx.annotations.removeHighlight(id)
   })
+
+  // 搜索：关键词归一化与上限都在服务里，ipc 只转发
+  handle(
+    CH.bookSearch,
+    searchArgsSchema,
+    ({ bookId, query, scope, chapterIndex }): Promise<SearchResult> =>
+      ctx.search.search({ bookId, query, scope, chapterIndex })
+  )
 
   handle(CH.progressGet, getArgsSchema, ({ bookId }): Promise<Progress | null> =>
     ctx.progress.get(bookId)

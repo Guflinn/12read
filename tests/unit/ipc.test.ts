@@ -7,6 +7,7 @@ import type {
   Highlight,
   Progress,
   ReaderSettings,
+  SearchResult,
   ShelfBook
 } from '@shared/types'
 import type { IpcContext } from '@main/ipc'
@@ -91,6 +92,24 @@ const HIGHLIGHT: Highlight = {
   createdAt: 4
 }
 
+const SEARCH_RESULT: SearchResult = {
+  query: '山川',
+  scope: 'book',
+  total: 1,
+  counts: [{ chapterIndex: 1, count: 1 }],
+  hits: [
+    {
+      chapterIndex: 1,
+      chapterTitle: '第二章',
+      charOffset: 20,
+      before: '前面的话',
+      match: '山川',
+      after: '后面的话'
+    }
+  ],
+  truncated: false
+}
+
 const SETTINGS: ReaderSettings = {
   fontSize: 19,
   lineHeight: 1.9,
@@ -111,6 +130,7 @@ function makeContext(): {
   library: Record<string, ReturnType<typeof vi.fn>>
   chapters: Record<string, ReturnType<typeof vi.fn>>
   annotations: Record<string, ReturnType<typeof vi.fn>>
+  search: Record<string, ReturnType<typeof vi.fn>>
   content: Record<string, ReturnType<typeof vi.fn>>
   progress: Record<string, ReturnType<typeof vi.fn>>
   settings: Record<string, ReturnType<typeof vi.fn>>
@@ -155,6 +175,9 @@ function makeContext(): {
       order.push('remove-highlight:' + id)
     })
   }
+  const search = {
+    search: vi.fn(async (): Promise<SearchResult> => SEARCH_RESULT)
+  }
   const content = {
     readChapter: vi.fn(async (): Promise<string> => '正文'),
     invalidate: vi.fn((bookId: string) => {
@@ -174,13 +197,14 @@ function makeContext(): {
     library,
     chapters,
     annotations,
+    search,
     content,
     progress,
     settings,
     deviceId: 'device-1'
   } as unknown as IpcContext
   registerIpc(ctx)
-  return { ctx, order, importer, library, chapters, annotations, content, progress, settings }
+  return { ctx, order, importer, library, chapters, annotations, search, content, progress, settings }
 }
 
 function call(channel: string, raw?: unknown): Promise<unknown> {
@@ -491,6 +515,33 @@ describe('IPC 注册与转发', () => {
       })
     ).rejects.toThrow('参数校验失败: ' + CH.highlightAdd)
     expect(annotations.addHighlight).not.toHaveBeenCalled()
+  })
+
+  it('book:search 把关键词、范围与章序号交给搜索服务', async () => {
+    const { search } = setup()
+    expect(
+      await call(CH.bookSearch, { bookId: BOOK_ID, query: ' 山川 ', scope: 'book', chapterIndex: 1 })
+    ).toEqual(SEARCH_RESULT)
+    // 关键词已由 schema trim 过
+    expect(search.search.mock.calls[0]?.[0]).toEqual({
+      bookId: BOOK_ID,
+      query: '山川',
+      scope: 'book',
+      chapterIndex: 1
+    })
+  })
+
+  it('book:search 的空关键词与非法范围被拒，不碰搜索服务', async () => {
+    const { search } = setup()
+    for (const raw of [
+      { bookId: BOOK_ID, query: '   ', scope: 'book', chapterIndex: 0 },
+      { bookId: BOOK_ID, query: '山川', scope: 'all', chapterIndex: 0 },
+      { bookId: BOOK_ID, query: '山川', scope: 'book', chapterIndex: -1 },
+      { bookId: BOOK_ID, query: 'x'.repeat(81), scope: 'book', chapterIndex: 0 }
+    ]) {
+      await expect(call(CH.bookSearch, raw)).rejects.toThrow('参数校验失败: ' + CH.bookSearch)
+    }
+    expect(search.search).not.toHaveBeenCalled()
   })
 
   it('progress:get 返回进度或 null', async () => {

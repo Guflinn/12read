@@ -10,6 +10,8 @@ import type {
   ManualEncoding,
   Progress,
   ReaderSettings,
+  SearchResult,
+  SearchScope,
   ShelfBook
 } from './types'
 
@@ -60,6 +62,11 @@ export interface ReaderApi {
   listHighlights(bookId: string): Promise<Highlight[]>
   addHighlight(input: HighlightInput): Promise<Highlight>
   removeHighlight(id: AnnotationId): Promise<void>
+  /**
+   * 章节内 / 全书搜索（0.1.3 第 7 项）：整本一次扫完，命中的位置用当前章节表换算成章号 + 章内偏移。
+   * query 传原始输入即可，归一化（trim + 截到 80 字）在主进程做。
+   */
+  searchBook(bookId: string, query: string, scope: SearchScope, chapterIndex: number): Promise<SearchResult>
   getProgress(bookId: string): Promise<Progress | null>
   saveProgress(progress: Progress): Promise<void>
   /**

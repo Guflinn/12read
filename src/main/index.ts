@@ -16,6 +16,7 @@ import { ImportService } from './services/importer'
 import { booksRoot, dbPath } from './services/layout'
 import { LibraryService } from './services/library'
 import { SqlProgressStore } from './services/progress-store'
+import { BookSearchService } from './services/search'
 import { SettingsStore } from './services/settings-store'
 import { createMainWindow } from './window'
 
@@ -58,12 +59,16 @@ function bootstrap(): void {
   const importer = new ImportService({ root, repo }, broadcast())
   const meta = new MetaRepository(db)
 
+  // 正文缓存 64MB：阅读与搜索共用同一个实例，别各建一份（0.1.3 第 7 项）
+  const content = new FileContentReader(root, repo)
+
   registerIpc({
     importer,
     library: new LibraryService(root, repo),
     chapters: new ChapterEditor(repo),
     annotations: new AnnotationsRepository(db),
-    content: new FileContentReader(root, repo),
+    content,
+    search: new BookSearchService(content, repo),
     progress: new SqlProgressStore(repo),
     settings: new SettingsStore(meta),
     deviceId: deviceIdOf(meta)

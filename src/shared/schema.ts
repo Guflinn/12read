@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { UUID_V4_RE } from '@shared/core/ids'
-import { MANUAL_ENCODINGS } from '@shared/types'
+import { MANUAL_ENCODINGS, SEARCH_SCOPES } from '@shared/types'
+import { SEARCH_MAX_QUERY_CHARS } from '@shared/core/search'
 
 /** bookId 一律 uuid v4：同一个正则也用于 main 侧拼路径前的校验（TECH.md 4.2）。 */
 export const bookIdSchema = z.string().regex(UUID_V4_RE, 'bookId 必须是 uuid v4')
@@ -25,6 +26,14 @@ export const renameArgsSchema = z.object({
 export const redecodeArgsSchema = z.object({
   bookId: bookIdSchema,
   encoding: z.enum(MANUAL_ENCODINGS)
+})
+
+/** 搜索：scope=chapter 只扫这一章，=book 扫全书（沿用同一个字面量数组）。 */
+export const searchArgsSchema = z.object({
+  bookId: bookIdSchema,
+  query: z.string().trim().min(1, '搜索关键词不能为空').max(SEARCH_MAX_QUERY_CHARS),
+  scope: z.enum(SEARCH_SCOPES),
+  chapterIndex: chapterIndexSchema
 })
 
 export const readChapterArgsSchema = z.object({

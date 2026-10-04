@@ -129,6 +129,41 @@ export interface HighlightInput {
   text: string
 }
 
+/** 搜索范围：本章 or 全书（0.1.3 第 7 项）。 */
+export type SearchScope = 'chapter' | 'book'
+
+/** 范围选择器的顺序，也是 schema 里 z.enum 的取值。 */
+export const SEARCH_SCOPES = ['chapter', 'book'] as const
+
+/** 一条命中：位置用「章号 + 章内偏移」，上下文给列表行显示。 */
+export interface SearchHit {
+  chapterIndex: number
+  chapterTitle: string
+  /** 命中处在该章内的字符偏移（UTF-16 code units）。 */
+  charOffset: CharOffset
+  before: string
+  match: string
+  after: string
+}
+
+/** 每章命中次数，按章号升序；面板里给「12 处 · 3 章」用。 */
+export interface ChapterHitCount {
+  chapterIndex: number
+  count: number
+}
+
+export interface SearchResult {
+  /** 归一化之后的关键词（trim + 截断），面板回显用。 */
+  query: string
+  scope: SearchScope
+  /** 命中总次数（每章最多数到 SEARCH_MAX_HITS_PER_CHAPTER 次）。 */
+  total: number
+  counts: ChapterHitCount[]
+  hits: SearchHit[]
+  /** true 表示还有没列出来的命中（超出每章或总体上限被截断）。 */
+  truncated: boolean
+}
+
 export type ImportStage =
   | 'reading'
   | 'detecting'

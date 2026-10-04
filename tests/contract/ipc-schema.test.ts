@@ -12,6 +12,7 @@ import {
   redecodeArgsSchema,
   renameArgsSchema,
   renameChapterArgsSchema,
+  searchArgsSchema,
   settingsSchema,
   splitChapterArgsSchema
 } from '@shared/schema'
@@ -102,6 +103,30 @@ describe('IPC 入参校验：合法用例', () => {
     })
     expect(highlight.success).toBe(true)
     expect(annotationIdArgsSchema.safeParse({ id: 'k1' }).success).toBe(true)
+  })
+
+  it('搜索入参：本章与全书两种范围，关键词去掉首尾空白', () => {
+    const parsed = searchArgsSchema.safeParse({
+      bookId: VALID_ID,
+      query: '  山川 湖海  ',
+      scope: 'book',
+      chapterIndex: 0
+    })
+    expect(parsed.success).toBe(true)
+    if (parsed.success) expect(parsed.data.query).toBe('山川 湖海')
+    expect(
+      searchArgsSchema.safeParse({ bookId: VALID_ID, query: '山川', scope: 'chapter', chapterIndex: 3 })
+        .success
+    ).toBe(true)
+    // 关键词长度上限 80：刚好 80 收，81 拒
+    expect(
+      searchArgsSchema.safeParse({
+        bookId: VALID_ID,
+        query: 'x'.repeat(80),
+        scope: 'book',
+        chapterIndex: 0
+      }).success
+    ).toBe(true)
   })
 
   it('缺字体与栏宽时补默认值', () => {
@@ -229,6 +254,18 @@ describe('IPC 入参校验：非法用例', () => {
         text: '反着选'
       }).success
     ).toBe(true)
+  })
+
+  it('搜索入参：空关键词、超长关键词、陌生范围与坏章号都被拒', () => {
+    const base = { bookId: VALID_ID, query: '山川', scope: 'book', chapterIndex: 0 }
+    expect(searchArgsSchema.safeParse({ ...base, query: '   ' }).success).toBe(false)
+    expect(searchArgsSchema.safeParse({ ...base, query: 'x'.repeat(81) }).success).toBe(false)
+    expect(searchArgsSchema.safeParse({ ...base, scope: 'all' }).success).toBe(false)
+    expect(searchArgsSchema.safeParse({ ...base, scope: undefined }).success).toBe(false)
+    expect(searchArgsSchema.safeParse({ ...base, chapterIndex: -1 }).success).toBe(false)
+    expect(searchArgsSchema.safeParse({ ...base, chapterIndex: 1.5 }).success).toBe(false)
+    expect(searchArgsSchema.safeParse({ ...base, chapterIndex: undefined }).success).toBe(false)
+    expect(searchArgsSchema.safeParse({ ...base, bookId: 'not-a-uuid' }).success).toBe(false)
   })
 
   it('拒绝空 filePath 与空 taskId', () => {

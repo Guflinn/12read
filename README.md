@@ -100,7 +100,9 @@ pnpm build && pnpm exec electron-builder --win nsis   # release/twelve-read-setu
 
 注意 `electron-builder` 内部要用 `pnpm list --prod --json` 收集依赖，所以打包必须在 pnpm 可用的情况下跑（上面的 `pnpm exec` 天然满足；用裸 `npx electron-builder` 时若 PATH 上没有 pnpm 会报 `No JSON content found in output`）。
 
-实测（Windows x64）：`release/twelve-read-setup-0.1.2.exe` 约 98 MB，低于 TECH 的 120 MB 目标；解包目录 `release/win-unpacked` 约 352 MB，体积几乎都在 Electron 运行时（`十二阅读.exe` 200 MB）与被解包的 better-sqlite3 上（`resources/app.asar` 1.8 MB、`resources/app.asar.unpacked` 26 MB）。打包后的 exe 每次发版都做一次冒烟：直接启动 `release/win-unpacked/十二阅读.exe`，导入一本 TXT 并能打开阅读、书架出现卡片，顶栏的「上次位置」可点，同时数据目录里建出 `library.db` 与 `books/`，说明 N-API 预编译二进制在 asar 外正常加载。
+实测（Windows x64，0.1.3）：`release/twelve-read-setup-0.1.3.exe` 约 98 MB（102 765 937 字节），低于 TECH 的 120 MB 目标；解包目录 `release/win-unpacked` 约 352 MB，体积几乎都在 Electron 运行时（`十二阅读.exe` 200 MB）与被解包的 better-sqlite3 上（`resources/app.asar` 1.9 MB、`resources/app.asar.unpacked` 26 MB）。安装包同目录还留了一份 `twelve-read-setup-0.1.3.exe.sha256`。
+
+打包后的 exe 每次发版都做一次冒烟：**把工作目录换到一个临时目录**再启动 `release/win-unpacked/十二阅读.exe`（免得它顺着仓库根的 `package.json` 跑成 dev 构建，白测一场），导入一本 TXT —— 书架出现卡片、打开能读正文、顶栏「🔖 书签」「🔍 搜索」「↩ 上次位置」都在、书架左下角显示 `v0.1.3`、数据目录里建出 `library.db` 与 `books/<id>/source.bin`，说明 N-API 预编译二进制在 asar 外正常加载。
 
 ## 已知边界
 

@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { UUID_V4_RE } from '@shared/core/ids'
 import { MANUAL_ENCODINGS, SEARCH_SCOPES } from '@shared/types'
 import { SEARCH_MAX_QUERY_CHARS } from '@shared/core/search'
+import { STAT_MAX_REPORT_CHARS, STAT_MAX_REPORT_MS } from '@shared/core/stats'
 
 /** bookId 一律 uuid v4：同一个正则也用于 main 侧拼路径前的校验（TECH.md 4.2）。 */
 export const bookIdSchema = z.string().regex(UUID_V4_RE, 'bookId 必须是 uuid v4')
@@ -75,6 +76,20 @@ export const highlightAddArgsSchema = z.object({
   startOffset: z.number().int().min(0),
   endOffset: z.number().int().min(0),
   text: z.string().min(1, '划线内容不能为空').max(2000)
+})
+
+/**
+ * 阅读统计（0.1.3 第 8 项）：ms / chars 是「这一次上报的增量」，
+ * 主进程按本地日期累加；上限只是防呆，别让坏时钟或假 API 灌进离谱数字。
+ */
+export const statAddArgsSchema = z.object({
+  bookId: bookIdSchema,
+  ms: z.number().int().min(0).max(STAT_MAX_REPORT_MS),
+  chars: z.number().int().min(0).max(STAT_MAX_REPORT_CHARS)
+})
+
+export const statGetArgsSchema = z.object({
+  days: z.number().int().min(1).max(90)
 })
 
 export const progressSchema = z.object({

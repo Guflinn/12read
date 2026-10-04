@@ -14,8 +14,11 @@ import {
   renameChapterArgsSchema,
   searchArgsSchema,
   settingsSchema,
-  splitChapterArgsSchema
+  splitChapterArgsSchema,
+  statAddArgsSchema,
+  statGetArgsSchema
 } from '@shared/schema'
+import { STAT_MAX_REPORT_CHARS, STAT_MAX_REPORT_MS } from '@shared/core/stats'
 
 const VALID_ID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
 
@@ -127,6 +130,19 @@ describe('IPC 入参校验：合法用例', () => {
         chapterIndex: 0
       }).success
     ).toBe(true)
+  })
+
+  it('统计入参：时长与字数接受 0 与上限，天数在 1..90 之间', () => {
+    expect(statAddArgsSchema.safeParse({ bookId: VALID_ID, ms: 0, chars: 0 }).success).toBe(true)
+    expect(
+      statAddArgsSchema.safeParse({
+        bookId: VALID_ID,
+        ms: STAT_MAX_REPORT_MS,
+        chars: STAT_MAX_REPORT_CHARS
+      }).success
+    ).toBe(true)
+    expect(statGetArgsSchema.safeParse({ days: 1 }).success).toBe(true)
+    expect(statGetArgsSchema.safeParse({ days: 90 }).success).toBe(true)
   })
 
   it('缺字体与栏宽时补默认值', () => {
@@ -266,6 +282,24 @@ describe('IPC 入参校验：非法用例', () => {
     expect(searchArgsSchema.safeParse({ ...base, chapterIndex: 1.5 }).success).toBe(false)
     expect(searchArgsSchema.safeParse({ ...base, chapterIndex: undefined }).success).toBe(false)
     expect(searchArgsSchema.safeParse({ ...base, bookId: 'not-a-uuid' }).success).toBe(false)
+  })
+
+  it('统计入参：负时长、超上限、小数与坏天数都被拒', () => {
+    expect(statAddArgsSchema.safeParse({ bookId: VALID_ID, ms: -1, chars: 0 }).success).toBe(false)
+    expect(statAddArgsSchema.safeParse({ bookId: VALID_ID, ms: 0, chars: -1 }).success).toBe(false)
+    expect(statAddArgsSchema.safeParse({ bookId: VALID_ID, ms: 1.5, chars: 0 }).success).toBe(false)
+    expect(
+      statAddArgsSchema.safeParse({ bookId: VALID_ID, ms: STAT_MAX_REPORT_MS + 1, chars: 0 }).success
+    ).toBe(false)
+    expect(
+      statAddArgsSchema.safeParse({ bookId: VALID_ID, ms: 0, chars: STAT_MAX_REPORT_CHARS + 1 }).success
+    ).toBe(false)
+    expect(statAddArgsSchema.safeParse({ bookId: VALID_ID, ms: 0 }).success).toBe(false)
+    expect(statAddArgsSchema.safeParse({ bookId: 'not-a-uuid', ms: 0, chars: 0 }).success).toBe(false)
+    expect(statGetArgsSchema.safeParse({ days: 0 }).success).toBe(false)
+    expect(statGetArgsSchema.safeParse({ days: 91 }).success).toBe(false)
+    expect(statGetArgsSchema.safeParse({ days: 1.5 }).success).toBe(false)
+    expect(statGetArgsSchema.safeParse({}).success).toBe(false)
   })
 
   it('拒绝空 filePath 与空 taskId', () => {

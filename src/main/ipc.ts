@@ -18,7 +18,9 @@ import {
   renameChapterArgsSchema,
   searchArgsSchema,
   settingsSchema,
-  splitChapterArgsSchema
+  splitChapterArgsSchema,
+  statAddArgsSchema,
+  statGetArgsSchema
 } from '@shared/schema'
 import type {
   Book,
@@ -27,6 +29,7 @@ import type {
   Highlight,
   Progress,
   ReaderSettings,
+  ReadingStats,
   SearchResult,
   ShelfBook
 } from '@shared/types'
@@ -37,6 +40,7 @@ import { toImportError, type ImportError } from './services/import-error'
 import type { ImportService } from './services/importer'
 import type { LibraryService } from './services/library'
 import type { SqlProgressStore } from './services/progress-store'
+import type { ReadingStatsService } from './services/reading-stats'
 import type { BookSearchService } from './services/search'
 import type { SettingsStore } from './services/settings-store'
 
@@ -50,6 +54,8 @@ export interface IpcContext {
   content: FileContentReader
   /** 章节内 / 全书搜索（0.1.3 第 7 项）。 */
   search: BookSearchService
+  /** 阅读统计（0.1.3 第 8 项）。 */
+  stats: ReadingStatsService
   progress: SqlProgressStore
   settings: SettingsStore
   /** 本机设备 id，随 app:info 一次性交给渲染进程（TECH.md 6.1）。 */
@@ -222,6 +228,13 @@ export function registerIpc(ctx: IpcContext): void {
     ({ bookId, query, scope, chapterIndex }): Promise<SearchResult> =>
       ctx.search.search({ bookId, query, scope, chapterIndex })
   )
+
+  // 阅读统计：日期换算与汇总都在服务里，ipc 只转发
+  handle(CH.statAdd, statAddArgsSchema, ({ bookId, ms, chars }): void => {
+    ctx.stats.add({ bookId, ms, chars })
+  })
+
+  handle(CH.statGet, statGetArgsSchema, ({ days }): ReadingStats => ctx.stats.summary(days))
 
   handle(CH.progressGet, getArgsSchema, ({ bookId }): Promise<Progress | null> =>
     ctx.progress.get(bookId)

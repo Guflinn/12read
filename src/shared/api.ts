@@ -10,6 +10,7 @@ import type {
   ManualEncoding,
   Progress,
   ReaderSettings,
+  ReadingStats,
   SearchResult,
   SearchScope,
   ShelfBook
@@ -67,6 +68,12 @@ export interface ReaderApi {
    * query 传原始输入即可，归一化（trim + 截到 80 字）在主进程做。
    */
   searchBook(bookId: string, query: string, scope: SearchScope, chapterIndex: number): Promise<SearchResult>
+  /**
+   * 阅读统计（0.1.3 第 8 项）：renderer 每 15 秒报一次「这段时间读了多少」，
+   * 主进程按本地日期累加；书架上的统计面板用 getReadingStats 汇总。
+   */
+  addReadingStat(bookId: string, ms: number, chars: number): Promise<void>
+  getReadingStats(days: number): Promise<ReadingStats>
   getProgress(bookId: string): Promise<Progress | null>
   saveProgress(progress: Progress): Promise<void>
   /**

@@ -7,6 +7,7 @@ import { AnnotationsRepository } from './db/annotations-repository'
 import { openDatabase } from './db/better-sqlite3-driver'
 import { LibraryRepository } from './db/library-repository'
 import { MetaRepository } from './db/meta-repository'
+import { ReadingStatRepository } from './db/reading-repository'
 import { runMigrations } from './db/migrate'
 import { registerIpc } from './ipc'
 import { ChapterEditor } from './services/chapter-editor'
@@ -16,6 +17,7 @@ import { ImportService } from './services/importer'
 import { booksRoot, dbPath } from './services/layout'
 import { LibraryService } from './services/library'
 import { SqlProgressStore } from './services/progress-store'
+import { ReadingStatsService } from './services/reading-stats'
 import { BookSearchService } from './services/search'
 import { SettingsStore } from './services/settings-store'
 import { createMainWindow } from './window'
@@ -69,6 +71,7 @@ function bootstrap(): void {
     annotations: new AnnotationsRepository(db),
     content,
     search: new BookSearchService(content, repo),
+    stats: new ReadingStatsService(new ReadingStatRepository(db)),
     progress: new SqlProgressStore(repo),
     settings: new SettingsStore(meta),
     deviceId: deviceIdOf(meta)

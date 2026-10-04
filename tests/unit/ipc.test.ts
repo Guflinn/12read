@@ -7,9 +7,11 @@ import type {
   Highlight,
   Progress,
   ReaderSettings,
+  ReadingStats,
   SearchResult,
   ShelfBook
 } from '@shared/types'
+import { STAT_MAX_REPORT_CHARS, STAT_MAX_REPORT_MS } from '@shared/core/stats'
 import type { IpcContext } from '@main/ipc'
 import { ImportError } from '@main/services/import-error'
 
@@ -110,6 +112,16 @@ const SEARCH_RESULT: SearchResult = {
   truncated: false
 }
 
+const STATS: ReadingStats = {
+  todayMs: 60_000,
+  todayChars: 500,
+  totalMs: 120_000,
+  totalChars: 1_000,
+  streakDays: 2,
+  days: [{ day: '2026-10-05', ms: 60_000, chars: 500 }],
+  topBooks: [{ bookId: BOOK_ID, title: '测试书', ms: 60_000, chars: 500 }]
+}
+
 const SETTINGS: ReaderSettings = {
   fontSize: 19,
   lineHeight: 1.9,
@@ -131,6 +143,7 @@ function makeContext(): {
   chapters: Record<string, ReturnType<typeof vi.fn>>
   annotations: Record<string, ReturnType<typeof vi.fn>>
   search: Record<string, ReturnType<typeof vi.fn>>
+  stats: Record<string, ReturnType<typeof vi.fn>>
   content: Record<string, ReturnType<typeof vi.fn>>
   progress: Record<string, ReturnType<typeof vi.fn>>
   settings: Record<string, ReturnType<typeof vi.fn>>
@@ -178,6 +191,12 @@ function makeContext(): {
   const search = {
     search: vi.fn(async (): Promise<SearchResult> => SEARCH_RESULT)
   }
+  const stats = {
+    add: vi.fn((input: unknown) => {
+      order.push('stat:' + JSON.stringify(input))
+    }),
+    summary: vi.fn((): ReadingStats => STATS)
+  }
   const content = {
     readChapter: vi.fn(async (): Promise<string> => '正文'),
     invalidate: vi.fn((bookId: string) => {
@@ -198,13 +217,14 @@ function makeContext(): {
     chapters,
     annotations,
     search,
+    stats,
     content,
     progress,
     settings,
     deviceId: 'device-1'
   } as unknown as IpcContext
   registerIpc(ctx)
-  return { ctx, order, importer, library, chapters, annotations, search, content, progress, settings }
+  return { ctx, order, importer, library, chapters, annotations, search, stats, content, progress, settings }
 }
 
 function call(channel: string, raw?: unknown): Promise<unknown> {
@@ -589,5 +609,38 @@ describe('IPC 注册与转发', () => {
     await expect(call(CH.settingsSave, { ...next, theme: 'sepia' })).rejects.toThrow(
       '参数校验失败: ' + CH.settingsSave
     )
+  })
+
+  it('stat:add 把时长与字数交给统计服务', async () => {
+    const { stats } = setup()
+    await call(CH.statAdd, { bookId: BOOK_ID, ms: 15_000, chars: 300 })
+    expect(stats.add.mock.calls[0]?.[0]).toEqual({ bookId: BOOK_ID, ms: 15_000, chars: 300 })
+    await call(CH.statAdd, { bookId: BOOK_ID, ms: 0, chars: 0 })
+    expect(stats.add.mock.calls[1]?.[0]).toEqual({ bookId: BOOK_ID, ms: 0, chars: 0 })
+  })
+
+  it('stat:add 的负数、小数与超上限被拒，不碰统计服务', async () => {
+    const { stats } = setup()
+    for (const raw of [
+      { bookId: BOOK_ID, ms: -1, chars: 0 },
+      { bookId: BOOK_ID, ms: 0, chars: -1 },
+      { bookId: BOOK_ID, ms: 1.5, chars: 0 },
+      { bookId: BOOK_ID, ms: STAT_MAX_REPORT_MS + 1, chars: 0 },
+      { bookId: BOOK_ID, ms: 0, chars: STAT_MAX_REPORT_CHARS + 1 },
+      { bookId: 'not-a-uuid', ms: 1, chars: 1 }
+    ]) {
+      await expect(call(CH.statAdd, raw)).rejects.toThrow('参数校验失败: ' + CH.statAdd)
+    }
+    expect(stats.add).not.toHaveBeenCalled()
+  })
+
+  it('stat:get 转发天数并返回统计，天数越界被拒', async () => {
+    const { stats } = setup()
+    expect(await call(CH.statGet, { days: 14 })).toEqual(STATS)
+    expect(stats.summary.mock.calls[0]?.[0]).toBe(14)
+    await expect(call(CH.statGet, { days: 0 })).rejects.toThrow('参数校验失败: ' + CH.statGet)
+    await expect(call(CH.statGet, { days: 91 })).rejects.toThrow('参数校验失败: ' + CH.statGet)
+    await expect(call(CH.statGet, { days: 1.5 })).rejects.toThrow('参数校验失败: ' + CH.statGet)
+    expect(stats.summary).toHaveBeenCalledTimes(1)
   })
 })

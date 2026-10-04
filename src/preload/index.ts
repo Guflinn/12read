@@ -19,7 +19,9 @@ import {
   searchArgsSchema,
   renameChapterArgsSchema,
   settingsSchema,
-  splitChapterArgsSchema
+  splitChapterArgsSchema,
+  statAddArgsSchema,
+  statGetArgsSchema
 } from '@shared/schema'
 import type {
   AnnotationId,
@@ -33,6 +35,7 @@ import type {
   ManualEncoding,
   Progress,
   ReaderSettings,
+  ReadingStats,
   SearchResult,
   SearchScope,
   ShelfBook
@@ -92,6 +95,10 @@ const readerApi: ReaderApi = {
     chapterIndex: number
   ): Promise<SearchResult> =>
     invoke(CH.bookSearch, searchArgsSchema, { bookId, query, scope, chapterIndex }),
+  addReadingStat: (bookId: string, ms: number, chars: number): Promise<void> =>
+    invoke(CH.statAdd, statAddArgsSchema, { bookId, ms, chars }),
+  getReadingStats: (days: number): Promise<ReadingStats> =>
+    invoke(CH.statGet, statGetArgsSchema, { days }),
   getProgress: (bookId: string): Promise<Progress | null> =>
     invoke(CH.progressGet, getArgsSchema, { bookId }),
   saveProgress: (progress: Progress): Promise<void> =>

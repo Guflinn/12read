@@ -164,6 +164,37 @@ export interface SearchResult {
   truncated: boolean
 }
 
+/** 统计面板画多少天、列几本书（0.1.3 第 8 项）。 */
+export const READING_STAT_DAYS = 14
+export const READING_STAT_TOP_BOOKS = 5
+
+/** 某一天的阅读量：day 是本地时区的 YYYY-MM-DD。 */
+export interface ReadingDay {
+  day: string
+  ms: number
+  chars: number
+}
+
+/** 单本书的累计阅读量，统计面板的排行榜用。 */
+export interface ReadingBookStat {
+  bookId: BookId
+  title: string
+  ms: number
+  chars: number
+}
+
+export interface ReadingStats {
+  todayMs: number
+  todayChars: number
+  totalMs: number
+  totalChars: number
+  /** 连续阅读天数：今天读过从今天数，今天还没读就从昨天往前数。 */
+  streakDays: number
+  /** 近 READING_STAT_DAYS 天，从早到晚，没记录的那天补 0。 */
+  days: ReadingDay[]
+  topBooks: ReadingBookStat[]
+}
+
 export type ImportStage =
   | 'reading'
   | 'detecting'

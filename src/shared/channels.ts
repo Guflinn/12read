@@ -23,6 +23,9 @@ export const CH = {
   highlightRemove: 'highlight:remove',
   /** 章节内 / 全书搜索（0.1.3 第 7 项）：直接扫正文，不建索引。 */
   bookSearch: 'book:search',
+  /** 阅读统计（0.1.3 第 8 项）：renderer 按段上报时长与字数，书架汇总看一眼。 */
+  statAdd: 'stat:add',
+  statGet: 'stat:get',
   progressGet: 'progress:get',
   progressSave: 'progress:save',
   /** 退出前的同步落盘：beforeunload 里异步 IPC 未必来得及（TECH.md 6.3）。 */

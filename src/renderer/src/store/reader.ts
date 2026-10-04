@@ -3,11 +3,15 @@ import { clampOffset, makeAnchor, relocateOffset } from '@shared/core/anchor'
 import {
   CHUNK_FIRST_RENDER_CHARS,
   CHUNK_THRESHOLD_CHARS,
+  type AnnotationId,
   type Book,
+  type Bookmark,
   type CharOffset,
   type Chapter,
+  type Highlight,
   type Progress
 } from '@shared/types'
+import { excerptAt, normalizeSelection, orderBookmarks, orderHighlights } from '@/core/annotations'
 import { readerApi } from '@/core/api'
 import { percentOf } from '@/core/reading'
 import { currentDeviceId } from '@/core/session'
@@ -19,6 +23,8 @@ export const PROGRESS_THROTTLE_MS = 500
 export const BOOKMARK_REST_MS = 1200
 /** 同章内挪动不到这么多字不算换地方，免得「上次位置」跟着微小滚动乱跑。 */
 export const BOOKMARK_MIN_GAP_CHARS = 100
+/** 单条划线的文字上限，与 shared/schema.ts 的 highlightAddArgsSchema 保持一致。 */
+export const HIGHLIGHT_MAX_CHARS = 2000
 
 /** 书签：章号 + 章内字符偏移，和进度用同一套定位语义。 */
 export interface ReadingSpot {
@@ -59,6 +65,16 @@ export interface ReaderState {
   mergeChapter(index: number): Promise<void>
   /** 在第 index 章的章内偏移 offset 处拆成两章。 */
   splitChapter(index: number, offset: CharOffset): Promise<void>
+  /** 本书的书签，按正文顺序排（打开时随章节一起带回）。 */
+  bookmarks: Bookmark[]
+  /** 本书的划线，按正文顺序排。 */
+  highlights: Highlight[]
+  /** 把当前位置加为书签（摘要取附近原文）。 */
+  addBookmark(): Promise<void>
+  removeBookmark(id: AnnotationId): Promise<void>
+  /** 把选中的一段文字划下来；文字过长会截到 schema 允许的上限。 */
+  addHighlight(startOffset: CharOffset, endOffset: CharOffset, text: string): Promise<void>
+  removeHighlight(id: AnnotationId): Promise<void>
   flush(): void
   /** 关窗前的同步落盘（TECH.md 6.3），主进程写完才返回。 */
   flushSync(): void
@@ -197,6 +213,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
   pendingOffset: null,
   percent: 0,
   bookmark: null,
+  bookmarks: [],
+  highlights: [],
 
   async open(bookId: string): Promise<void> {
     const api = readerApi()
@@ -212,14 +230,19 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       pendingOffset: null,
       percent: 0,
       bookmark: null,
+      bookmarks: [],
+      highlights: [],
       tocOpen: false,
       sheetOpen: false
     })
     try {
-      const [book, chapters, progress] = await Promise.all([
+      const [book, chapters, progress, bookmarks, highlights] = await Promise.all([
         api.getBook(bookId),
         api.chapters(bookId),
-        api.getProgress(bookId)
+        api.getProgress(bookId),
+        // 书签与划线读不出来也不该挡着看书，交给 catch 之外的默认空列表
+        api.listBookmarks(bookId).catch((): Bookmark[] => []),
+        api.listHighlights(bookId).catch((): Highlight[] => [])
       ])
       if (mine !== seq) return
       if (!book) throw new Error('这本书已不在书架里')
@@ -239,6 +262,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         percent: percentOf(book.charCount, chapter ? chapter.startOffset : 0, offset),
         // 打开时就记一个位置：还没滚动过也能「回到打开本书的地方」，按钮不会一开始就是灰的
         bookmark: { chapterIndex: index, charOffset: offset },
+        bookmarks: orderBookmarks(bookmarks),
+        highlights: orderHighlights(highlights),
         loading: false
       })
       skipNextSettle = false
@@ -264,6 +289,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       pendingOffset: null,
       percent: 0,
       bookmark: null,
+      bookmarks: [],
+      highlights: [],
       tocOpen: false,
       sheetOpen: false,
       error: null
@@ -375,6 +402,64 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       return
     }
     await applyChapterEdit((bookId) => readerApi().splitChapter(bookId, index, offset))
+  },
+
+  async addBookmark(): Promise<void> {
+    const state = get()
+    const book = state.book
+    if (!book) return
+    const offset = clampOffset(lastOffset, state.chapterText.length)
+    try {
+      const created = await readerApi().addBookmark({
+        bookId: book.id,
+        chapterIndex: state.chapterIndex,
+        charOffset: offset,
+        excerpt: excerptAt(state.chapterText, offset)
+      })
+      set((current) => ({ bookmarks: orderBookmarks([...current.bookmarks, created]) }))
+    } catch (cause) {
+      set({ error: '加书签失败：' + messageOf(cause) })
+    }
+  },
+
+  async removeBookmark(id: AnnotationId): Promise<void> {
+    try {
+      await readerApi().removeBookmark(id)
+      set((current) => ({ bookmarks: current.bookmarks.filter((item) => item.id !== id) }))
+    } catch (cause) {
+      set({ error: '删除书签失败：' + messageOf(cause) })
+    }
+  },
+
+  async addHighlight(startOffset: CharOffset, endOffset: CharOffset, text: string): Promise<void> {
+    const state = get()
+    const book = state.book
+    if (!book) return
+    const range = normalizeSelection(startOffset, endOffset)
+    const body = text.slice(0, HIGHLIGHT_MAX_CHARS)
+    if (!range || body.trim().length === 0) return
+    try {
+      const created = await readerApi().addHighlight({
+        bookId: book.id,
+        chapterIndex: state.chapterIndex,
+        startOffset: range.startOffset,
+        // 文字被截断时结束位置跟着收，别让记下来的范围比文字长
+        endOffset: range.startOffset + body.length,
+        text: body
+      })
+      set((current) => ({ highlights: orderHighlights([...current.highlights, created]) }))
+    } catch (cause) {
+      set({ error: '加划线失败：' + messageOf(cause) })
+    }
+  },
+
+  async removeHighlight(id: AnnotationId): Promise<void> {
+    try {
+      await readerApi().removeHighlight(id)
+      set((current) => ({ highlights: current.highlights.filter((item) => item.id !== id) }))
+    } catch (cause) {
+      set({ error: '删除划线失败：' + messageOf(cause) })
+    }
   },
 
   flush(): void {

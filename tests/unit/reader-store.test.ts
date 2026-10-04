@@ -1,9 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReaderApi } from '@shared/api'
-import { CHUNK_FIRST_RENDER_CHARS, type Book, type Chapter, type Progress } from '@shared/types'
+import {
+  CHUNK_FIRST_RENDER_CHARS,
+  type Book,
+  type Bookmark,
+  type BookmarkInput,
+  type Chapter,
+  type Highlight,
+  type HighlightInput,
+  type Progress
+} from '@shared/types'
 import { setReaderApi } from '@/core/api'
 import { setDeviceId } from '@/core/session'
-import { BOOKMARK_MIN_GAP_CHARS, PROGRESS_THROTTLE_MS, useReaderStore } from '@/store/reader'
+import { excerptAt } from '@/core/annotations'
+import {
+  BOOKMARK_MIN_GAP_CHARS,
+  HIGHLIGHT_MAX_CHARS,
+  PROGRESS_THROTTLE_MS,
+  useReaderStore
+} from '@/store/reader'
 
 const BOOK_ID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
 
@@ -54,11 +69,18 @@ interface Harness {
   renameChapter: ReturnType<typeof vi.fn>
   mergeChapter: ReturnType<typeof vi.fn>
   splitChapter: ReturnType<typeof vi.fn>
+  addBookmark: ReturnType<typeof vi.fn>
+  removeBookmark: ReturnType<typeof vi.fn>
+  addHighlight: ReturnType<typeof vi.fn>
+  removeHighlight: ReturnType<typeof vi.fn>
+  listBookmarks: ReturnType<typeof vi.fn>
+  listHighlights: ReturnType<typeof vi.fn>
 }
 
 function makeHarness(
   stored: Progress | null = null,
-  texts: string[] = DEFAULT_TEXTS
+  texts: string[] = DEFAULT_TEXTS,
+  storedAnnotations: { bookmarks?: Bookmark[]; highlights?: Highlight[] } = {}
 ): Harness {
   const readChapter = vi.fn(async (bookId: string, index: number): Promise<string> => {
     if (bookId !== BOOK_ID) throw new Error('意外的 bookId')
@@ -70,6 +92,22 @@ function makeHarness(
   const renameChapter = vi.fn(async (): Promise<Chapter[]> => chapters)
   const mergeChapter = vi.fn(async (): Promise<Chapter[]> => chapters)
   const splitChapter = vi.fn(async (): Promise<Chapter[]> => chapters)
+  const listBookmarks = vi.fn(async (): Promise<Bookmark[]> => storedAnnotations.bookmarks ?? [])
+  const listHighlights = vi.fn(async (): Promise<Highlight[]> => storedAnnotations.highlights ?? [])
+  // 主进程负责补 id 与 createdAt，这里照做，store 拿回来的就是完整记录
+  const addBookmark = vi.fn(
+    async (input: BookmarkInput): Promise<Bookmark> => ({ ...input, id: 'k-new', createdAt: 9 })
+  )
+  const addHighlight = vi.fn(
+    async (input: HighlightInput): Promise<Highlight> => ({
+      ...input,
+      id: 'h-new',
+      note: null,
+      createdAt: 9
+    })
+  )
+  const removeBookmark = vi.fn(async (): Promise<void> => undefined)
+  const removeHighlight = vi.fn(async (): Promise<void> => undefined)
   const api = {
     appInfo: vi.fn(),
     pickFiles: vi.fn(async () => []),
@@ -84,6 +122,12 @@ function makeHarness(
     renameChapter,
     mergeChapter,
     splitChapter,
+    listBookmarks,
+    addBookmark,
+    removeBookmark,
+    listHighlights,
+    addHighlight,
+    removeHighlight,
     readChapter,
     getProgress,
     saveProgress,
@@ -93,7 +137,22 @@ function makeHarness(
     pathForFile: vi.fn(() => '')
   } as unknown as ReaderApi
   setReaderApi(api)
-  return { api, readChapter, saveProgress, getProgress, getBook, renameChapter, mergeChapter, splitChapter }
+  return {
+    api,
+    readChapter,
+    saveProgress,
+    getProgress,
+    getBook,
+    renameChapter,
+    mergeChapter,
+    splitChapter,
+    addBookmark,
+    removeBookmark,
+    addHighlight,
+    removeHighlight,
+    listBookmarks,
+    listHighlights
+  }
 }
 
 beforeEach(() => {
@@ -109,7 +168,9 @@ beforeEach(() => {
     sheetOpen: false,
     pendingOffset: null,
     percent: 0,
-    bookmark: null
+    bookmark: null,
+    bookmarks: [],
+    highlights: []
   })
   setDeviceId('device-test')
 })
@@ -479,6 +540,168 @@ describe('reader store: 手动改分章', () => {
       '改分章失败：这已经是最后一章，后面没有可以合并的章节'
     )
     expect(useReaderStore.getState().loading).toBe(false)
+  })
+})
+
+describe('reader store: 书签与划线', () => {
+  function bookmarkAt(chapterIndex: number, charOffset: number, id: string): Bookmark {
+    return { id, bookId: BOOK_ID, chapterIndex, charOffset, excerpt: '读到这儿', createdAt: 1 }
+  }
+
+  function highlightAt(chapterIndex: number, startOffset: number, id: string): Highlight {
+    return {
+      id,
+      bookId: BOOK_ID,
+      chapterIndex,
+      startOffset,
+      endOffset: startOffset + 4,
+      text: '一段话',
+      note: null,
+      createdAt: 1
+    }
+  }
+
+  it('加书签记的是当前停下的位置，摘要是那一小段原文', async () => {
+    const harness = makeHarness()
+    await useReaderStore.getState().open(BOOK_ID)
+    useReaderStore.getState().onScrolled(43)
+    await useReaderStore.getState().addBookmark()
+
+    const excerpt = excerptAt(DEFAULT_TEXTS[0], 43)
+    expect(harness.addBookmark).toHaveBeenCalledWith({
+      bookId: BOOK_ID,
+      chapterIndex: 0,
+      charOffset: 43,
+      excerpt
+    })
+    expect(useReaderStore.getState().bookmarks).toEqual([
+      { bookId: BOOK_ID, chapterIndex: 0, charOffset: 43, excerpt, id: 'k-new', createdAt: 9 }
+    ])
+    expect(useReaderStore.getState().error).toBeNull()
+  })
+
+  it('加书签失败时给出可见错误，列表不动', async () => {
+    const harness = makeHarness()
+    await useReaderStore.getState().open(BOOK_ID)
+    useReaderStore.getState().onScrolled(10)
+    harness.addBookmark.mockRejectedValueOnce(new Error('库锁住了'))
+
+    await useReaderStore.getState().addBookmark()
+    expect(useReaderStore.getState().error).toBe('加书签失败：库锁住了')
+    expect(useReaderStore.getState().bookmarks).toEqual([])
+  })
+
+  it('划线记下起止偏移与原文，超长时裁到上限并把结束位置收回来', async () => {
+    const harness = makeHarness()
+    await useReaderStore.getState().open(BOOK_ID)
+    const long = '字'.repeat(HIGHLIGHT_MAX_CHARS + 300)
+    await useReaderStore.getState().addHighlight(10, 10 + long.length, long)
+
+    const sent = harness.addHighlight.mock.calls[0]?.[0] as HighlightInput
+    expect(sent.startOffset).toBe(10)
+    expect(sent.endOffset).toBe(10 + HIGHLIGHT_MAX_CHARS)
+    expect(sent.text).toHaveLength(HIGHLIGHT_MAX_CHARS)
+    expect(useReaderStore.getState().highlights).toEqual([
+      { ...sent, id: 'h-new', note: null, createdAt: 9 }
+    ])
+  })
+
+  it('反着选的一段会被摆正，空白文字与空范围不落库', async () => {
+    const harness = makeHarness()
+    await useReaderStore.getState().open(BOOK_ID)
+
+    // 从右往左选在界面上很常见，起点终点摆正后照常划线
+    await useReaderStore.getState().addHighlight(30, 10, '反着选的')
+    const sent = harness.addHighlight.mock.calls[0]?.[0] as HighlightInput
+    expect(sent.startOffset).toBe(10)
+    expect(sent.endOffset).toBe(14)
+    expect(sent.text).toBe('反着选的')
+
+    harness.addHighlight.mockClear()
+    await useReaderStore.getState().addHighlight(0, 5, '   \n  ')
+    await useReaderStore.getState().addHighlight(5, 5, '同一点上点两下')
+    expect(harness.addHighlight).not.toHaveBeenCalled()
+  })
+
+  it('划线写不进去时给出可见错误，列表不动', async () => {
+    const harness = makeHarness()
+    await useReaderStore.getState().open(BOOK_ID)
+
+    harness.addHighlight.mockRejectedValueOnce(new Error('写不进去'))
+    await useReaderStore.getState().addHighlight(0, 5, '一段话')
+    expect(useReaderStore.getState().error).toBe('加划线失败：写不进去')
+    expect(useReaderStore.getState().highlights).toEqual([])
+  })
+
+  it('打开时把书签与划线都带回来，并按正文顺序排好', async () => {
+    makeHarness(null, DEFAULT_TEXTS, {
+      bookmarks: [bookmarkAt(1, 5, 'k2'), bookmarkAt(0, 30, 'k1'), bookmarkAt(0, 10, 'k0')],
+      highlights: [highlightAt(1, 0, 'h2'), highlightAt(0, 40, 'h1'), highlightAt(0, 4, 'h0')]
+    })
+    await useReaderStore.getState().open(BOOK_ID)
+
+    const state = useReaderStore.getState()
+    expect(state.bookmarks.map((item) => item.id)).toEqual(['k0', 'k1', 'k2'])
+    expect(state.highlights.map((item) => item.id)).toEqual(['h0', 'h1', 'h2'])
+  })
+
+  it('书签与划线读不出来也不挡着看书', async () => {
+    const harness = makeHarness()
+    harness.listBookmarks.mockRejectedValueOnce(new Error('表还没建'))
+    harness.listHighlights.mockRejectedValueOnce(new Error('表还没建'))
+
+    await useReaderStore.getState().open(BOOK_ID)
+    const state = useReaderStore.getState()
+    expect(state.error).toBeNull()
+    expect(state.chapterText).toBe(DEFAULT_TEXTS[0])
+    expect(state.bookmarks).toEqual([])
+    expect(state.highlights).toEqual([])
+  })
+
+  it('删书签与划线先发请求再从列表拿掉', async () => {
+    const harness = makeHarness(null, DEFAULT_TEXTS, {
+      bookmarks: [bookmarkAt(0, 10, 'k1')],
+      highlights: [highlightAt(0, 10, 'h1')]
+    })
+    await useReaderStore.getState().open(BOOK_ID)
+
+    await useReaderStore.getState().removeBookmark('k1')
+    await useReaderStore.getState().removeHighlight('h1')
+
+    expect(harness.removeBookmark).toHaveBeenCalledWith('k1')
+    expect(harness.removeHighlight).toHaveBeenCalledWith('h1')
+    expect(useReaderStore.getState().bookmarks).toEqual([])
+    expect(useReaderStore.getState().highlights).toEqual([])
+  })
+
+  it('删除失败时列表保持原样并报错', async () => {
+    const harness = makeHarness(null, DEFAULT_TEXTS, {
+      bookmarks: [bookmarkAt(0, 10, 'k1')],
+      highlights: [highlightAt(0, 10, 'h1')]
+    })
+    await useReaderStore.getState().open(BOOK_ID)
+
+    harness.removeBookmark.mockRejectedValueOnce(new Error('删不动'))
+    harness.removeHighlight.mockRejectedValueOnce(new Error('也删不动'))
+    await useReaderStore.getState().removeBookmark('k1')
+    expect(useReaderStore.getState().error).toBe('删除书签失败：删不动')
+    await useReaderStore.getState().removeHighlight('h1')
+    expect(useReaderStore.getState().error).toBe('删除划线失败：也删不动')
+
+    expect(useReaderStore.getState().bookmarks).toHaveLength(1)
+    expect(useReaderStore.getState().highlights).toHaveLength(1)
+  })
+
+  it('leave 把书签与划线一起清空', async () => {
+    makeHarness(null, DEFAULT_TEXTS, {
+      bookmarks: [bookmarkAt(0, 10, 'k1')],
+      highlights: [highlightAt(0, 10, 'h1')]
+    })
+    await useReaderStore.getState().open(BOOK_ID)
+    useReaderStore.getState().leave()
+
+    expect(useReaderStore.getState().bookmarks).toEqual([])
+    expect(useReaderStore.getState().highlights).toEqual([])
   })
 })
 

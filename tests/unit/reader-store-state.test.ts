@@ -59,6 +59,12 @@ function makeApi(): ApiMock {
     renameChapter: vi.fn(),
     mergeChapter: vi.fn(),
     splitChapter: vi.fn(),
+    listBookmarks: vi.fn(async () => []),
+    addBookmark: vi.fn(),
+    removeBookmark: vi.fn(),
+    listHighlights: vi.fn(async () => []),
+    addHighlight: vi.fn(),
+    removeHighlight: vi.fn(),
     readChapter: vi.fn(async () => TEXT),
     getProgress: vi.fn(async () => PROGRESS),
     saveProgress: vi.fn(async () => undefined),
@@ -87,7 +93,9 @@ beforeEach(() => {
     sheetOpen: false,
     pendingOffset: null,
     percent: 0,
-    bookmark: null
+    bookmark: null,
+    bookmarks: [],
+    highlights: []
   })
 })
 
@@ -132,6 +140,15 @@ describe('阅读器开关类状态', () => {
     expect(saved.chapterIndex).toBe(0)
     expect(saved.charOffset).toBe(0)
     expect(saved.deviceId).toBe('device-1')
+  })
+
+  it('没打开书时加书签与划线都不发请求，也不报错', async () => {
+    await useReaderStore.getState().addBookmark()
+    await useReaderStore.getState().addHighlight(0, 5, '一段文字')
+
+    expect(currentApi.addBookmark).not.toHaveBeenCalled()
+    expect(currentApi.addHighlight).not.toHaveBeenCalled()
+    expect(useReaderStore.getState().error).toBeNull()
   })
 
   it('flushSync 关窗前把当前位置同步交给主进程，没打开书时什么都不做', async () => {

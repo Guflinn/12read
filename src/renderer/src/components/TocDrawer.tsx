@@ -1,11 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Chapter } from '@shared/types'
+import { spotLabel } from '@/core/annotations'
 import { kindLabel } from '@/core/reading'
 import { useReaderStore } from '@/store/reader'
 import { Modal } from './Modal'
 import { toast } from './Toast'
 
-/** 目录抽屉：高亮当前节，点一条即跳转（章内偏移归零）；每行还能改名 / 合并。 */
+/** 抽屉里的三个分页：章节目录 / 书签 / 划线。 */
+type DrawerTab = 'toc' | 'bookmarks' | 'highlights'
+
+const TABS: readonly { key: DrawerTab; label: string }[] = [
+  { key: 'toc', label: '目录' },
+  { key: 'bookmarks', label: '书签' },
+  { key: 'highlights', label: '划线' }
+]
+
+/**
+ * 目录抽屉：高亮当前节，点一条即跳转（章内偏移归零）；每行还能改名 / 合并。
+ * 书签与划线是另外两个分页签 —— 不占阅读器顶栏，也不影响只想看目录的人。
+ */
 export function TocDrawer(): React.JSX.Element {
   const chapters = useReaderStore((s) => s.chapters)
   const chapterIndex = useReaderStore((s) => s.chapterIndex)
@@ -14,6 +27,11 @@ export function TocDrawer(): React.JSX.Element {
   const goto = useReaderStore((s) => s.goto)
   const renameChapter = useReaderStore((s) => s.renameChapter)
   const mergeChapter = useReaderStore((s) => s.mergeChapter)
+  const bookmarks = useReaderStore((s) => s.bookmarks)
+  const highlights = useReaderStore((s) => s.highlights)
+  const removeBookmark = useReaderStore((s) => s.removeBookmark)
+  const removeHighlight = useReaderStore((s) => s.removeHighlight)
+  const [tab, setTab] = useState<DrawerTab>('toc')
   const [renaming, setRenaming] = useState<Chapter | null>(null)
   const [renameText, setRenameText] = useState('')
   const activeRef = useRef<HTMLLIElement | null>(null)
@@ -23,65 +41,156 @@ export function TocDrawer(): React.JSX.Element {
     activeRef.current?.scrollIntoView({ block: 'center' })
   }, [open, chapterIndex])
 
+  const count =
+    tab === 'toc' ? chapters.length : tab === 'bookmarks' ? bookmarks.length : highlights.length
+  const unit = tab === 'toc' ? '节' : '条'
+
+  const jump = (index: number, offset: number): void => {
+    setToc(false)
+    void goto(index, offset)
+  }
+
   return (
     <>
       <div className={open ? 'scrim on' : 'scrim'} onClick={() => setToc(false)} />
       <aside className={open ? 'drawer on' : 'drawer'} id="toc-drawer" aria-hidden={!open}>
         <div className="drawer-head">
-          <span>目录</span>
-          <span className="grow dim">{chapters.length} 节</span>
+          <span>阅读辅助</span>
+          <span className="grow dim">
+            {count} {unit}
+          </span>
           <button className="icon-btn" aria-label="关闭目录" onClick={() => setToc(false)}>
             ×
           </button>
         </div>
-        <ol className="toc-list" id="toc-list">
-          {/* 惰性渲染：抽屉关着时一条都不建，几千章的书也不拖慢阅读器挂载 */}
-          {open
-            ? chapters.map((chapter) => (
-                <li
-                  key={chapter.index}
-                  className={chapter.index === chapterIndex ? 'on' : ''}
-                  ref={chapter.index === chapterIndex ? activeRef : null}
-                  title={chapter.title}
-                  onClick={() => {
-                    setToc(false)
-                    void goto(chapter.index, 0)
-                  }}
-                >
-                  <span className="toc-label">
-                    <span className="toc-kind">{kindLabel(chapter.kind)}</span>
-                    {chapter.index + 1}. {chapter.title}
-                  </span>
-                  <span className="toc-edit">
+        <div className="drawer-tabs" role="tablist">
+          {TABS.map((item) => (
+            <button
+              key={item.key}
+              id={'toc-tab-' + item.key}
+              role="tab"
+              aria-selected={tab === item.key}
+              className={tab === item.key ? 'drawer-tab on' : 'drawer-tab'}
+              onClick={() => setTab(item.key)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 三个分页都惰性渲染：抽屉关着时一条都不建，几千章的书也不拖慢阅读器挂载 */}
+        {tab === 'toc' ? (
+          <ol className="toc-list" id="toc-list">
+            {open
+              ? chapters.map((chapter) => (
+                  <li
+                    key={chapter.index}
+                    className={chapter.index === chapterIndex ? 'on' : ''}
+                    ref={chapter.index === chapterIndex ? activeRef : null}
+                    title={chapter.title}
+                    onClick={() => jump(chapter.index, 0)}
+                  >
+                    <span className="toc-label">
+                      <span className="toc-kind">{kindLabel(chapter.kind)}</span>
+                      {chapter.index + 1}. {chapter.title}
+                    </span>
+                    <span className="toc-edit">
+                      <button
+                        id={'toc-rename-' + chapter.index}
+                        className="toc-btn"
+                        title="改这一章的标题"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          setRenaming(chapter)
+                          setRenameText(chapter.title)
+                        }}
+                      >
+                        改名
+                      </button>
+                      <button
+                        id={'toc-merge-' + chapter.index}
+                        className="toc-btn"
+                        title="把下一章并进这一章"
+                        disabled={chapter.index === chapters.length - 1}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          void mergeChapter(chapter.index).then(() => toast('已合并到上一章'))
+                        }}
+                      >
+                        合并
+                      </button>
+                    </span>
+                  </li>
+                ))
+              : null}
+          </ol>
+        ) : null}
+
+        {tab === 'bookmarks' ? (
+          <div className="anno-list" id="bookmark-list">
+            {open && bookmarks.length === 0 ? (
+              <p className="anno-empty dim" id="bookmark-empty">
+                还没有书签：读到想记住的地方，点顶栏的 🔖 书签。
+              </p>
+            ) : null}
+            {open
+              ? bookmarks.map((item) => (
+                  <div className="anno-row" key={item.id} data-bookmark-id={item.id}>
                     <button
-                      id={'toc-rename-' + chapter.index}
-                      className="toc-btn"
-                      title="改这一章的标题"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        setRenaming(chapter)
-                        setRenameText(chapter.title)
-                      }}
+                      className="anno-main"
+                      id={'bookmark-go-' + item.id}
+                      title="跳到这里"
+                      onClick={() => jump(item.chapterIndex, item.charOffset)}
                     >
-                      改名
+                      <span className="anno-pos">{spotLabel(chapters, item.chapterIndex)}</span>
+                      <span className="anno-text">{item.excerpt || '（没有摘要）'}</span>
                     </button>
                     <button
-                      id={'toc-merge-' + chapter.index}
                       className="toc-btn"
-                      title="把下一章并进这一章"
-                      disabled={chapter.index === chapters.length - 1}
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        void mergeChapter(chapter.index).then(() => toast('已合并到上一章'))
-                      }}
+                      id={'bookmark-del-' + item.id}
+                      title="删除这条书签"
+                      onClick={() => void removeBookmark(item.id).then(() => toast('已删除书签'))}
                     >
-                      合并
+                      删除
                     </button>
-                  </span>
-                </li>
-              ))
-            : null}
-        </ol>
+                  </div>
+                ))
+              : null}
+          </div>
+        ) : null}
+
+        {tab === 'highlights' ? (
+          <div className="anno-list" id="highlight-list">
+            {open && highlights.length === 0 ? (
+              <p className="anno-empty dim" id="highlight-empty">
+                还没有划线：选中正文里的一段字，浮出的工具条上点「划线」。
+              </p>
+            ) : null}
+            {open
+              ? highlights.map((item) => (
+                  <div className="anno-row" key={item.id} data-highlight-id={item.id}>
+                    <button
+                      className="anno-main"
+                      id={'highlight-go-' + item.id}
+                      title="跳到这里"
+                      onClick={() => jump(item.chapterIndex, item.startOffset)}
+                    >
+                      <span className="anno-pos">{spotLabel(chapters, item.chapterIndex)}</span>
+                      <span className="anno-text">{item.text}</span>
+                    </button>
+                    <button
+                      className="toc-btn"
+                      id={'highlight-del-' + item.id}
+                      title="删除这条划线"
+                      onClick={() => void removeHighlight(item.id).then(() => toast('已删除划线'))}
+                    >
+                      删除
+                    </button>
+                  </div>
+                ))
+              : null}
+          </div>
+        ) : null}
       </aside>
 
       {renaming ? (

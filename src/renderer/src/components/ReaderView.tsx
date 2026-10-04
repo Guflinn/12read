@@ -1,15 +1,48 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { MouseEvent as ReactMouseEvent } from 'react'
+import { normalizeSelection, rangesOfChapter, splitHighlighted } from '@/core/annotations'
 import { offsetForScrollTop, scrollTopForOffset, splitParagraphs } from '@/core/paragraphs'
 import { chapterLabel, progressLabel } from '@/core/reading'
 import { BOOKMARK_REST_MS, useReaderStore } from '@/store/reader'
 import { useSettingsStore } from '@/store/settings'
 import { SettingsSheet } from './SettingsSheet'
 import { TocDrawer } from './TocDrawer'
+import { toast } from './Toast'
 
 /** 段落位置允许的漂移（px）：小于一行就不纠正，免得滚动时自己抖。 */
 const DRIFT_TOLERANCE_PX = 4
 /** 分块渲染的大章节，滚到离底部这么近就继续渲染。 */
 const AUTOLOAD_REMAINING_PX = 600
+
+/** 选中文字后浮出来的小工具条：要么划线，要么删掉点中的那条划线。 */
+type Toolbar =
+  | { kind: 'new'; startOffset: number; endOffset: number; text: string; top: number; left: number }
+  | { kind: 'existing'; id: string; top: number; left: number }
+
+/** 选区端点在段落内的文字偏移：段落里只有文字节点，按文档顺序累加即可。 */
+function offsetInParagraph(paragraph: HTMLElement, node: Node, offsetInNode: number): number {
+  const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT)
+  let total = 0
+  while (walker.nextNode()) {
+    const current = walker.currentNode
+    if (current === node) return total + offsetInNode
+    total += current.textContent ? current.textContent.length : 0
+  }
+  return total
+}
+
+/**
+ * 选区端点 → 章内字符偏移。
+ * 只认带 data-offset 的正文段落：标题、章末、空白段落在外面，返回 null 就不划线。
+ */
+function chapterOffsetAt(node: Node, offsetInNode: number): number | null {
+  const element = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement
+  const paragraph = (element ? element.closest('p[data-offset]') : null) as HTMLElement | null
+  if (!paragraph) return null
+  const base = Number(paragraph.getAttribute('data-offset'))
+  if (!Number.isFinite(base)) return null
+  return base + offsetInParagraph(paragraph, node, offsetInNode)
+}
 
 export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
   const book = useReaderStore((s) => s.book)
@@ -21,6 +54,10 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
   const pendingOffset = useReaderStore((s) => s.pendingOffset)
   const percent = useReaderStore((s) => s.percent)
   const bookmark = useReaderStore((s) => s.bookmark)
+  const highlights = useReaderStore((s) => s.highlights)
+  const addBookmark = useReaderStore((s) => s.addBookmark)
+  const addHighlight = useReaderStore((s) => s.addHighlight)
+  const removeHighlight = useReaderStore((s) => s.removeHighlight)
   const fontSize = useSettingsStore((s) => s.settings.fontSize)
   const lineHeight = useSettingsStore((s) => s.settings.lineHeight)
   const theme = useSettingsStore((s) => s.settings.theme)
@@ -34,6 +71,9 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
   const lastOffsetRef = useRef(0)
   /** 停顿计时器：连续滚动期间一直往后推，停够 BOOKMARK_REST_MS 才记一次「上次位置」。 */
   const restTimerRef = useRef<number | null>(null)
+  /** 正文容器：选区端点要靠它反查章内偏移。 */
+  const contentRef = useRef<HTMLElement | null>(null)
+  const [toolbar, setToolbar] = useState<Toolbar | null>(null)
 
   const chapter = chapters[chapterIndex]
   const title = chapter ? chapter.title : '正文'
@@ -57,6 +97,12 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
   const measurement = useMemo(() => [{ offset: 0, text: title }, ...body], [title, body])
 
   const bodyLength = body.length
+
+  /** 当前章的划线范围：只有划过线的书才做切分，普通阅读路径不受影响。 */
+  const ranges = useMemo(
+    () => rangesOfChapter(highlights, chapterIndex),
+    [highlights, chapterIndex]
+  )
 
   const measureTops = useCallback((): number[] => {
     const scroll = scrollRef.current
@@ -177,6 +223,49 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKey)
   }, [onBack, pageScroll, jumpEdge])
 
+  const clearSelection = useCallback((): void => {
+    setToolbar(null)
+    const selection = window.getSelection()
+    if (selection) selection.removeAllRanges()
+  }, [])
+
+  /**
+   * 鼠标松开时看选区：选中了正文就浮出「划线」，没选中又点在已有划线上就浮出「删除划线」。
+   * 只挂在正文上 —— 点工具条自己的按钮不会触发这里，按钮才不会被提前收掉。
+   */
+  const onContentMouseUp = useCallback((event: ReactMouseEvent<HTMLElement>): void => {
+    const selection = window.getSelection()
+    const text = selection ? selection.toString() : ''
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0 || text.trim().length === 0) {
+      const mark = (event.target as HTMLElement).closest('mark[data-hl-id]')
+      const id = mark ? mark.getAttribute('data-hl-id') : null
+      if (mark && id) {
+        const rect = mark.getBoundingClientRect()
+        setToolbar({ kind: 'existing', id, top: rect.top, left: rect.left + rect.width / 2 })
+      } else {
+        setToolbar(null)
+      }
+      return
+    }
+    const range = selection.getRangeAt(0)
+    const start = chapterOffsetAt(range.startContainer, range.startOffset)
+    const end = chapterOffsetAt(range.endContainer, range.endOffset)
+    const normalized = start === null || end === null ? null : normalizeSelection(start, end)
+    if (!normalized) {
+      setToolbar(null)
+      return
+    }
+    const rect = range.getBoundingClientRect()
+    setToolbar({
+      kind: 'new',
+      startOffset: normalized.startOffset,
+      endOffset: normalized.endOffset,
+      text,
+      top: rect.top,
+      left: rect.left + rect.width / 2
+    })
+  }, [])
+
   useEffect(
     () => () => {
       if (restTimerRef.current !== null) window.clearTimeout(restTimerRef.current)
@@ -195,6 +284,15 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
           <strong id="reader-book">{book ? book.title : '十二阅读'}</strong>
           <span id="reader-chapter-label">{chapterLabel(chapter, chapters.length)}</span>
         </div>
+        <button
+          id="btn-bookmark"
+          className="icon-btn"
+          aria-label="把当前位置加为书签"
+          title="把当前位置加为书签（书签列表在目录抽屉里）"
+          onClick={() => void addBookmark()}
+        >
+          🔖 书签
+        </button>
         <button
           id="btn-pos-back"
           className="icon-btn"
@@ -239,7 +337,12 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
         {loading ? <div className="reader-loading dim">正在打开…</div> : null}
         {!loading && chapters.length === 0 ? <div className="empty">这本书没有可读的内容</div> : null}
         {!loading && chapters.length > 0 ? (
-          <article className="reader-content" id="reader-content">
+          <article
+            className="reader-content"
+            id="reader-content"
+            ref={contentRef}
+            onMouseUp={onContentMouseUp}
+          >
             <h1 className="chapter-title">{title}</h1>
             {body.map((paragraph, index) =>
               paragraph.text.length === 0 ? (
@@ -255,11 +358,24 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
               ) : (
                 <p
                   key={paragraph.offset}
+                  data-offset={paragraph.offset}
                   ref={(el) => {
                     paraRefs.current[index] = el
                   }}
                 >
-                  {paragraph.text}
+                  {splitHighlighted(paragraph.text, paragraph.offset, ranges).map((segment, part) =>
+                    segment.highlightId ? (
+                      <mark
+                        key={segment.highlightId + '-' + part}
+                        className="hl"
+                        data-hl-id={segment.highlightId}
+                      >
+                        {segment.text}
+                      </mark>
+                    ) : (
+                      <span key={'plain-' + part}>{segment.text}</span>
+                    )
+                  )}
                 </p>
               )
             )}
@@ -306,6 +422,51 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
       {book ? (
         <div className="reader-meter" id="reader-meter">
           {progressLabel(book.charCount, percent)}
+        </div>
+      ) : null}
+
+      {toolbar ? (
+        <div
+          id="hl-toolbar"
+          className="hl-toolbar"
+          role="dialog"
+          aria-label="划线操作"
+          style={{ top: Math.max(8, toolbar.top - 48) + 'px', left: toolbar.left + 'px' }}
+        >
+          {toolbar.kind === 'new' ? (
+            <button
+              id="btn-hl-add"
+              className="btn primary"
+              onClick={() => {
+                const pending = toolbar
+                clearSelection()
+                if (pending.kind === 'new') {
+                  void addHighlight(pending.startOffset, pending.endOffset, pending.text).then(() =>
+                    toast('已划线')
+                  )
+                }
+              }}
+            >
+              划线
+            </button>
+          ) : (
+            <button
+              id="btn-hl-remove"
+              className="btn danger"
+              onClick={() => {
+                const pending = toolbar
+                clearSelection()
+                if (pending.kind === 'existing') {
+                  void removeHighlight(pending.id).then(() => toast('已删除划线'))
+                }
+              }}
+            >
+              删除划线
+            </button>
+          )}
+          <button className="btn ghost" onClick={clearSelection}>
+            取消
+          </button>
         </div>
       ) : null}
 

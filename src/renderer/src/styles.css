@@ -232,3 +232,25 @@
   /* ---------- 书架左下角的版本角标 ---------- */
   #app-version { position: fixed; left: 26px; bottom: 10px; font-size: 11.5px; letter-spacing: .4px;
     color: var(--dim); opacity: .85; pointer-events: none; user-select: none; }
+
+  /* ---------- 书签与划线（0.1.3 第 6 项） ---------- */
+  mark.hl { padding: 0 1px; border-radius: 3px; color: inherit; cursor: pointer;
+    background: color-mix(in srgb, var(--accent) 26%, transparent); }
+  .hl-toolbar { position: fixed; z-index: 40; transform: translateX(-50%); max-width: 92vw;
+    display: flex; gap: 8px; padding: 7px 9px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+  .hl-toolbar .btn { padding: 5px 11px; font-size: 13px; }
+  .drawer-tabs { display: flex; gap: 6px; padding: 10px 14px 8px; border-bottom: 1px solid var(--line); }
+  .drawer-tab { flex: 0 0 auto; padding: 5px 12px; font: inherit; font-size: 13px; color: var(--dim);
+    background: transparent; border: 1px solid transparent; border-radius: 999px; cursor: pointer; }
+  .drawer-tab:hover { color: var(--text); }
+  .drawer-tab.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .anno-list { display: flex; flex-direction: column; padding: 8px 10px 20px; }
+  .anno-row { display: flex; align-items: center; gap: 8px; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+  .anno-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; text-align: left;
+    font: inherit; color: var(--text); background: transparent; border: 0; cursor: pointer; }
+  .anno-main:hover .anno-text { color: var(--accent); }
+  .anno-pos { font-size: 12.5px; color: var(--accent); }
+  .anno-text { font-size: 12.5px; color: var(--dim); overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; }
+  .anno-empty { margin: 14px 6px; font-size: 13px; line-height: 1.8; }

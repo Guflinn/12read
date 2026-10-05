@@ -70,6 +70,8 @@ test('书签：记一个、抽屉里看得见、点它跳回原处、再删掉',
   const marked = await topParagraphIndex(page)
   expect(marked).toBeGreaterThan(0)
   await page.click('#btn-bookmark')
+  // 点下去要立刻有反馈，否则用户不知道到底记上没有
+  await expect(page.locator('#toast')).toHaveText('已加书签')
 
   // 抽屉里的「书签」页能看到这一条：章号 + 摘要
   await page.click('#btn-toc')

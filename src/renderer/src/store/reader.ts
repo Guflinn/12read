@@ -73,8 +73,8 @@ export interface ReaderState {
   bookmarks: Bookmark[]
   /** 本书的划线，按正文顺序排。 */
   highlights: Highlight[]
-  /** 把当前位置加为书签（摘要取附近原文）。 */
-  addBookmark(): Promise<void>
+  /** 把当前位置加为书签（摘要取附近原文）。成功返回 true，失败返回 false 并置 error。 */
+  addBookmark(): Promise<boolean>
   removeBookmark(id: AnnotationId): Promise<void>
   /** 把选中的一段文字划下来；文字过长会截到 schema 允许的上限。 */
   addHighlight(startOffset: CharOffset, endOffset: CharOffset, text: string): Promise<void>
@@ -498,10 +498,10 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     await applyChapterEdit((bookId) => readerApi().mergeChapter(bookId, index))
   },
 
-  async addBookmark(): Promise<void> {
+  async addBookmark(): Promise<boolean> {
     const state = get()
     const book = state.book
-    if (!book) return
+    if (!book) return false
     const offset = clampOffset(lastOffset, state.chapterText.length)
     try {
       const created = await readerApi().addBookmark({
@@ -511,8 +511,10 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         excerpt: excerptAt(state.chapterText, offset)
       })
       set((current) => ({ bookmarks: orderBookmarks([...current.bookmarks, created]) }))
+      return true
     } catch (cause) {
       set({ error: '加书签失败：' + messageOf(cause) })
+      return false
     }
   },
 

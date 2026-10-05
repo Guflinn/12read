@@ -589,7 +589,7 @@ describe('reader store: 书签与划线', () => {
     const harness = makeHarness()
     await useReaderStore.getState().open(BOOK_ID)
     useReaderStore.getState().onScrolled(43)
-    await useReaderStore.getState().addBookmark()
+    await expect(useReaderStore.getState().addBookmark()).resolves.toBe(true)
 
     const excerpt = excerptAt(DEFAULT_TEXTS[0], 43)
     expect(harness.addBookmark).toHaveBeenCalledWith({
@@ -610,9 +610,15 @@ describe('reader store: 书签与划线', () => {
     useReaderStore.getState().onScrolled(10)
     harness.addBookmark.mockRejectedValueOnce(new Error('库锁住了'))
 
-    await useReaderStore.getState().addBookmark()
+    await expect(useReaderStore.getState().addBookmark()).resolves.toBe(false)
     expect(useReaderStore.getState().error).toBe('加书签失败：库锁住了')
     expect(useReaderStore.getState().bookmarks).toEqual([])
+  })
+
+  it('没打开书时加书签什么也不做，返回 false（不弹「已加书签」）', async () => {
+    const harness = makeHarness()
+    await expect(useReaderStore.getState().addBookmark()).resolves.toBe(false)
+    expect(harness.addBookmark).not.toHaveBeenCalled()
   })
 
   it('划线记下起止偏移与原文，超长时裁到上限并把结束位置收回来', async () => {

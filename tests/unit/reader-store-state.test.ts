@@ -153,7 +153,7 @@ describe('阅读器开关类状态', () => {
   })
 
   it('没打开书时加书签与划线都不发请求，也不报错', async () => {
-    await useReaderStore.getState().addBookmark()
+    await expect(useReaderStore.getState().addBookmark()).resolves.toBe(false)
     await useReaderStore.getState().addHighlight(0, 5, '一段文字')
 
     expect(currentApi.addBookmark).not.toHaveBeenCalled()

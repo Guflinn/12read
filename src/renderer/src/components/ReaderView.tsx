@@ -325,7 +325,11 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
           className="icon-btn"
           aria-label="把当前位置加为书签"
           title="把当前位置加为书签（书签列表在目录抽屉里）"
-          onClick={() => void addBookmark()}
+          onClick={() =>
+            void addBookmark().then((ok) => {
+              if (ok) toast('已加书签')
+            })
+          }
         >
           🔖 书签
         </button>

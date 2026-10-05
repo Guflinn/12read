@@ -36,18 +36,16 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 现在在哪（以 `git log` 为准）
 
-- 分支 `main`，HEAD `bc62d00`「refactor(chapters): 删掉阅读器顶栏的「拆分」」，工作区干净。
-- 版本号 `0.1.3`（package.json）。`origin/main` 停在 `271a84b`，**本地领先 29 个提交且未 push**；tag `v0.1.0`–`v0.1.3` 也都只在本地。
-- **注意**：tag `v0.1.3`（附注 tag，指向 `88b00e0`）**不包含** `bc62d00` 这刀删除；`release/twelve-read-setup-0.1.3.exe` 也是旧产物（还带顶栏「拆分」按钮）。
+- 分支 `main`，工作区干净。**别在这里写死 HEAD**：这两段描述的是「完成本文件这次 commit 之前」的提交，改 HANDOFF 本身就会把 HEAD 往前挪一格，写死的哈希永远追不上。要看真实 HEAD，敲 `git log -1 --oneline`。
+- 版本号 `0.1.3`（package.json）。`origin/main` 停在 `271a84b`，**本地领先若干提交且未 push**（具体数字用 `git rev-list --count origin/main..main` 现取，别照抄本文档里的旧值）；tag `v0.1.0`–`v0.1.3` 也都只在本地。
+- **tag `v0.1.3` 已按方案 A 重打**：2026-10-05 用户拍板「并进 0.1.3」，删掉并重建了附注 tag，让它指向包含删除提交的新 HEAD（原指向 `88b00e0`，不含 `bc62d00` 那刀删除）。tag 从未 push，重打对远端无影响。重建后的 tag 时间戳是 2026-10-05，早于此时间戳的安装包一律是旧产物。
+- `release/` 里的 0.1.3 安装包已在 2026-10-05 重新 `pnpm dist`，含删除后的构建。
 - 0.1.3 的十项已全部交付并验证：书架版本号、正文字体与阅读宽度、左右翻动翻页、换编码重解码、手动改分章（改名 / 合并）、书签与划线（schema v2 迁移）、章节内 + 全书搜索、阅读统计、导出备份、大书性能专项。逐项 commit 见 [docs/MVP.md](docs/MVP.md) 的「已发布：0.1.3」表格。
 
 ## 下一步（按顺序）
 
-1. **等用户拍板**：顶栏「拆分」的删除怎么发 ——
-   - (A) 并进 0.1.3：重新 `pnpm dist` 打包，把 tag `v0.1.3` 重打到新提交（tag 没 push 过，改了外人看不见）；
-   - (B) 留给下一版：tag 不动，CHANGELOG 新开「未发布」段记这次删除，安装包等下次发版再打。
-   - **当前文档写的是 (A) 的口径**：[CHANGELOG.md](CHANGELOG.md) 的 0.1.3 段已去掉「拆分」，并在「本版范围」注明「发布前按用户反馈删掉了阅读器顶栏的「拆分」」。
-2. 发布（用户点头才做）：`git push origin main` + `git push origin --tags`；GitHub Release 名写 `十二阅读 v0.1.3 内测版（Windows）`、勾 Pre-release（命名约定见 [CHANGELOG.md](CHANGELOG.md) 第 6-8 行）。
+1. **发版口径已由用户拍板（2026-10-05）**：选 **(A) 并进 0.1.3** —— 重新 `pnpm dist` 打包，把 tag `v0.1.3` 重打到含删除提交的新 HEAD（tag 没 push 过，改了外人看不见）。手上这个会话已在做这件事，见下方「现在在哪」。
+2. 发布（**仍需用户点头才做**）：`git push origin main` + `git push origin --tags`；GitHub Release 名写 `十二阅读 v0.1.3 内测版（Windows）`、勾 Pre-release（命名约定见 [CHANGELOG.md](CHANGELOG.md) 第 6-8 行）。
 3. Backlog（PWA、分页模式、EPUB 等）见 [docs/MVP.md](docs/MVP.md) 第 10 节。
 
 ## 硬约束（来自 [AGENTS.md](AGENTS.md)）

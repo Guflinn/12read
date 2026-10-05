@@ -35,6 +35,21 @@ test('阅读统计：书架打开面板，今天与累计、近两周柱子、�
   await expect(page.locator('#stats-total')).toHaveText('0 分钟')
   await expect(page.locator('#stats-streak')).toHaveText('0 天')
   await expect(page.locator('#stats-bars .stats-bar')).toHaveCount(14)
+  // 14 根柱子挤在 380px 的弹窗里，日期标签必须收在自己那列宽度内，不能压到隔壁（回归：曾横排压字）
+  const labelsFit = await page.evaluate(() => {
+    const bars = Array.from(document.querySelectorAll('#stats-bars .stats-bar'))
+    const widths = bars.map((bar) => bar.getBoundingClientRect().width)
+    return bars.every((bar, index) => {
+      const label = bar.querySelector('.stats-bar-day')
+      if (!label) return false
+      const lb = label.getBoundingClientRect()
+      return lb.width <= widths[index] + 1
+    })
+  })
+  expect(labelsFit).toBe(true)
+  // 月、日两行都在，且日期拆开（不是 'MM-DD' 一整串）
+  await expect(page.locator('#stats-bars .stats-bar-day .stats-day-m').first()).toHaveText(/^\d{2}$/)
+  await expect(page.locator('#stats-bars .stats-bar-day .stats-day-d').first()).toHaveText(/^\d{2}$/)
   await expect(page.locator('#stats-top-empty')).toBeVisible()
 
   await page.locator('.modal-actions .btn.primary').click()

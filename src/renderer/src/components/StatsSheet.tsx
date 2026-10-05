@@ -1,15 +1,9 @@
 import { useEffect, useState } from 'react'
-import { formatDuration } from '@shared/core/stats'
+import { dayParts, formatDuration } from '@shared/core/stats'
 import { READING_STAT_DAYS, type ReadingStats } from '@shared/types'
 import { readerApi } from '@/core/api'
 import { formatChars } from '@/core/reading'
 import { Modal } from './Modal'
-
-/** '2026-10-05' → '10-05'：柱子上只写得下月日。 */
-function dayLabel(day: string): string {
-  const parts = day.split('-')
-  return parts.length === 3 ? parts[1] + '-' + parts[2] : day
-}
 
 /**
  * 阅读统计（0.1.3 第 8 项）：今天 / 累计 / 连续天数 / 最近两周每天的柱子 / 读得最多的书。
@@ -87,22 +81,26 @@ export function StatsSheet({
 
             <p className="stats-h">最近 {stats.days.length} 天</p>
             <div className="stats-bars" id="stats-bars">
-              {stats.days.map((day) => (
-                <div
-                  className="stats-bar"
-                  key={day.day}
-                  data-day={day.day}
-                  title={day.day + ' · ' + formatDuration(day.ms) + ' · ' + formatChars(day.chars)}
-                >
+              {stats.days.map((day) => {
+                const parts = dayParts(day.day)
+                const pct = maxMs > 0 ? Math.round((day.ms / maxMs) * 100) : 0
+                return (
                   <div
-                    className="stats-bar-fill"
-                    style={{
-                      height: maxMs > 0 ? Math.round((day.ms / maxMs) * 100) + '%' : '0%'
-                    }}
-                  />
-                  <span className="stats-bar-day">{dayLabel(day.day)}</span>
-                </div>
-              ))}
+                    className="stats-bar"
+                    key={day.day}
+                    data-day={day.day}
+                    title={day.day + ' · ' + formatDuration(day.ms) + ' · ' + formatChars(day.chars)}
+                  >
+                    <div className="stats-bar-track">
+                      <div className="stats-bar-fill" style={{ height: pct + '%' }} />
+                    </div>
+                    <span className="stats-bar-day">
+                      <span className="stats-day-m">{parts.m}</span>
+                      <span className="stats-day-d">{parts.d}</span>
+                    </span>
+                  </div>
+                )
+              })}
             </div>
 
             <p className="stats-h">读得最多的书</p>

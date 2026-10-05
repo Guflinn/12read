@@ -70,3 +70,14 @@ export function formatDuration(ms: number): string {
   const rest = minutes % 60
   return rest === 0 ? hours + ' 小时' : hours + ' 小时 ' + rest + ' 分'
 }
+
+/**
+ * 'YYYY-MM-DD' → { m: 'MM', d: 'DD' }，给统计柱下方的轴标签用。
+ * 弹窗只有 380px 宽、14 根柱子分摊下来每列 ~20px，'09-28' 横排要 ~30px 必然压字，
+ * 所以拆成上下两行（各 ~12px）。解析不出来就整串塞进月那行，日留空。
+ */
+export function dayParts(day: string): { m: string; d: string } {
+  const parts = day.split('-')
+  if (parts.length !== 3) return { m: day, d: '' }
+  return { m: parts[1], d: parts[2] }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dayKey, fillDays, formatDuration, shiftDay, streakFromDays } from '@shared/core/stats'
+import { dayKey, dayParts, fillDays, formatDuration, shiftDay, streakFromDays } from '@shared/core/stats'
 
 describe('dayKey', () => {
   it('按本地时区给出 YYYY-MM-DD 并补零', () => {
@@ -89,5 +89,23 @@ describe('formatDuration', () => {
     expect(formatDuration(-1)).toBe('0 分钟')
     expect(formatDuration(Number.NaN)).toBe('0 分钟')
     expect(formatDuration(Number.POSITIVE_INFINITY)).toBe('0 分钟')
+  })
+})
+
+describe('dayParts', () => {
+  it('把 YYYY-MM-DD 拆成月、日两段（柱下标签只有 ~20px，横排会压字）', () => {
+    expect(dayParts('2026-10-05')).toEqual({ m: '10', d: '05' })
+    expect(dayParts('2026-01-31')).toEqual({ m: '01', d: '31' })
+  })
+
+  it('跨月的首尾也拆得对（9 月末到 10 月初这一段）', () => {
+    expect(dayParts('2026-09-28')).toEqual({ m: '09', d: '28' })
+    expect(dayParts('2026-10-01')).toEqual({ m: '10', d: '01' })
+  })
+
+  it('解析不出来就整串放月那行、日留空，不抛', () => {
+    expect(dayParts('')).toEqual({ m: '', d: '' })
+    expect(dayParts('2026-10')).toEqual({ m: '2026-10', d: '' })
+    expect(dayParts('乱码')).toEqual({ m: '乱码', d: '' })
   })
 })

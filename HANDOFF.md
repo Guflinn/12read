@@ -3,6 +3,16 @@
 > 本文件是**跨 Agent 的交接说明**。新会话（尤其是同一台机器上的另一个 Agent）开工前先读这一份 + [AGENTS.md](AGENTS.md)，再动手。
 > 接手时先读「现在在哪」；**交回前请更新「现在在哪」与「下一步」两段**，并把改动全部 commit。这样谁都能无缝接上。
 
+## 接手方的规矩（为了下一个 Agent 好接上）
+
+1. **只往后加 commit，不重写历史**：不要 `rebase` / `commit --amend` / `reset --hard` 动已有提交，也不要 `push --force`。历史一被重写，下一个 Agent 的 `git log` 就跟它读到的文档对不上号。
+2. **一次改动一个 commit**，信息写 `type(scope): 中文说明`，正文说清「为什么这么做」和「跑过哪些验证」——下一个 Agent 主要靠 commit 正文还原思路。
+3. **不要动 tag**（尤其 `v0.1.3`），**不要改** `package.json` 版本号或 CHANGELOG 里已发布版本的措辞：发版口径由用户拍板。
+4. **收工前把工作区弄干净**：不留未提交改动、不留临时脚本（`__smoke-*.mjs` 这类写完就删），不提交 `release/` `out/` `test-results/` 这类产物。
+5. **测试与文档同步**（AGENTS.md 的硬约束）：`pnpm verify` + `pnpm test:e2e` 全绿才算做完；CHANGELOG / docs/MVP.md / docs/TECH.md 跟着改。
+6. **做完就更新本文件**的「现在在哪」与「下一步」，并明确写下：哪些没做完、哪些没验证、哪些拿不准要用户拍板 —— 不确定的事写成 TODO，别默默改行为。
+7. **同一目录不要两个 Agent 同时改**：git index 会抢锁。要么约定「谁在做，另一个停手」，要么 `git worktree add ../12read-buddy main` 另开工作区。
+
 ## 项目与仓库
 
 - 十二阅读（12read）：本地优先的 Windows TXT 桌面阅读器。Electron 38 + React 19 + TypeScript + Zustand + zod，主进程直连 SQLite（better-sqlite3）+ iconv-lite 解码；构建 electron-vite，打包 electron-builder；测试 vitest（单测 / 契约）+ Playwright `_electron.launch`（e2e）。

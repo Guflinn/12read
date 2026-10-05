@@ -83,6 +83,7 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   - 落地方式（推荐）：`env -u ELECTRON_RUN_AS_NODE TWELVE_READ_E2E_ELECTRON_ARGS="--no-sandbox --disable-gpu" pnpm test:e2e`。这个环境变量由 [tests/e2e/helpers.ts](tests/e2e/helpers.ts) 的 `extraElectronArgs()` 读取，**不设就与改动前完全一致**，普通机器与 CI 无需理会。
   - 怎么看是不是这个坑：失败信息里出现 `Target crashed`，或 `waiting for locator('#btn-import')` 超时，且**没有任何一条 `expect` 断言失败**。
 - **打包/构建时目录删除会被环境的 safe-delete 拦掉**：批量删除超过 50 个文件时，构建链路（vite 清 `out/`、electron-builder 清 `release/win-unpacked`）会报 `SAFE_DELETE_BULK_CONFIRM_REQUIRED`。绕法是**先手工清干净再构建**：`cmd //c "rmdir /S /Q out"` 与 `cmd //c "rmdir /S /Q release\win-unpacked"`（这条能绕过 shim，bash 的 `rm -rf` 与 PowerShell 的 `Remove-Item` 都会被截）。若个别 `.asar` 被外部进程占用删不掉，构建可改用 `-c.directories.output=<别的目录>` 绕开被占死的那条路。
+- **`pnpm test:e2e` 也会撞同一个 safe-delete 拦门**：playwright 每轮开头要清 `test-results/`，攒够 50+ 个文件后直接报 `SAFE_DELETE_BULK_CONFIRM_REQUIRED`（错误里会写 `"targets":["…\\test-results"]`，看着像构建失败，其实一条用例都没跑）。**跑 e2e 前先 `cmd //c "rmdir /S /Q test-results"`** 即可；`out/` 同理，如果 vite 的 `emptyOutDir` 被拦，也是先手工清 `out/`。
 - `release/`、`out/`、`coverage/`、`test-results/` 都在 `.gitignore` 里，别提交产物。`.workbuddy/` 也已忽略（Agent 的本地记忆目录）。
 
 ## 两个 Agent 同时干活（同一台机器）

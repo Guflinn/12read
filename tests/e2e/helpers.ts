@@ -36,10 +36,26 @@ function childEnv(dataDir: string): Record<string, string> {
   return env
 }
 
+/**
+ * 额外的 electron 启动参数，来自环境变量 TWELVE_READ_E2E_ELECTRON_ARGS（空格分隔）。
+ *
+ * 为什么需要这个口子：某些受限环境（容器 / 沙箱 / 无桌面会话的 CI）里 Chromium 的
+ * GPU 进程起不来，electron 会以 `FATAL: GPU process isn't usable. Goodbye.` 直接退出，
+ * 表现成 playwright 的 'Target crashed' 或首屏 selector 超时 —— 这与被测代码无关。
+ * 那种环境下把变量设成 `--no-sandbox --disable-gpu` 即可正常跑。
+ *
+ * 默认为空：普通开发机与 CI 的行为**完全不变**。
+ */
+function extraElectronArgs(): string[] {
+  const raw = process.env['TWELVE_READ_E2E_ELECTRON_ARGS']
+  if (!raw) return []
+  return raw.split(/\s+/).filter((s) => s.length > 0)
+}
+
 /** 启动真实 Electron 应用，数据目录指到临时目录（main 读 TWELVE_READ_DATA_DIR） */
 export async function launchApp(dataDir: string): Promise<ElectronApplication> {
   return electron.launch({
-    args: [ROOT],
+    args: [ROOT, ...extraElectronArgs()],
     cwd: ROOT,
     env: childEnv(dataDir)
   })

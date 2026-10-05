@@ -34,31 +34,34 @@ pnpm build          # 产出 out/
 pnpm dist           # electron-vite build + electron-builder --dir（产出 release/）
 ```
 
-判据：`pnpm verify` 与 e2e 全绿才算可交付（AGENTS.md 第 2 条）。当前基线是 **45 个测试文件 / 455 个用例**。
+判据：`pnpm verify` 与 e2e 全绿才算可交付（AGENTS.md 第 2 条）。当前基线是 **45 个测试文件 / 456 个用例**（42 单测文件 / 428 用例 + 3 契约文件 / 28 用例）。
 
 ## 现在在哪（以 `git log` 为准）
 
 - 分支 `main`，工作区干净。**别在这里写死 HEAD**：这两段描述的是「完成本文件这次 commit 之前」的提交，改 HANDOFF 本身就会把 HEAD 往前挪一格，写死的哈希永远追不上。要看真实 HEAD，敲 `git log -1 --oneline`。
 - 版本号 `0.1.3`（package.json）。`origin/main` 停在 `271a84b`，**本地领先若干提交且未 push**（具体数字用 `git rev-list --count origin/main..main` 现取，别照抄本文档里的旧值）；tag `v0.1.0`–`v0.1.3` 也都只在本地。
-- **0.1.3 已按方案 A 收口（2026-10-05 用户拍板「并进 0.1.3」）**，本轮做完三件事：
-  1. **重打包**：`release/` 下 0.1.3 全套产物已重新生成（安装包 / `.blockmap` / `.sha256` / `latest.yml` / `win-unpacked`）。新安装包 `twelve-read-setup-0.1.3.exe` = 102,848,424 B（旧产物是 102,765,937 B，且带顶栏「拆分」）。**内容级验证过**：解 asar 确认主进程已无 `chapter:split`、渲染层已无 `btn-split`，而 `chapter:merge` / `chapter:rename` 仍在。
-  2. **重打 tag**：`v0.1.3` 原指向 `88b00e0`（不含 `bc62d00` 删除那刀）；已删并重建，指向本轮收口后的 HEAD。tag 说明文案**逐字保留**原文。`git merge-base --is-ancestor bc62d00 v0.1.3` 为真。tag 从未 push，重打对远端无影响；**重建后的 tag 时间戳是 2026-10-05**，早于此的安装包一律是旧产物。
+- **0.1.3 已按方案 A 收口（2026-10-05 用户拍板「并进 0.1.3」）**，本轮做完四件事：
+  1. **重打包**：`release/` 下 0.1.3 全套产物已重新生成（安装包 / `.blockmap` / `.sha256` / `latest.yml` / `win-unpacked`）。**最近一次重打是加了「加书签弹提示」之后**，新安装包 `twelve-read-setup-0.1.3.exe` = 102,765,553 B。**内容级验证过**：解 NSIS 内 `resources/app.asar`，确认渲染层含 `已加书签` 文案、已无 `btn-split`；主进程已无 `chapter:split`，而 `chapter:merge` / `chapter:rename` 仍在。
+  2. **重打 tag**：`v0.1.3` 原指向 `88b00e0`（不含 `bc62d00` 删除那刀）；已删并重建，指向本轮全部收口后的 HEAD。tag 说明文案**逐字保留**原文。`git merge-base --is-ancestor bc62d00 v0.1.3` 为真。tag 从未 push，重打对远端无影响；**重建后的 tag 时间戳是 2026-10-05**，早于此的安装包一律是旧产物。
   3. **发现并修掉 e2e 在本机的环境性阻塞**：见下方「已知坑」里 `TWELVE_READ_E2E_ELECTRON_ARGS` 那条。
+  4. **修掉一个用户报的体验缺陷**：加书签后原本静默无反馈（用户连点好几下都不确定记上没有），现在点一下即弹「已加书签」——`ReaderView.tsx` 走 toast，`reader-store.addBookmark()` 返回值从 `Promise<void>` 改为 `Promise<boolean>`（成功 true / 失败 false），测试同步补齐。
 - 0.1.3 的十项已全部交付并验证：书架版本号、正文字体与阅读宽度、左右翻动翻页、换编码重解码、手动改分章（改名 / 合并）、书签与划线（schema v2 迁移）、章节内 + 全书搜索、阅读统计、导出备份、大书性能专项。逐项 commit 见 [docs/MVP.md](docs/MVP.md) 的「已发布：0.1.3」表格。
 
 ## 下一步（按顺序）
 
-1. **发布（唯一没做的事，且需用户点头）**：`git push origin main` + `git push origin --tags`（tag 是重打过的 `v0.1.3`，push 时用 `--force` 也不需要 —— 远端从来没有过这个 tag，是本机首次推送）。GitHub Release 名写 `十二阅读 v0.1.3 内测版（Windows）`、勾 Pre-release（命名约定见 [CHANGELOG.md](CHANGELOG.md) 第 6-8 行），产物用 `release/twelve-read-setup-0.1.3.exe`。
+1. **发布（唯一没做的事，且需用户点头）**：`git push origin main` + `git push origin --tags`（tag 是重打过的 `v0.1.3`，push 时不需要 `--force` —— 远端从来没有过这个 tag，是本机首次推送）。GitHub Release 名写 `十二阅读 v0.1.3 内测版（Windows）`、勾 Pre-release（命名约定见 [CHANGELOG.md](CHANGELOG.md) 第 6-8 行），产物用 `release/twelve-read-setup-0.1.3.exe`（当前大小 102,765,553 B，`latest.yml` 里的 sha512 已核对一致）。
 2. **若在受限环境跑 e2e**：先设 `TWELVE_READ_E2E_ELECTRON_ARGS="--no-sandbox --disable-gpu"`（原因见「已知坑」）。
-3. Backlog（PWA、分页模式、EPUB 等）见 [docs/MVP.md](docs/MVP.md) 第 10 节。
+3. **若 `pnpm verify` 偶发 1 例 `Hook timed out`**：直接重跑一次；那是磁盘繁忙导致的 hook 超时，与本轮代码无关（见「待用户拍板 / 没做完的」）。
+4. Backlog（PWA、分页模式、EPUB 等）见 [docs/MVP.md](docs/MVP.md) 第 10 节。
 
 ## 待用户拍板 / 没做完的
 
 - **推送与 GitHub Release 没做**：按规矩「用户明确同意前不 push」，本轮全程未 push。发不发由用户定。
 - **`release/` 里的 0.1.0–0.1.2 旧产物留着没动**（它们本就该在，各自的 tag 也对得上），只有 0.1.3 被换成新构建。
 - **本机跑不了 e2e 是环境限制、不是缺陷**：受限沙箱里 Chromium GPU 进程必崩导致 electron FATAL。已用环境变量留了口子，默认行为不变。**换到普通终端 / CI 上直接 `pnpm test:e2e` 即可，无需任何设置。**
-- **未验证项（如实记录）**：新安装包没走一遍「图形界面下真实双击安装 → 启动」的全程，只做到「exe 能起、无 FATAL 退出（exit 0）」「解包内容与源码一致」。若要求更硬的证据，需要一台有桌面会话的机器。
-- **`builder-debug.yml` 仍是 10-04 的**（electron-builder 的调试快照，不参与安装与更新，未重生成）。`latest.yml` 已按新产物同步 size + sha512（已独立校验一致）。
+- **未验证项（如实记录）**：新安装包没走一遍「图形界面下真实双击安装 → 启动」的全程，只做到「exe 能起、无 FATAL 退出（exit 0）」「解 NSIS 内 asar 与源码一致（含书签提示文案）」。若要求更硬的证据，需要一台有桌面会话的机器。
+- **`pnpm verify` 偶发 1 例超时**：`tests/unit/reading-stats-service.test.ts` 的 `afterEach` 在磁盘繁忙时会碰到 10s hook 超时（`Hook timed out in 10000ms`）。**单独重跑必过、非回归**；真碰到时重跑一次即可，别误判成代码问题。
+- **`builder-debug.yml` 仍是 10-04 的**（electron-builder 的调试快照，不参与安装与更新，未重生成）。`latest.yml` 已按新产物同步 size + sha512（sha512 与 size 均已用 openssl 独立校验一致）。
 
 ## 硬约束（来自 [AGENTS.md](AGENTS.md)）
 

@@ -3,7 +3,7 @@ import type { MouseEvent as ReactMouseEvent } from 'react'
 import { normalizeSelection, rangesOfChapter, splitHighlighted } from '@/core/annotations'
 import { offsetForScrollTop, scrollTopForOffset, splitParagraphs } from '@/core/paragraphs'
 import { chapterLabel, progressLabel } from '@/core/reading'
-import { BOOKMARK_REST_MS, useReaderStore } from '@/store/reader'
+import { BOOKMARK_DWELL_MS, BOOKMARK_REST_MS, useReaderStore } from '@/store/reader'
 import { useSettingsStore } from '@/store/settings'
 import { SearchPanel } from './SearchPanel'
 import { SettingsSheet } from './SettingsSheet'
@@ -73,8 +73,10 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
   const topsRef = useRef<number[]>([0])
   /** 最近一次滚动对应的章内偏移；字号变化后靠它回到同一处文字。 */
   const lastOffsetRef = useRef(0)
-  /** 停顿计时器：连续滚动期间一直往后推，停够 BOOKMARK_REST_MS 才记一次「上次位置」。 */
+  /** 停顿计时器：连续滚动期间一直往后推。停够 BOOKMARK_REST_MS 先试一次，待够 BOOKMARK_DWELL_MS 再试一次。 */
   const restTimerRef = useRef<number | null>(null)
+  /** 「待够时长」计时器：只有它到点且确实在那儿待住了，store 才会更新「上次位置」。 */
+  const dwellTimerRef = useRef<number | null>(null)
   /** 正文容器：选区端点要靠它反查章内偏移。 */
   const contentRef = useRef<HTMLElement | null>(null)
   const [toolbar, setToolbar] = useState<Toolbar | null>(null)
@@ -178,12 +180,19 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
     ) {
       useReaderStore.getState().revealMore()
     }
-    // 快速滑动期间不记位置：停下来的地方才值得当「上次位置」
+    // 「上次位置」要的是「真在这儿读」的地方，不是「快滑过去瞥一眼」的地方：
+    // 先按停稳 1.2s 试一次（人本来就待在这儿时能立刻生效），
+    // 再按待够 BOOKMARK_DWELL_MS 试一次 —— store 只在停留够久时才认，两次都便宜。
     if (restTimerRef.current !== null) window.clearTimeout(restTimerRef.current)
     restTimerRef.current = window.setTimeout(() => {
       restTimerRef.current = null
       useReaderStore.getState().settleBookmark(lastOffsetRef.current)
     }, BOOKMARK_REST_MS)
+    if (dwellTimerRef.current !== null) window.clearTimeout(dwellTimerRef.current)
+    dwellTimerRef.current = window.setTimeout(() => {
+      dwellTimerRef.current = null
+      useReaderStore.getState().settleBookmark(lastOffsetRef.current)
+    }, BOOKMARK_DWELL_MS)
   }, [measurement, truncated])
 
   /** 一页的步长：留 40px 重叠，前后两页才读得连得上。 */
@@ -305,6 +314,7 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
   useEffect(
     () => () => {
       if (restTimerRef.current !== null) window.clearTimeout(restTimerRef.current)
+      if (dwellTimerRef.current !== null) window.clearTimeout(dwellTimerRef.current)
       useReaderStore.getState().flush()
     },
     []

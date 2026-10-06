@@ -244,9 +244,9 @@ test('回到上次位置：停稳后点一下就回去，再点一下回到刚�
   await expect(back).toBeEnabled()
   await expect(back).toContainText('上次位置')
 
-  // 翻到章尾，停够 BOOKMARK_REST_MS，这里就成了「上次停留的位置」
+  // 翻到章尾，在同一个地方待够 BOOKMARK_DWELL_MS（「待够才算读到这儿」）……
   await page.keyboard.press('End')
-  await page.waitForTimeout(1500)
+  await page.waitForTimeout(5600)
   const atEnd = await topParagraphIndex(page)
   expect(atEnd).toBeGreaterThan(3)
 
@@ -254,12 +254,43 @@ test('回到上次位置：停稳后点一下就回去，再点一下回到刚�
   await page.locator('#reader-scroll').evaluate((el) => {
     el.scrollTop = 0
   })
+  await page.waitForTimeout(150)
   await back.click()
   await expect.poll(() => topParagraphIndex(page)).toBeGreaterThanOrEqual(atEnd - 2)
 
   // 再点一次 → 回到刚才离开的地方（章首）
   await back.click()
   await expect.poll(() => topParagraphIndex(page)).toBeLessThanOrEqual(1)
+})
+
+test('刚打开就快滑到底，点「上次位置」仍能回到打开时的地方', async () => {
+  const dataDir = makeTempDir('12read-bookmark-quick-')
+  const bookPath = writeNovelFile(
+    makeTempDir('12read-bookmark-quick-src-'),
+    '快滑书.txt',
+    buildNovel()
+  )
+
+  const page = await openApp(dataDir)
+  await importPath(page, bookPath)
+  await page.click('.book-card')
+  await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
+
+  const opened = await topParagraphIndex(page)
+  const back = page.locator('#btn-pos-back')
+  await expect(back).toBeEnabled()
+
+  // 一下拖到底（等于拽滚动条到底松手），紧接着就点「上次位置」——中间远不到 5 秒。
+  // 旧逻辑在这里会把「上次位置」改写成刚滑到的地方，点下去原地不动（0.1.4 修的 bug）。
+  await page.locator('#reader-scroll').evaluate((el) => {
+    el.scrollTop = el.scrollHeight
+  })
+  await page.waitForTimeout(150)
+  const atBottom = await topParagraphIndex(page)
+  expect(atBottom).toBeGreaterThan(opened + 3)
+
+  await back.click()
+  await expect.poll(() => topParagraphIndex(page)).toBeLessThanOrEqual(opened + 1)
 })
 
 test('字重开关：设置里点加粗，正文变粗并且重启后还记着', async () => {

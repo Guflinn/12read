@@ -25,8 +25,17 @@ import { createThrottle, type Throttler } from '@/core/throttle'
 
 /** 滚动时最多每 500ms 落一次盘（TECH.md 6.3）。 */
 export const PROGRESS_THROTTLE_MS = 500
-/** 停止滚动多久算「在这儿看了一会儿」，把这里记成下次可以回来的位置。 */
+/** 停止滚动多久算「停稳了」。只用来确认滚动结束，能不能算「读过这儿」还要看停留时长。 */
 export const BOOKMARK_REST_MS = 1200
+/**
+ * 在同一个地方连续待够这么久，才算「在这儿读」，「上次位置」才会跟过来。
+ *
+ * 为什么不是「停 1.2 秒就算」（0.1.4 修）：刚打开一本书时快速把滚动条拖到最底下、
+ * 松手再去点「回到上次位置」，中间通常已经超过 1.2 秒 —— 于是「上次位置」被改写成
+ * 刚滑到的地方，点下去等于原地不动，用户看到的就是「回不去」。门槛提到 5 秒之后，
+ * 只滑过去瞥一眼、或者拖完随即点按钮的，都不会把「上次阅读位置」顶掉。
+ */
+export const BOOKMARK_DWELL_MS = 5000
 /** 同章内挪动不到这么多字不算换地方，免得「上次位置」跟着微小滚动乱跑。 */
 export const BOOKMARK_MIN_GAP_CHARS = 100
 /** 单条划线的文字上限，与 shared/schema.ts 的 highlightAddArgsSchema 保持一致。 */
@@ -52,8 +61,10 @@ export interface ReaderState {
   /** 待还原的章内偏移；ReaderView 滚动到位后调用 consumePending() 清空。 */
   pendingOffset: CharOffset | null
   percent: number
-  /** 「上次位置」：回到这里的目标；点一次会把当前位置换进来，于是再点一次能回去。 */
+  /** 「上次位置」：读过一会儿的地方，回到这里的目标。 */
   bookmark: ReadingSpot | null
+  /** 「刚才的位置」：点第一次「回到上次位置」时把你当时的位置记在这儿，再点一次就回到这儿。 */
+  returnSpot: ReadingSpot | null
   open(bookId: string): Promise<void>
   /** 回书架：先落一次盘再清空，返回的 Promise 在进度写回主进程后 resolve。 */
   leave(): Promise<void>
@@ -113,8 +124,37 @@ let lastOffset = 0
 let seq = 0
 /** 书签跳转自己会触发一次「停顿」，那一次不能算新位置，否则来回跳会互相覆盖。 */
 let skipNextSettle = false
+/**
+ * 「停留候选」：当前待着的地方 + 从什么时候开始待。
+ * 换了地方（换章，或同章挪动 ≥ BOOKMARK_MIN_GAP_CHARS）就重开计时；
+ * 只有待够 BOOKMARK_DWELL_MS，`settleBookmark` 才认它、才更新「上次位置」。
+ * 快滑经过的地方永远攒不够这个时长，于是不会把「上次位置」冲掉。
+ */
+let dwell: { chapterIndex: number; offset: CharOffset; since: number } | null = null
 /** 搜索请求序号：连打几个关键词时只认最后一次的结果。 */
 let searchSeq = 0
+
+/**
+ * 记下「现在待在哪儿、从什么时候开始待」。换了地方（换章，或同章挪动 ≥ 100 字）就重开计时。
+ * 于是「快滑经过」永远攒不够停留时长，只有真在某处停下来读才算数。
+ */
+function noteDwell(chapterIndex: number, offset: CharOffset): void {
+  if (
+    dwell === null ||
+    dwell.chapterIndex !== chapterIndex ||
+    Math.abs(dwell.offset - offset) >= BOOKMARK_MIN_GAP_CHARS
+  ) {
+    dwell = { chapterIndex, offset, since: Date.now() }
+  }
+}
+
+/** 要记的这个位置，是不是「已经待够 BOOKMARK_DWELL_MS 的那一处」。 */
+function hasDwelled(spot: ReadingSpot): boolean {
+  if (dwell === null) return false
+  if (dwell.chapterIndex !== spot.chapterIndex) return false
+  if (Math.abs(dwell.offset - spot.charOffset) >= BOOKMARK_MIN_GAP_CHARS) return false
+  return Date.now() - dwell.since >= BOOKMARK_DWELL_MS
+}
 
 function messageOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause)
@@ -256,6 +296,7 @@ async function applyChapterEdit(run: (bookId: string) => Promise<Chapter[]>): Pr
     lastOffset = offset
     const chapter: Chapter | undefined = chapters[spot.chapterIndex]
     skipNextSettle = true
+    dwell = null
     useReaderStore.setState({
       chapters,
       chapterIndex: spot.chapterIndex,
@@ -264,6 +305,7 @@ async function applyChapterEdit(run: (bookId: string) => Promise<Chapter[]>): Pr
       pendingOffset: offset,
       percent: percentOf(book.charCount, chapter ? chapter.startOffset : 0, offset),
       bookmark: bookmarkAbsolute === null ? null : spotAt(chapters, bookmarkAbsolute),
+      returnSpot: null,
       loading: false
     })
   } catch (cause) {
@@ -285,6 +327,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
   pendingOffset: null,
   percent: 0,
   bookmark: null,
+  returnSpot: null,
   bookmarks: [],
   highlights: [],
   searchOpen: false,
@@ -304,6 +347,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     pendingStatMs = 0
     pendingStatChars = 0
     lastStatSpot = null
+    dwell = null
+    skipNextSettle = false
     set({
       loading: true,
       error: null,
@@ -315,6 +360,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       pendingOffset: null,
       percent: 0,
       bookmark: null,
+      returnSpot: null,
       bookmarks: [],
       highlights: [],
       tocOpen: false,
@@ -353,6 +399,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         percent: percentOf(book.charCount, chapter ? chapter.startOffset : 0, offset),
         // 打开时就记一个位置：还没滚动过也能「回到打开本书的地方」，按钮不会一开始就是灰的
         bookmark: { chapterIndex: index, charOffset: offset },
+        returnSpot: null,
         bookmarks: orderBookmarks(bookmarks),
         highlights: orderHighlights(highlights),
         loading: false
@@ -360,6 +407,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       lastStatSpot = { chapterIndex: index, charOffset: offset }
       statClock.start()
       skipNextSettle = false
+      dwell = null
     } catch (cause) {
       if (mine !== seq) return
       set({ loading: false, error: '打开失败：' + messageOf(cause) })
@@ -376,6 +424,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     flushStats()
     seq += 1
     searchSeq += 1
+    dwell = null
     set({
       book: null,
       chapters: [],
@@ -385,6 +434,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       pendingOffset: null,
       percent: 0,
       bookmark: null,
+      returnSpot: null,
       bookmarks: [],
       highlights: [],
       tocOpen: false,
@@ -448,6 +498,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     const state = get()
     if (!state.book || state.chapterText.length === 0) return
     lastOffset = clampOffset(offset, state.chapterText.length)
+    noteDwell(state.chapterIndex, lastOffset)
     const chapter: Chapter | undefined = state.chapters[state.chapterIndex]
     const percent = percentOf(state.book.charCount, chapter ? chapter.startOffset : 0, lastOffset)
     if (Math.abs(percent - state.percent) >= 0.05) set({ percent })
@@ -465,6 +516,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       skipNextSettle = false
       return
     }
+    // 只是快滑过去瞥一眼的地方不算「读过这儿」：待够 BOOKMARK_DWELL_MS 才认（0.1.4 修）
+    if (!hasDwelled(next)) return
     const current = state.bookmark
     if (
       current &&
@@ -478,14 +531,20 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
 
   async backToBookmark(): Promise<void> {
     const state = get()
-    const target = state.bookmark
-    if (!state.book || !target) return
+    const anchor = state.bookmark
+    if (!state.book || !anchor) return
     const here: ReadingSpot = {
       chapterIndex: state.chapterIndex,
       charOffset: clampOffset(lastOffset, state.chapterText.length)
     }
-    // 先把自己现在的位置换成新书签，再跳过去：这样再点一次就是「回到刚才那里」
-    set({ bookmark: here })
+    // 两个槽位互不覆盖：bookmark 是「上次读的位置」，returnSpot 是「刚才离开的位置」。
+    // 人已经站在「上次位置」上时，这一下该回到「刚才那儿」；否则就是回到「上次位置」。
+    const atAnchor =
+      here.chapterIndex === anchor.chapterIndex &&
+      Math.abs(here.charOffset - anchor.charOffset) < BOOKMARK_MIN_GAP_CHARS
+    const target = atAnchor ? state.returnSpot : anchor
+    if (!target) return
+    set({ returnSpot: here })
     skipNextSettle = true
     await get().goto(target.chapterIndex, target.charOffset)
   },

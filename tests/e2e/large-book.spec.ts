@@ -97,7 +97,7 @@ test('超长章节：先挂 2 万字，滚到底才一步步铺完，切章仍�
 test('超长章节：关掉再打开要回到原来的深处（不能停在半路）', async () => {
   const page = await openBigBook()
   const scrolled = await scrollToChapterEnd(page)
-  // 停下来读一会儿，「上次位置」才落成书签（BOOKMARK_REST_MS = 1200ms）
+  // 停下来一会儿让进度落盘（滚动停止后节流 500ms 写一次，离开时还会再 flush 一次）
   await page.waitForTimeout(1500)
   const deepIndex = await topParagraphIndex(page)
   const paragraphs = await page.locator('#reader-content p').count()

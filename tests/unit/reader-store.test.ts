@@ -19,7 +19,9 @@ import { setReaderApi } from '@/core/api'
 import { setDeviceId } from '@/core/session'
 import { excerptAt } from '@/core/annotations'
 import {
+  BOOKMARK_DWELL_MS,
   BOOKMARK_MIN_GAP_CHARS,
+  BOOKMARK_REST_MS,
   HIGHLIGHT_MAX_CHARS,
   PROGRESS_THROTTLE_MS,
   useReaderStore
@@ -207,6 +209,7 @@ beforeEach(() => {
     pendingOffset: null,
     percent: 0,
     bookmark: null,
+    returnSpot: null,
     bookmarks: [],
     highlights: [],
     searchOpen: false,
@@ -429,6 +432,12 @@ describe('reader store: 进度写入', () => {
 })
 
 describe('reader store: 上次位置', () => {
+  /** 演出「待在某个位置不动」：先滚到那儿，再把时钟往前推一段。 */
+  function stayAt(offset: number, ms: number): void {
+    useReaderStore.getState().onScrolled(offset)
+    vi.advanceTimersByTime(ms)
+  }
+
   it('打开时就把恢复处记成书签，按钮一进来就能用', async () => {
     makeHarness(storedProgress({ chapterIndex: 1, charOffset: 50 }))
     await useReaderStore.getState().open(BOOK_ID)
@@ -436,28 +445,61 @@ describe('reader store: 上次位置', () => {
     expect(useReaderStore.getState().bookmark).toEqual({ chapterIndex: 1, charOffset: 50 })
   })
 
-  it('停下来读一会儿就更新书签，同章挪一点点不动它', async () => {
-    // 第二章 194 字，够跨过 BOOKMARK_MIN_GAP_CHARS
+  it('只是快滑过去瞥一眼，不会把「上次位置」顶掉（0.1.4 修的「拖到底就回不去」）', async () => {
+    vi.useFakeTimers()
+    makeHarness(storedProgress({ chapterIndex: 1, charOffset: 20 }))
+    await useReaderStore.getState().open(BOOK_ID)
+
+    // 刚打开就把滚动条拖到本章末尾，松手停 1.2 秒就去点按钮
+    useReaderStore.getState().onScrolled(180)
+    vi.advanceTimersByTime(BOOKMARK_REST_MS + 100)
+    useReaderStore.getState().settleBookmark(180)
+
+    // 「上次位置」还是打开时那儿 —— 于是点一下真能回去（旧逻辑下这里会原地不动）
+    expect(useReaderStore.getState().bookmark).toEqual({ chapterIndex: 1, charOffset: 20 })
+    await useReaderStore.getState().backToBookmark()
+    expect(useReaderStore.getState().pendingOffset).toBe(20)
+  })
+
+  it('在同一个地方待够 BOOKMARK_DWELL_MS 才算读到这儿，同章挪一点点不动它', async () => {
+    vi.useFakeTimers()
     makeHarness(storedProgress({ chapterIndex: 1, charOffset: 0 }))
     await useReaderStore.getState().open(BOOK_ID)
 
+    // 刚滑到 150 就结算：还没待够，不认
+    useReaderStore.getState().onScrolled(150)
+    useReaderStore.getState().settleBookmark(150)
+    expect(useReaderStore.getState().bookmark).toEqual({ chapterIndex: 1, charOffset: 0 })
+
+    // 待够之后才落成「上次位置」
+    stayAt(150, BOOKMARK_DWELL_MS)
     useReaderStore.getState().settleBookmark(150)
     expect(useReaderStore.getState().bookmark).toEqual({ chapterIndex: 1, charOffset: 150 })
 
-    // 只挪了不到 BOOKMARK_MIN_GAP_CHARS：还是原来那个位置
+    // 只挪了不到 BOOKMARK_MIN_GAP_CHARS：算同一个地方，不重开计时
+    stayAt(150 + BOOKMARK_MIN_GAP_CHARS - 1, BOOKMARK_DWELL_MS)
     useReaderStore.getState().settleBookmark(150 + BOOKMARK_MIN_GAP_CHARS - 1)
     expect(useReaderStore.getState().bookmark).toEqual({ chapterIndex: 1, charOffset: 150 })
 
+    // 换了地方：计时重开，刚滚过去马上结算不算数
+    useReaderStore.getState().onScrolled(0)
+    useReaderStore.getState().settleBookmark(0)
+    expect(useReaderStore.getState().bookmark).toEqual({ chapterIndex: 1, charOffset: 150 })
+
+    // 在新地方待够才算
+    stayAt(0, BOOKMARK_DWELL_MS)
     useReaderStore.getState().settleBookmark(0)
     expect(useReaderStore.getState().bookmark).toEqual({ chapterIndex: 1, charOffset: 0 })
   })
 
   it('没打开书、或偏移越界时都不会写坏书签', async () => {
+    vi.useFakeTimers()
     useReaderStore.getState().settleBookmark(50)
     expect(useReaderStore.getState().bookmark).toBeNull()
 
     makeHarness(storedProgress({ chapterIndex: 1, charOffset: 0 }))
     await useReaderStore.getState().open(BOOK_ID)
+    stayAt(999999, BOOKMARK_DWELL_MS)
     useReaderStore.getState().settleBookmark(999999)
     expect(useReaderStore.getState().bookmark).toEqual({
       chapterIndex: 1,
@@ -465,38 +507,41 @@ describe('reader store: 上次位置', () => {
     })
   })
 
-  it('回到上次位置：跳回停留处，再点一次回到刚才离开的地方', async () => {
+  it('回到上次位置：跳回停留处，再点一次回到刚才离开的地方，两个槽位互不覆盖', async () => {
+    vi.useFakeTimers()
     const harness = makeHarness(storedProgress())
     await useReaderStore.getState().open(BOOK_ID)
 
-    // 读到第二章开头，停下来 → 书签落在这里
+    // 读到第二章开头、待够 → 「上次位置」落在这里
     await useReaderStore.getState().goto(1, 0)
-    useReaderStore.getState().onScrolled(10)
+    stayAt(10, BOOKMARK_DWELL_MS)
     useReaderStore.getState().settleBookmark(10)
     expect(useReaderStore.getState().bookmark).toEqual({ chapterIndex: 1, charOffset: 10 })
 
     // 快速往下滑到第二章中段，还没停稳就想回去
     useReaderStore.getState().onScrolled(120)
     await useReaderStore.getState().backToBookmark()
-    expect(useReaderStore.getState().chapterIndex).toBe(1)
     expect(useReaderStore.getState().pendingOffset).toBe(10)
-    // 离开的地方被换成了新书签，于是再点一次能回去
-    expect(useReaderStore.getState().bookmark).toEqual({ chapterIndex: 1, charOffset: 120 })
+    // 「上次位置」不被换掉，离开的地方单独记在 returnSpot
+    expect(useReaderStore.getState().bookmark).toEqual({ chapterIndex: 1, charOffset: 10 })
+    expect(useReaderStore.getState().returnSpot).toEqual({ chapterIndex: 1, charOffset: 120 })
 
-    // 跳转自身触发的那次停顿不算新位置，书签还在 120
+    // 跳转自身触发的那次停顿不算新位置
     useReaderStore.getState().settleBookmark(10)
-    expect(useReaderStore.getState().bookmark).toEqual({ chapterIndex: 1, charOffset: 120 })
+    expect(useReaderStore.getState().bookmark).toEqual({ chapterIndex: 1, charOffset: 10 })
 
-    useReaderStore.getState().onScrolled(120)
+    // 再点一次 → 回到刚才离开的地方
+    useReaderStore.getState().onScrolled(10)
     await useReaderStore.getState().backToBookmark()
     expect(useReaderStore.getState().pendingOffset).toBe(120)
     expect(harness.readChapter).toHaveBeenLastCalledWith(BOOK_ID, 1)
   })
 
-  it('跨章回跳会把目标章读出来，leave 后书签清空', async () => {
+  it('跨章回跳会把目标章读出来，leave 后书签与回跳位都清空', async () => {
+    vi.useFakeTimers()
     const harness = makeHarness(storedProgress())
     await useReaderStore.getState().open(BOOK_ID)
-    useReaderStore.getState().onScrolled(60)
+    stayAt(60, BOOKMARK_DWELL_MS)
     useReaderStore.getState().settleBookmark(60)
 
     await useReaderStore.getState().goto(1, 0)
@@ -508,6 +553,7 @@ describe('reader store: 上次位置', () => {
 
     useReaderStore.getState().leave()
     expect(useReaderStore.getState().bookmark).toBeNull()
+    expect(useReaderStore.getState().returnSpot).toBeNull()
   })
 })
 

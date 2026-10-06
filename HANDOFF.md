@@ -34,7 +34,7 @@ pnpm build          # 产出 out/
 pnpm dist           # electron-vite build + electron-builder --dir（产出 release/）
 ```
 
-判据：`pnpm verify` 与 e2e 全绿才算可交付（AGENTS.md 第 2 条）。当前基线是 **46 个测试文件 / 480 个用例**（43 单测文件 / 452 用例 + 3 契约文件 / 28 用例），e2e **32 例**（10 个 spec）。
+判据：`pnpm verify` 与 e2e 全绿才算可交付（AGENTS.md 第 2 条）。当前基线是 **46 个测试文件 / 481 个用例**（43 单测文件 / 453 用例 + 3 契约文件 / 28 用例），e2e **33 例**（10 个 spec）。
 
 > ⚠️ **本机跑 `pnpm verify` 会大面积超时（环境性，不是回归）**：文件级并行下，DB / 临时文件密集的用例会成批报 `Test timed out in 5000ms`（annotations-repository、backup、importer、main-library、reading-repository、reading-stats-service）。2026-10-07 做过对照：**同一批文件在「带改动」与「干净代码」上跑，失败条数完全一致** → 磁盘 I/O 争用所致。绕法：`pnpm exec vitest run tests/unit --no-file-parallelism`（全量 43 文件 / 452 用例全绿，约 77s），契约测试 `pnpm exec vitest run tests/contract` 不受影响。
 
@@ -55,6 +55,7 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 1. **0.1.4 进行中（2026-10-06 / 10-07 用户拍板）**：
    - **A 窗口尺寸 / 位置记忆 —— 已完成**（2026-10-07，commit `b1ccf71`）：纯函数 `src/shared/core/window-bounds.ts` + `src/main/services/window-state.ts`（存 meta 表 `window_state` 键）+ 建窗前恢复 / 关窗时保存；单测 21 例、e2e 2 例。
+   - **顺带修掉一个用户报的老 bug**（2026-10-07）：「回到上次位置」在快滑场景下回不去 —— 见下方「已知坑」里的 `BOOKMARK_DWELL_MS` 那条。
    - **B 阅读统计增强三条 —— 未开工**：书架直接显示今天读数 / 每日目标 + 达成反馈 / 日历热力图与更长周期。范围与做法见 [docs/MVP.md](docs/MVP.md) 第 10 节「已排期：0.1.4」的 B 段（注意：每日统计 0.1.3 已交付，本轮是**增强**，别重造地基）。
    - 版本状态：**0.1.4 未发布**，CHANGELOG 里是一个「未发布」段，攒够了再发。
 2. **备份「还原」已砍（2026-10-07 用户决定，从计划删除）**：不做导入备份。0.1.3 已交付的「导出备份」保留现状，但**导出的包应用读不回来、价值有限** —— 以后用户若重提要重新立项，别自作主张开工，也别再拿它当卖点。
@@ -84,6 +85,7 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 - **产量物体积别用 node `fs.statSync` 量**：对 `release/win-unpacked/resources/app.asar` 会谎报「目录、size 0」；用 PowerShell `Get-Item` 看 `Length`。
 - **冒烟测试**：把工作目录换到临时目录再启动 `release/win-unpacked/十二阅读.exe`，否则会顺着仓库根 `package.json` 跑成 dev 构建。
 - **e2e 的两条隐含契约**：`pnpm test:e2e` 会先构建 `out/`；抽屉关着时 `#toc-list li` 必须是 0（惰性渲染）—— 改目录抽屉时别破坏。
+- **`BOOKMARK_DWELL_MS`（0.1.4 修的坑，别再改回去）**：「上次位置」的判定门槛不是「停 1.2 秒」而是**「在同一个地方待够 5 秒」**。原因：拖滚动条到底 → 松手 → 移鼠标点按钮，中间通常就超过 1.2 秒，旧门槛会把「上次位置」改写成刚滑到的地方，点下去原地不动（用户报的「回不去」）。`settleBookmark()` 里的 `hasDwelled()` 是这道闸门，`dwell` 由 `onScrolled()` → `noteDwell()` 维护；**改这两个函数前先看 TECH 变更记录 2026-10-07 那条**。另有双槽：`bookmark`（上次读的位置，点击不再换走）+ `returnSpot`（刚才离开的位置）。
 - **大书**：性能靶子是 851 万字 / 41 节的书；超过 5 万字的章节跳转必须先一次铺到位再滚（store 的 `revealTo`），否则会「还原到一半卡住」。
 - **受限环境里 e2e 会全挂（环境问题，不是代码问题）**：在容器 / 沙箱 / 无桌面会话的终端里，Chromium 的 GPU 进程起不来，electron 会以 `FATAL: … GPU process isn't usable. Goodbye.` 直接退出，playwright 报 `Target crashed` 或 `#btn-import` 首屏超时，**看着像全量回归，其实一条断言都没跑到**；崩溃时还会弹 `Error launching CrashSender.exe` 的对话框。两个诱因与对策：
   1. 环境里若有 `ELECTRON_RUN_AS_NODE=1`，electron 会退化成普通 node（报 `Cannot read properties of undefined (reading 'isPackaged')`）—— 必须清掉再跑。

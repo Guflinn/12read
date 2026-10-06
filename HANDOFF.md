@@ -26,7 +26,7 @@
 pnpm install
 pnpm dev            # 起 Electron 开发壳
 pnpm verify         # 交付前必跑：eslint + node/web/e2e 三份 tsc + 单测 + 契约测试
-pnpm test:e2e       # Playwright（会先 electron-vite build；9 个 spec，全量约 55s）
+pnpm test:e2e       # Playwright（会先 electron-vite build；10 个 spec，全量约 1.5 分钟）
 # 受限环境（容器/沙箱/无桌面会话）里上面这条会全挂，加参数即可，普通机器不用管：
 # env -u ELECTRON_RUN_AS_NODE TWELVE_READ_E2E_ELECTRON_ARGS="--no-sandbox --disable-gpu" pnpm test:e2e
 pnpm exec playwright test tests/e2e/chapters.spec.ts   # 只跑一个 spec
@@ -34,7 +34,9 @@ pnpm build          # 产出 out/
 pnpm dist           # electron-vite build + electron-builder --dir（产出 release/）
 ```
 
-判据：`pnpm verify` 与 e2e 全绿才算可交付（AGENTS.md 第 2 条）。当前基线是 **45 个测试文件 / 459 个用例**（42 单测文件 / 431 用例 + 3 契约文件 / 28 用例）。
+判据：`pnpm verify` 与 e2e 全绿才算可交付（AGENTS.md 第 2 条）。当前基线是 **46 个测试文件 / 480 个用例**（43 单测文件 / 452 用例 + 3 契约文件 / 28 用例），e2e **32 例**（10 个 spec）。
+
+> ⚠️ **本机跑 `pnpm verify` 会大面积超时（环境性，不是回归）**：文件级并行下，DB / 临时文件密集的用例会成批报 `Test timed out in 5000ms`（annotations-repository、backup、importer、main-library、reading-repository、reading-stats-service）。2026-10-07 做过对照：**同一批文件在「带改动」与「干净代码」上跑，失败条数完全一致** → 磁盘 I/O 争用所致。绕法：`pnpm exec vitest run tests/unit --no-file-parallelism`（全量 43 文件 / 452 用例全绿，约 77s），契约测试 `pnpm exec vitest run tests/contract` 不受影响。
 
 ## 现在在哪（以 `git log` 为准）
 
@@ -51,7 +53,10 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 下一步（按顺序）
 
-1. **0.1.4 已排期（2026-10-06 / 10-07 用户拍板）**：A 窗口尺寸 / 位置记忆（`window.ts` 的 1180×800 写死 → 存 bounds 到 settings，启动恢复 + 屏幕可见性校验）；B 阅读统计增强三条（书架直接显示今天读数 / 每日目标 + 达成反馈 / 日历热力图与更长周期）。范围与测试要求见 [docs/MVP.md](docs/MVP.md) 第 10 节「已排期：0.1.4」。**等用户说开工再动代码。**
+1. **0.1.4 进行中（2026-10-06 / 10-07 用户拍板）**：
+   - **A 窗口尺寸 / 位置记忆 —— 已完成**（2026-10-07，commit `b1ccf71`）：纯函数 `src/shared/core/window-bounds.ts` + `src/main/services/window-state.ts`（存 meta 表 `window_state` 键）+ 建窗前恢复 / 关窗时保存；单测 21 例、e2e 2 例。
+   - **B 阅读统计增强三条 —— 未开工**：书架直接显示今天读数 / 每日目标 + 达成反馈 / 日历热力图与更长周期。范围与做法见 [docs/MVP.md](docs/MVP.md) 第 10 节「已排期：0.1.4」的 B 段（注意：每日统计 0.1.3 已交付，本轮是**增强**，别重造地基）。
+   - 版本状态：**0.1.4 未发布**，CHANGELOG 里是一个「未发布」段，攒够了再发。
 2. **备份「还原」已砍（2026-10-07 用户决定，从计划删除）**：不做导入备份。0.1.3 已交付的「导出备份」保留现状，但**导出的包应用读不回来、价值有限** —— 以后用户若重提要重新立项，别自作主张开工，也别再拿它当卖点。
 3. **0.2.0 EPUB 已立项（2026-10-06）**：范围 / 两项已定决策（ZIP 手写 lenient reader、插图 U+FFFC 占位内联渲染）/ 不做清单 / 实施顺序 / 性能预算，见 [docs/MVP.md](docs/MVP.md) 第 10 节「已立项：0.2.0」。另有「格式路线图」（MOBI 0.3.0 首选、Markdown、文字层 PDF）同节。
 4. **候选池（不排期）**：主题跟随系统 / 摘录导出（书签+划线）/ 目录筛选框 / 每本书的阅读时长 —— 见 MVP.md 第 10 节「候选池」。

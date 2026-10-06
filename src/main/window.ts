@@ -1,14 +1,29 @@
-import { BrowserWindow, shell } from 'electron'
+import { BrowserWindow, screen, shell } from 'electron'
 import { join } from 'node:path'
+import {
+  MIN_WINDOW_HEIGHT,
+  MIN_WINDOW_WIDTH,
+  resolveWindowBounds,
+  type WindowState
+} from '@shared/core/window-bounds'
 
 const DEV_URL = process.env['ELECTRON_RENDERER_URL']
 
-export function createMainWindow(): BrowserWindow {
+/**
+ * 建主窗口。`state` 是上次关窗时存下的尺寸与位置（0.1.4）：
+ * 传 null（首次启动）或存的坐标已失效时，位置交给系统居中 —— 见
+ * `resolveWindowBounds` 的三条规则。
+ */
+export function createMainWindow(state: WindowState | null = null): BrowserWindow {
+  // 建窗前取一次屏幕信息：用它判断存下的坐标还在不在某块屏幕上
+  // （外接显示器拔掉后，旧坐标可能整块落在屏幕之外）。
+  const displays = screen.getAllDisplays().map((display) => display.workArea)
+  const resolved = resolveWindowBounds(state, displays)
+
   const win = new BrowserWindow({
-    width: 1180,
-    height: 800,
-    minWidth: 760,
-    minHeight: 540,
+    ...resolved.bounds,
+    minWidth: MIN_WINDOW_WIDTH,
+    minHeight: MIN_WINDOW_HEIGHT,
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#f6f3ed',
@@ -22,6 +37,8 @@ export function createMainWindow(): BrowserWindow {
       spellcheck: false
     }
   })
+
+  if (resolved.maximized) win.maximize()
 
   win.on('ready-to-show', () => win.show())
 

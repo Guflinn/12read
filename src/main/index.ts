@@ -21,6 +21,7 @@ import { SqlProgressStore } from './services/progress-store'
 import { ReadingStatsService } from './services/reading-stats'
 import { BookSearchService } from './services/search'
 import { SettingsStore } from './services/settings-store'
+import { captureWindowState, WindowStateStore } from './services/window-state'
 import { createMainWindow } from './window'
 
 const isDev = !app.isPackaged
@@ -42,7 +43,7 @@ function broadcast(): (progress: import('@shared/types').ImportProgress) => void
   }
 }
 
-function bootstrap(): void {
+function bootstrap(): () => void {
   mkdirSync(root, { recursive: true })
   mkdirSync(booksRoot(root), { recursive: true })
 
@@ -83,15 +84,23 @@ function bootstrap(): void {
     importer.cancelAll()
     db.close()
   })
+
+  // 窗口尺寸 / 位置记忆（0.1.4）：建窗口前读、关窗时写。
+  // 只在 close 写一次，不做 resize 防抖 —— 少一次写库，代价是进程被强杀时丢本次调整。
+  const windowState = new WindowStateStore(meta)
+  return (): void => {
+    const win = createMainWindow(windowState.get())
+    win.on('close', () => windowState.set(captureWindowState(win)))
+  }
 }
 
 app.whenReady().then(() => {
   installCsp(isDev)
-  bootstrap()
-  createMainWindow()
+  const openWindow = bootstrap()
+  openWindow()
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
+    if (BrowserWindow.getAllWindows().length === 0) openWindow()
   })
 })
 

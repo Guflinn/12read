@@ -6,9 +6,10 @@ import type { MetaRepository } from '@main/db/meta-repository'
 import { deviceIdOf } from '@main/services/device-id'
 import { SqlProgressStore } from '@main/services/progress-store'
 import { SettingsStore } from '@main/services/settings-store'
+import { captureWindowState, WindowStateStore } from '@main/services/window-state'
 
 /**
- * main 侧三个小仓储服务的单测：都只用仓储接口，不碰文件系统，
+ * main 侧几个小仓储服务的单测：都只用仓储接口，不碰文件系统，
  * 所以这里用最小假实现把「读不到 / 坏数据 / 覆盖写」这些分支全部固定住。
  */
 
@@ -181,5 +182,44 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
     })
     expect(returned).toEqual(DEFAULT_SETTINGS)
     expect(meta.set).not.toHaveBeenCalled()
+  })
+})
+
+describe('WindowStateStore 与 captureWindowState（0.1.4 窗口记忆）', () => {
+  const KEY = 'window_state'
+  const SAVED = { bounds: { x: 120, y: 90, width: 1360, height: 900 }, maximized: false }
+
+  it('没有记录时返回 null（调用方走默认尺寸）', () => {
+    expect(new WindowStateStore(makeMetaHarness().repo).get()).toBeNull()
+  })
+
+  it('set 后 get 读回同一份状态', () => {
+    const meta = makeMetaHarness()
+    const store = new WindowStateStore(meta.repo)
+    store.set(SAVED)
+    expect(meta.set).toHaveBeenCalledWith(KEY, JSON.stringify(SAVED))
+    expect(store.get()).toEqual(SAVED)
+  })
+
+  it('meta 里是坏 JSON 时返回 null，不抛异常', () => {
+    const meta = makeMetaHarness({ [KEY]: '{不是 json' })
+    expect(new WindowStateStore(meta.repo).get()).toBeNull()
+  })
+
+  it('meta 里是形状不对的 JSON 时返回 null', () => {
+    const meta = makeMetaHarness({ [KEY]: JSON.stringify({ bounds: { x: '0', y: 0 } }) })
+    expect(new WindowStateStore(meta.repo).get()).toBeNull()
+  })
+
+  it('captureWindowState 取的是「还原后」的尺寸，而不是最大化时铺满屏幕的尺寸', () => {
+    const win = {
+      getNormalBounds: vi.fn(() => ({ x: 60, y: 40, width: 1100, height: 780 })),
+      isMaximized: vi.fn(() => true)
+    }
+    expect(captureWindowState(win)).toEqual({
+      bounds: { x: 60, y: 40, width: 1100, height: 780 },
+      maximized: true
+    })
+    expect(win.getNormalBounds).toHaveBeenCalledTimes(1)
   })
 })

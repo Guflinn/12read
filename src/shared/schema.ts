@@ -82,6 +82,17 @@ export const statAddArgsSchema = z.object({
   chars: z.number().int().min(0).max(STAT_MAX_REPORT_CHARS)
 })
 
+/**
+ * 阅读统计（0.1.4）：渲染层报「在这个位置停下读过」，字数算多少由主进程决定
+ * （按 `reading_span` 里当天的水位线去重）。上限只是防呆。
+ */
+export const statReadArgsSchema = z.object({
+  bookId: bookIdSchema,
+  chapterIndex: chapterIndexSchema,
+  charOffset: z.number().int().min(0).max(STAT_MAX_REPORT_CHARS),
+  enteredAt: z.number().int().min(0).max(STAT_MAX_REPORT_CHARS)
+})
+
 export const statGetArgsSchema = z.object({
   days: z.number().int().min(1).max(90)
 })

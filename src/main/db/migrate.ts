@@ -1,6 +1,7 @@
 import type { SqlDatabase } from './driver'
 import { SCHEMA_V1_SQL, SCHEMA_VERSION } from './schema-v1'
 import { SCHEMA_V2_SQL, SCHEMA_VERSION_2 } from './schema-v2'
+import { SCHEMA_V3_SQL, SCHEMA_VERSION_3 } from './schema-v3'
 
 /**
  * 顺序迁移（TECH.md 5.1）：
@@ -26,6 +27,12 @@ export const MIGRATIONS: Migration[] = [
     name: 'annotations',
     // 书签、划线、阅读统计：纯加表，老数据一行都不用动
     up: (db) => db.exec(SCHEMA_V2_SQL)
+  },
+  {
+    version: SCHEMA_VERSION_3,
+    name: 'reading_span',
+    // 阅读统计的去重水位线（0.1.4）：同样是纯加表
+    up: (db) => db.exec(SCHEMA_V3_SQL)
   }
 ]
 

@@ -22,6 +22,14 @@ export interface ReadingTotals {
   books: number
 }
 
+export interface ReadingSpanRecord {
+  bookId: string
+  day: string
+  chapterIndex: number
+  maxOffset: number
+  updatedAt: number
+}
+
 /** 夹成非负整数：库里的 ms / chars 只该往前涨，坏值一律当 0。 */
 function amount(value: unknown): number {
   const num = Number(value)
@@ -100,8 +108,7 @@ export class ReadingStatRepository {
   }
 
   /** 读得最久的几本书，带书名（书删了统计跟着级联删，所以不用兜底）。 */
-  topBooks(limit: number): ReadingBookStat[] {
-    const rows = this.db
+  topBooks(limit: number): ReadingBookStat[] {    const rows = this.db
       .prepare(
         `SELECT rs.book_id AS book_id, b.title AS title,
                 COALESCE(SUM(rs.ms), 0) AS ms, COALESCE(SUM(rs.chars), 0) AS chars
@@ -120,5 +127,40 @@ export class ReadingStatRepository {
         chars: amount(line['chars'])
       }
     })
+  }
+
+  /**
+   * 这一天在这一章读到过的最远偏移（高水位线）；没有记录返回 null。
+   * 0.1.4 起用它去重：没超过水位线就不算新读的字数。
+   */
+  spanMark(bookId: string, day: string, chapterIndex: number): number | null {
+    const row = this.db
+      .prepare(
+        `SELECT max_offset FROM reading_span
+         WHERE book_id = ? AND day = ? AND chapter_index = ?`
+      )
+      .get(bookId, day, chapterIndex)
+    if (row === undefined || row === null) return null
+    const value = Number((row as SqlRow)['max_offset'])
+    return Number.isFinite(value) && value >= 0 ? Math.trunc(value) : null
+  }
+
+  /** 水位线只往前推：同一天同一章反复报也不会退回去（MAX 兜底）。 */
+  upsertSpan(record: ReadingSpanRecord): void {
+    this.db
+      .prepare(
+        `INSERT INTO reading_span (book_id, day, chapter_index, max_offset, updated_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(book_id, day, chapter_index) DO UPDATE SET
+           max_offset = MAX(max_offset, excluded.max_offset),
+           updated_at = excluded.updated_at`
+      )
+      .run(
+        record.bookId,
+        record.day,
+        Math.max(0, Math.trunc(record.chapterIndex)),
+        amount(record.maxOffset),
+        record.updatedAt
+      )
   }
 }

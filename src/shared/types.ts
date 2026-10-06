@@ -183,6 +183,20 @@ export interface ReadingBookStat {
   chars: number
 }
 
+/**
+ * 「停下读过一会儿」的位置上报（0.1.4）。
+ * 字数不在这里传：主进程按当天在这一章读到过的最远偏移去重后再算，
+ * 免得来回刷、拖滚动条把同一段反复计入。
+ */
+export interface ReadSpanInput {
+  bookId: BookId
+  chapterIndex: number
+  /** 停下来时的章内偏移。 */
+  charOffset: number
+  /** 进入这一章时的章内偏移：当天第一次读这一章时，水位线从这里起算。 */
+  enteredAt: number
+}
+
 export interface ReadingStats {
   todayMs: number
   todayChars: number

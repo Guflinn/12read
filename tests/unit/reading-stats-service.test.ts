@@ -115,3 +115,83 @@ describe('ReadingStatsService', () => {
     expect(top.map((book) => book.bookId)).toEqual(['b6', 'b5', 'b4', 'b3', 'b2'])
   })
 })
+
+/**
+ * readAt（0.1.4）：字数不再按「进度位移」累加，而是按「这一天在这一章读到过的最远偏移」
+ * 去重后算。这一组用例把用户报的那个夸大场景钉死：来回刷不能重复计。
+ */
+describe('ReadingStatsService.readAt（字数去重）', () => {
+  it('往前读：只记超出去的那一段，并推进水位线', () => {
+    const repo = makeRepo()
+    const service = new ReadingStatsService(repo, () => TODAY)
+
+    expect(service.readAt({ bookId: 'b1', chapterIndex: 0, charOffset: 300, enteredAt: 0 })).toBe(300)
+    expect(service.readAt({ bookId: 'b1', chapterIndex: 0, charOffset: 500, enteredAt: 0 })).toBe(200)
+    expect(repo.dayTotals('2026-10-05').chars).toBe(500)
+  })
+
+  it('来回刷同一段：只算第一次（用户报的「刷一下就几万字」）', () => {
+    const repo = makeRepo()
+    const service = new ReadingStatsService(repo, () => TODAY)
+
+    expect(service.readAt({ bookId: 'b1', chapterIndex: 0, charOffset: 800, enteredAt: 0 })).toBe(800)
+    // 往回翻
+    expect(service.readAt({ bookId: 'b1', chapterIndex: 0, charOffset: 100, enteredAt: 0 })).toBe(0)
+    // 再前进到刚读过的地方：不算新字（旧逻辑这里会再加 700）
+    expect(service.readAt({ bookId: 'b1', chapterIndex: 0, charOffset: 800, enteredAt: 0 })).toBe(0)
+    // 来回刷十遍也一样
+    for (let i = 0; i < 10; i += 1) {
+      service.readAt({ bookId: 'b1', chapterIndex: 0, charOffset: 100, enteredAt: 0 })
+      service.readAt({ bookId: 'b1', chapterIndex: 0, charOffset: 800, enteredAt: 0 })
+    }
+    expect(repo.dayTotals('2026-10-05').chars).toBe(800)
+  })
+
+  it('一步跨太远（拖滚动条）不算读，水位线也不动，之后真读还算得到', () => {
+    const repo = makeRepo()
+    const service = new ReadingStatsService(repo, () => TODAY)
+
+    expect(service.readAt({ bookId: 'b1', chapterIndex: 0, charOffset: 9_000, enteredAt: 0 })).toBe(0)
+    expect(repo.dayTotals('2026-10-05').chars).toBe(0)
+    // 水位线还在 0：现在真的读 1000 字，照样记得上
+    expect(service.readAt({ bookId: 'b1', chapterIndex: 0, charOffset: 1_000, enteredAt: 0 })).toBe(1_000)
+  })
+
+  it('进章点决定水位线起点：从目录跳进章中间，前半个章不算读过', () => {
+    const repo = makeRepo()
+    const service = new ReadingStatsService(repo, () => TODAY)
+
+    expect(
+      service.readAt({ bookId: 'b1', chapterIndex: 5, charOffset: 3_500, enteredAt: 3_000 })
+    ).toBe(500)
+    expect(
+      service.readAt({ bookId: 'b1', chapterIndex: 5, charOffset: 4_000, enteredAt: 3_000 })
+    ).toBe(500)
+    expect(repo.dayTotals('2026-10-05').chars).toBe(1_000)
+  })
+
+  it('按天分开：昨天读过的，今天接着读照样算', () => {
+    const repo = makeRepo()
+    new ReadingStatsService(repo, () => YESTERDAY).readAt({
+      bookId: 'b1',
+      chapterIndex: 0,
+      charOffset: 600,
+      enteredAt: 0
+    })
+    const today = new ReadingStatsService(repo, () => TODAY)
+    expect(today.readAt({ bookId: 'b1', chapterIndex: 0, charOffset: 200, enteredAt: 0 })).toBe(200)
+
+    expect(repo.dayTotals('2026-10-04').chars).toBe(600)
+    expect(repo.dayTotals('2026-10-05').chars).toBe(200)
+  })
+
+  it('不同章各算各的；负数与 0 不会写坏数据', () => {
+    const repo = makeRepo()
+    const service = new ReadingStatsService(repo, () => TODAY)
+
+    expect(service.readAt({ bookId: 'b1', chapterIndex: -3, charOffset: 100, enteredAt: 0 })).toBe(100)
+    expect(service.readAt({ bookId: 'b1', chapterIndex: 1, charOffset: -50, enteredAt: 0 })).toBe(0)
+    expect(service.readAt({ bookId: 'b1', chapterIndex: 1, charOffset: 0, enteredAt: 0 })).toBe(0)
+    expect(repo.dayTotals('2026-10-05').chars).toBe(100)
+  })
+})

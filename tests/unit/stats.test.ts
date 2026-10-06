@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { dayKey, dayParts, fillDays, formatDuration, shiftDay, streakFromDays } from '@shared/core/stats'
+import {
+  charsReadStep,
+  dayKey,
+  dayParts,
+  fillDays,
+  formatDuration,
+  shiftDay,
+  STAT_MAX_STEP_CHARS,
+  streakFromDays
+} from '@shared/core/stats'
 
 describe('dayKey', () => {
   it('按本地时区给出 YYYY-MM-DD 并补零', () => {
@@ -107,5 +116,35 @@ describe('dayParts', () => {
     expect(dayParts('')).toEqual({ m: '', d: '' })
     expect(dayParts('2026-10')).toEqual({ m: '2026-10', d: '' })
     expect(dayParts('乱码')).toEqual({ m: '乱码', d: '' })
+  })
+})
+
+/**
+ * charsReadStep（0.1.4）：主进程算字数的唯一规则 ——
+ * 只有「超出当天水位线、且不是一步跨太远」的那一段才算新读的字。
+ */
+describe('charsReadStep', () => {
+  it('正常前进：记增量', () => {
+    expect(charsReadStep(0, 500)).toBe(500)
+    expect(charsReadStep(500, 800)).toBe(300)
+  })
+
+  it('没前进（来回刷、往回翻、原地不动）：一律 0', () => {
+    expect(charsReadStep(500, 500)).toBe(0)
+    expect(charsReadStep(500, 100)).toBe(0)
+    expect(charsReadStep(500, 0)).toBe(0)
+  })
+
+  it('一步跨太远（拖滚动条 / 跳转）：不算读', () => {
+    expect(charsReadStep(0, STAT_MAX_STEP_CHARS + 1)).toBe(0)
+    expect(charsReadStep(0, 200_000)).toBe(0)
+    // 正好等于上限仍算读（边界）
+    expect(charsReadStep(0, STAT_MAX_STEP_CHARS)).toBe(STAT_MAX_STEP_CHARS)
+  })
+
+  it('水位线或偏移是非数字时按 0 处理，不抛异常', () => {
+    expect(charsReadStep(Number.NaN, 300)).toBe(300)
+    expect(charsReadStep(0, Number.POSITIVE_INFINITY)).toBe(0)
+    expect(charsReadStep(100, Number.NaN)).toBe(0)
   })
 })

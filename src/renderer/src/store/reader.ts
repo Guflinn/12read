@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { clampOffset, makeAnchor, relocateOffset } from '@shared/core/anchor'
 import { normalizeQuery } from '@shared/core/search'
-import { STAT_MAX_STEP_CHARS } from '@shared/core/stats'
+import { STAT_MIN_REPORT_CHARS } from '@shared/core/stats'
 import {
   CHUNK_FIRST_RENDER_CHARS,
   CHUNK_THRESHOLD_CHARS,
@@ -74,6 +74,11 @@ export interface ReaderState {
   onScrolled(offset: CharOffset): void
   /** 停下来读了一会儿：把当前位置记成「上次位置」。 */
   settleBookmark(offset: CharOffset): void
+  /**
+   * 停下来读了一会儿（0.1.4）：把位置报给主进程记账。
+   * 字数由主进程按「当天在这一章读到过的最远偏移」去重后算，这里不传字数。
+   */
+  readPaused(offset: CharOffset): void
   /** 回到上次停留的位置；再点一次回到刚才离开的地方。 */
   backToBookmark(): Promise<void>
   /** 改章节标题（只动章节表，正文一个字都不动）。 */
@@ -211,8 +216,6 @@ function buildProgress(): Progress | null {
 async function persist(): Promise<void> {
   const progress = buildProgress()
   if (!progress) return
-  // 在第一个 await 之前记字数：buildProgress 是同步快照，基准不会错位
-  noteReadChars(progress)
   try {
     await readerApi().saveProgress(progress)
   } catch (cause) {
@@ -220,43 +223,66 @@ async function persist(): Promise<void> {
   }
 }
 
-/** 还没落库的阅读时长与字数（0.1.3 第 8 项）。 */
+/** 还没落库的阅读时长（0.1.3 第 8 项）。字数不在这里攒 —— 0.1.4 起交给主进程按水位线算。 */
 let pendingStatMs = 0
-let pendingStatChars = 0
-/** 上一次算字数的落点，用来求「这一段读了多少字」。 */
-let lastStatSpot: ReadingSpot | null = null
+/** 上一次上报「读过」的落点，免得停在原地不动时反复上报。 */
+let lastReadSpot: ReadingSpot | null = null
+/** 这一章是从哪个偏移进来的：当天第一次读这一章时，统计的水位线从这里起算。 */
+let chapterEntry: ReadingSpot | null = null
 
 /**
- * 把攒下的时长与字数交给主进程。失败只记日志、不重试：
+ * 把攒下的时长交给主进程。失败只记日志、不重试：
  * 统计是「大概读了多久」，不值得为它挡着看书或者把界面弄脏。
  */
 function flushStats(): void {
   const book = useReaderStore.getState().book
   const ms = pendingStatMs
-  const chars = pendingStatChars
-  if (!book || (ms <= 0 && chars <= 0)) return
+  if (!book || ms <= 0) return
   pendingStatMs = 0
-  pendingStatChars = 0
   void readerApi()
-    .addReadingStat(book.id, ms, chars)
+    .addReadingStat(book.id, ms, 0)
     .catch((cause: unknown) => {
       console.error('[12read] 保存阅读统计失败', cause)
     })
 }
 
 /**
- * 记下「上一次落点 → 这一次落点」之间新读的字数。
- * 跳章或者往回翻不算读了新字，只把基准挪过去，
- * 否则来回翻两下就把同一段数了两遍。
+ * 「读了一会儿，停在哪儿」——0.1.4 起字数由主进程算，这里只报位置。
+ *
+ * 为什么要报位置而不是报字数：字数得按「这一天在这一章读到过的最远偏移」去重，
+ * 才算不出「来回刷两遍 = 读了双倍」这种账；那个水位线存在主进程的库里，
+ * 渲染层只负责说「我停在这儿读了一会儿」。算不算新字、算多少，由主进程决定。
  */
-function noteReadChars(progress: Progress): void {
-  const spot: ReadingSpot = { chapterIndex: progress.chapterIndex, charOffset: progress.charOffset }
-  const previous = lastStatSpot
-  lastStatSpot = spot
-  if (!previous || previous.chapterIndex !== spot.chapterIndex) return
-  const step = spot.charOffset - previous.charOffset
-  if (step <= 0 || step > STAT_MAX_STEP_CHARS) return
-  pendingStatChars += step
+function reportReadAt(offset: CharOffset): void {
+  const state = useReaderStore.getState()
+  const book = state.book
+  if (!book || state.chapterText.length === 0) return
+  const spot: ReadingSpot = {
+    chapterIndex: state.chapterIndex,
+    charOffset: clampOffset(offset, state.chapterText.length)
+  }
+  // 停在原地不动就别反复上报（主进程算出来也会是 0，省点 IPC）
+  if (
+    lastReadSpot &&
+    lastReadSpot.chapterIndex === spot.chapterIndex &&
+    Math.abs(lastReadSpot.charOffset - spot.charOffset) < STAT_MIN_REPORT_CHARS
+  ) {
+    return
+  }
+  const entry =
+    chapterEntry && chapterEntry.chapterIndex === spot.chapterIndex ? chapterEntry.charOffset : null
+  lastReadSpot = spot
+  void readerApi()
+    .addReadSpan({
+      bookId: book.id,
+      chapterIndex: spot.chapterIndex,
+      charOffset: spot.charOffset,
+      // 拿不准这一章是从哪儿进来的，就保守地从当前位置起算（宁可少算，不多算）
+      enteredAt: entry === null ? spot.charOffset : entry
+    })
+    .catch((cause: unknown) => {
+      console.error('[12read] 保存阅读字数失败', cause)
+    })
 }
 
 /** 阅读计时：窗口在看着、人也没走开，每 15 秒算一段（详见 core/reading-clock.ts）。 */
@@ -294,6 +320,8 @@ async function applyChapterEdit(run: (bookId: string) => Promise<Chapter[]>): Pr
     if (mine !== seq) return
     const offset = clampOffset(spot.charOffset, text.length)
     lastOffset = offset
+    // 改分章后章节表变了，把统计水位线的起点也重新落位
+    chapterEntry = { chapterIndex: spot.chapterIndex, charOffset: offset }
     const chapter: Chapter | undefined = chapters[spot.chapterIndex]
     skipNextSettle = true
     dwell = null
@@ -345,8 +373,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     statClock.stop()
     flushStats()
     pendingStatMs = 0
-    pendingStatChars = 0
-    lastStatSpot = null
+    lastReadSpot = null
+    chapterEntry = null
     dwell = null
     skipNextSettle = false
     set({
@@ -404,7 +432,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         highlights: orderHighlights(highlights),
         loading: false
       })
-      lastStatSpot = { chapterIndex: index, charOffset: offset }
+      lastReadSpot = { chapterIndex: index, charOffset: offset }
+      chapterEntry = { chapterIndex: index, charOffset: offset }
       statClock.start()
       skipNextSettle = false
       dwell = null
@@ -468,6 +497,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       if (mine !== seq) return
       const chapter: Chapter | undefined = state.chapters[target]
       lastOffset = offset
+      // 换章了：统计的水位线要从「进这一章的位置」起算（跳进章中间时别把前半章算成读过）
+      chapterEntry = { chapterIndex: target, charOffset: offset }
       set({
         chapterIndex: target,
         chapterText: text,
@@ -503,6 +534,10 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     const percent = percentOf(state.book.charCount, chapter ? chapter.startOffset : 0, lastOffset)
     if (Math.abs(percent - state.percent) >= 0.05) set({ percent })
     saver.schedule()
+  },
+
+  readPaused(offset: CharOffset): void {
+    reportReadAt(offset)
   },
 
   settleBookmark(offset: CharOffset): void {

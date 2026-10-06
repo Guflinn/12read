@@ -83,6 +83,7 @@ interface Harness {
   listHighlights: ReturnType<typeof vi.fn>
   searchBook: ReturnType<typeof vi.fn>
   addReadingStat: ReturnType<typeof vi.fn>
+  addReadSpan: ReturnType<typeof vi.fn>
   getReadingStats: ReturnType<typeof vi.fn>
   exportBackup: ReturnType<typeof vi.fn>
 }
@@ -119,6 +120,7 @@ function makeHarness(
   const removeHighlight = vi.fn(async (): Promise<void> => undefined)
   // 搜索默认给「一处都没找到」：单个用例再按需 mockResolvedValueOnce
   const addReadingStat = vi.fn(async (): Promise<void> => undefined)
+  const addReadSpan = vi.fn(async (): Promise<number> => 0)
   const getReadingStats = vi.fn(
     async (): Promise<ReadingStats> => ({
       todayMs: 0,
@@ -163,6 +165,7 @@ function makeHarness(
     removeHighlight,
     searchBook,
     addReadingStat,
+    addReadSpan,
     getReadingStats,
     exportBackup,
     readChapter,
@@ -190,6 +193,7 @@ function makeHarness(
     listHighlights,
     searchBook,
     addReadingStat,
+    addReadSpan,
     getReadingStats,
     exportBackup
   }
@@ -925,21 +929,21 @@ describe('reader store: 搜索', () => {
 })
 
 describe('reader store: 阅读统计', () => {
-  it('在读的时候每 15 秒报一段时长，往前读了字也一起报', async () => {
+  it('在读的时候每 15 秒报一段时长；字数不再由渲染层算', async () => {
     vi.useFakeTimers()
     const harness = makeHarness(storedProgress({ chapterIndex: 0, charOffset: 0 }))
     await useReaderStore.getState().open(BOOK_ID)
 
-    // 打开就把节拍挂上：安静读了 15 秒，先只有时长
+    // 打开就把节拍挂上：安静读了 15 秒
     vi.advanceTimersByTime(STAT_REPORT_MS)
     expect(harness.addReadingStat.mock.calls[0]).toEqual([BOOK_ID, STAT_REPORT_MS, 0])
 
-    // 往前读 50 字：先让进度落盘（noteReadChars 在 persist 里记字数），再走到下一拍
+    // 滚动 + 落盘也不再往上报里塞字数：0.1.4 起字数归主进程按水位线算
     useReaderStore.getState().onScrolled(50)
     vi.advanceTimersByTime(PROGRESS_THROTTLE_MS)
     expect(harness.saveProgress).toHaveBeenCalledTimes(1)
     vi.advanceTimersByTime(STAT_REPORT_MS - PROGRESS_THROTTLE_MS)
-    expect(harness.addReadingStat.mock.calls[1]).toEqual([BOOK_ID, STAT_REPORT_MS, 50])
+    expect(harness.addReadingStat.mock.calls[1]).toEqual([BOOK_ID, STAT_REPORT_MS, 0])
   })
 
   it('一分钟没人动就停表，挂机时间不算读', async () => {
@@ -954,7 +958,7 @@ describe('reader store: 阅读统计', () => {
     expect(reported).toBe(STAT_REPORT_MS * 4)
   })
 
-  it('离开阅读器时把攒着还没报的字数补上', async () => {
+  it('离开阅读器时不再需要补字数：字数在「停下读过」那一下就报给主进程了', async () => {
     vi.useFakeTimers()
     const harness = makeHarness(storedProgress())
     await useReaderStore.getState().open(BOOK_ID)
@@ -962,31 +966,40 @@ describe('reader store: 阅读统计', () => {
     vi.advanceTimersByTime(PROGRESS_THROTTLE_MS)
     harness.addReadingStat.mockClear()
 
+    // 时长这一拍还没到点，所以离开时什么都不用补（0.1.4 起字数不在这里攒）
     useReaderStore.getState().leave()
-    expect(harness.addReadingStat).toHaveBeenCalledTimes(1)
-    expect(harness.addReadingStat.mock.calls[0]?.[0]).toBe(BOOK_ID)
-    expect(harness.addReadingStat.mock.calls[0]?.[1]).toBe(0)
-    expect(harness.addReadingStat.mock.calls[0]?.[2]).toBe(30)
+    expect(harness.addReadingStat).not.toHaveBeenCalled()
   })
 
-  it('只往回翻或者跳章不算读新字', async () => {
-    vi.useFakeTimers()
-    const harness = makeHarness(storedProgress())
+  it('停下来读过就报位置给主进程，原地不动不重复报，进章点跟着换章走', async () => {
+    const harness = makeHarness(storedProgress({ chapterIndex: 0, charOffset: 0 }))
     await useReaderStore.getState().open(BOOK_ID)
-    useReaderStore.getState().onScrolled(60)
-    vi.advanceTimersByTime(PROGRESS_THROTTLE_MS)
-    // 回到前面：不涨字数
-    useReaderStore.getState().onScrolled(20)
-    vi.advanceTimersByTime(PROGRESS_THROTTLE_MS)
-    // 跳章：基准挪到新章，也不算
-    await useReaderStore.getState().goto(1, 10)
-    useReaderStore.getState().onScrolled(40)
-    vi.advanceTimersByTime(PROGRESS_THROTTLE_MS)
-    // 走到下一拍，把攒下的字数报出来
-    vi.advanceTimersByTime(STAT_REPORT_MS)
 
-    const chars = harness.addReadingStat.mock.calls.reduce((sum, call) => sum + (call[2] as number), 0)
-    expect(chars).toBe(60)
+    // 第一章正文只有 94 字，报的偏移会被夹在章长以内
+    useReaderStore.getState().readPaused(60)
+    expect(harness.addReadSpan).toHaveBeenCalledTimes(1)
+    expect(harness.addReadSpan.mock.calls[0]?.[0]).toEqual({
+      bookId: BOOK_ID,
+      chapterIndex: 0,
+      charOffset: 60,
+      // 打开这本书时停在 0，所以这一章的水位线从 0 起算
+      enteredAt: 0
+    })
+
+    // 位置几乎没动：不再报（主进程算出来也会是 0）
+    useReaderStore.getState().readPaused(64)
+    expect(harness.addReadSpan).toHaveBeenCalledTimes(1)
+
+    // 换到第二章（从 10 处进去）：报的位置与进章点都跟着换
+    await useReaderStore.getState().goto(1, 10)
+    useReaderStore.getState().readPaused(80)
+    expect(harness.addReadSpan).toHaveBeenCalledTimes(2)
+    expect(harness.addReadSpan.mock.calls[1]?.[0]).toEqual({
+      bookId: BOOK_ID,
+      chapterIndex: 1,
+      charOffset: 80,
+      enteredAt: 10
+    })
   })
 })
 

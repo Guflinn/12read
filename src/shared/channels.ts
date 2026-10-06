@@ -24,6 +24,8 @@ export const CH = {
   bookSearch: 'book:search',
   /** 阅读统计（0.1.3 第 8 项）：renderer 按段上报时长与字数，书架汇总看一眼。 */
   statAdd: 'stat:add',
+  /** 阅读统计（0.1.4）：renderer 报「在这儿停下读过」的位置，字数由主进程按当天水位线去重后算。 */
+  statRead: 'stat:read',
   statGet: 'stat:get',
   /** 导出备份（0.1.3 第 9 项）：整库打一个 zip，只导出不恢复。 */
   backupExport: 'backup:export',

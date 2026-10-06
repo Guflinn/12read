@@ -55,3 +55,53 @@ test('阅读统计：书架打开面板，今天与累计、近两周柱子、�
   await page.locator('.modal-actions .btn.primary').click()
   await expect(page.locator('.modal')).toHaveCount(0)
 })
+
+test('字数去重：同一段来回刷，今天读的字数不会跟着涨（0.1.4）', async () => {
+  const bookPath = writeNovelFile(makeTempDir('12read-stat-dedup-src-'), '去重书.txt', buildNovel())
+  const page = await openApp(makeTempDir('12read-stat-dedup-'))
+  if (!app) throw new Error('应用未启动')
+  await stubOpenDialog(app, [bookPath])
+  await page.click('#btn-import')
+  await page.click('.book-card')
+  await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
+
+  const scrollTo = (top: number): Promise<void> =>
+    page.locator('#reader-scroll').evaluate((el, value) => {
+      el.scrollTop = value
+    }, top)
+
+  /**
+   * 直接问主进程要今天读了多少字（不离开阅读器）——
+   * 一旦回书架再进来，进章点就变了，验不出水位线本身。
+   */
+  const todayChars = (): Promise<number> =>
+    page.evaluate(async () => {
+      const api = (
+        window as unknown as {
+          reader: { getReadingStats(days: number): Promise<{ todayChars: number }> }
+        }
+      ).reader
+      return (await api.getReadingStats(1)).todayChars
+    })
+
+  /** 停下读一会儿：等足「停 2 秒才算读过」的节拍。 */
+  const readPause = async (top: number): Promise<void> => {
+    await scrollTo(top)
+    await page.waitForTimeout(2600)
+  }
+
+  // 往前读两屏（进书时停在 0，所以这一章的水位线从 0 起算）
+  await readPause(400)
+  await readPause(900)
+  const afterFirstRead = await todayChars()
+  expect(afterFirstRead).toBeGreaterThan(0)
+
+  // 在刚读过的那一段来回刷两遍：每次都停够 2 秒，所以都会上报
+  for (let i = 0; i < 2; i += 1) {
+    await readPause(300)
+    await readPause(900)
+  }
+
+  // 还是那么多字：同一段内容当天只算一次（旧逻辑这里会翻好几倍）
+  expect(await todayChars()).toBe(afterFirstRead)
+})

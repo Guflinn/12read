@@ -122,7 +122,7 @@ describe('backup: 打包内容', () => {
       BACKUP_MANIFEST_FILE
     ])
     expect(manifest.version).toBe('0.1.2')
-    expect(manifest.schemaVersion).toBe(2)
+    expect(manifest.schemaVersion).toBe(3)
     expect(manifest.exportedAt).toBe(new Date(stamp).toISOString())
     expect(manifest.counts).toEqual({
       books: 2,
@@ -130,7 +130,8 @@ describe('backup: 打包内容', () => {
       progress: 1,
       bookmarks: 1,
       highlights: 1,
-      stats: 1
+      stats: 1,
+      spans: 0
     })
     expect(manifest.books).toEqual([
       { id: BOOK_A, title: '有源文件的书', author: '作者甲', hasSource: true },

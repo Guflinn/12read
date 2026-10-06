@@ -33,6 +33,8 @@ export interface BackupManifestCounts {
   bookmarks: number
   highlights: number
   stats: number
+  /** 阅读统计的去重水位线（0.1.4 起，schema v3）。 */
+  spans: number
 }
 
 export interface BackupManifest {
@@ -121,7 +123,8 @@ export class BackupService {
         progress: countRows(db, 'progress'),
         bookmarks: countRows(db, 'bookmark'),
         highlights: countRows(db, 'highlight'),
-        stats: countRows(db, 'reading_stat')
+        stats: countRows(db, 'reading_stat'),
+        spans: countRows(db, 'reading_span')
       },
       books: listed
     }

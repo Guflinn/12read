@@ -20,6 +20,7 @@ import {
   renameChapterArgsSchema,
   settingsSchema,
   statAddArgsSchema,
+  statReadArgsSchema,
   statGetArgsSchema
 } from '@shared/schema'
 import type {
@@ -35,6 +36,7 @@ import type {
   ManualEncoding,
   Progress,
   ReaderSettings,
+  ReadSpanInput,
   ReadingStats,
   SearchResult,
   SearchScope,
@@ -95,6 +97,8 @@ const readerApi: ReaderApi = {
     invoke(CH.bookSearch, searchArgsSchema, { bookId, query, scope, chapterIndex }),
   addReadingStat: (bookId: string, ms: number, chars: number): Promise<void> =>
     invoke(CH.statAdd, statAddArgsSchema, { bookId, ms, chars }),
+  addReadSpan: (input: ReadSpanInput): Promise<number> =>
+    invoke(CH.statRead, statReadArgsSchema, input),
   getReadingStats: (days: number): Promise<ReadingStats> =>
     invoke(CH.statGet, statGetArgsSchema, { days }),
   exportBackup: (): Promise<BackupResult | null> =>

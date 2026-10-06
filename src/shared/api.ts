@@ -10,6 +10,7 @@ import type {
   ImportProgress,
   ManualEncoding,
   Progress,
+  ReadSpanInput,
   ReaderSettings,
   ReadingStats,
   SearchResult,
@@ -73,6 +74,12 @@ export interface ReaderApi {
    * 主进程按本地日期累加；书架上的统计面板用 getReadingStats 汇总。
    */
   addReadingStat(bookId: string, ms: number, chars: number): Promise<void>
+  /**
+   * 阅读统计（0.1.4）：报「在这个位置停下读过一会儿」。字数由主进程按
+   * `reading_span` 里当天的水位线去重后计算（同一段当天只算一次，
+   * 拖过去的整段不算），返回这次记了多少字。
+   */
+  addReadSpan(input: ReadSpanInput): Promise<number>
   getReadingStats(days: number): Promise<ReadingStats>
   /**
    * 导出备份（0.1.3 第 9 项）：主进程弹「另存为」，把整库打成一个 zip。

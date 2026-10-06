@@ -3,6 +3,7 @@ import type { MouseEvent as ReactMouseEvent } from 'react'
 import { normalizeSelection, rangesOfChapter, splitHighlighted } from '@/core/annotations'
 import { offsetForScrollTop, scrollTopForOffset, splitParagraphs } from '@/core/paragraphs'
 import { chapterLabel, progressLabel } from '@/core/reading'
+import { STAT_READ_PAUSE_MS } from '@shared/core/stats'
 import { BOOKMARK_DWELL_MS, BOOKMARK_REST_MS, useReaderStore } from '@/store/reader'
 import { useSettingsStore } from '@/store/settings'
 import { SearchPanel } from './SearchPanel'
@@ -77,6 +78,8 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
   const restTimerRef = useRef<number | null>(null)
   /** 「待够时长」计时器：只有它到点且确实在那儿待住了，store 才会更新「上次位置」。 */
   const dwellTimerRef = useRef<number | null>(null)
+  /** 统计计时器：停下 STAT_READ_PAUSE_MS 就把位置报给主进程记账（0.1.4）。 */
+  const readTimerRef = useRef<number | null>(null)
   /** 正文容器：选区端点要靠它反查章内偏移。 */
   const contentRef = useRef<HTMLElement | null>(null)
   const [toolbar, setToolbar] = useState<Toolbar | null>(null)
@@ -193,6 +196,13 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
       dwellTimerRef.current = null
       useReaderStore.getState().settleBookmark(lastOffsetRef.current)
     }, BOOKMARK_DWELL_MS)
+    // 统计口径（0.1.4）：停下来 2 秒就算「在这儿读过一会儿」，把位置报上去记账。
+    // 字数由主进程按当天水位线去重后算，所以快滑经过（停不足 2 秒）不会留下记录。
+    if (readTimerRef.current !== null) window.clearTimeout(readTimerRef.current)
+    readTimerRef.current = window.setTimeout(() => {
+      readTimerRef.current = null
+      useReaderStore.getState().readPaused(lastOffsetRef.current)
+    }, STAT_READ_PAUSE_MS)
   }, [measurement, truncated])
 
   /** 一页的步长：留 40px 重叠，前后两页才读得连得上。 */
@@ -315,6 +325,7 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
     () => () => {
       if (restTimerRef.current !== null) window.clearTimeout(restTimerRef.current)
       if (dwellTimerRef.current !== null) window.clearTimeout(dwellTimerRef.current)
+      if (readTimerRef.current !== null) window.clearTimeout(readTimerRef.current)
       useReaderStore.getState().flush()
     },
     []

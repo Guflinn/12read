@@ -203,6 +203,10 @@ function makeContext(): {
     add: vi.fn((input: unknown) => {
       order.push('stat:' + JSON.stringify(input))
     }),
+    readAt: vi.fn((input: unknown): number => {
+      order.push('statread:' + JSON.stringify(input))
+      return 42
+    }),
     summary: vi.fn((): ReadingStats => STATS)
   }
   const backup = {
@@ -633,6 +637,29 @@ describe('IPC 注册与转发', () => {
     expect(stats.add.mock.calls[0]?.[0]).toEqual({ bookId: BOOK_ID, ms: 15_000, chars: 300 })
     await call(CH.statAdd, { bookId: BOOK_ID, ms: 0, chars: 0 })
     expect(stats.add.mock.calls[1]?.[0]).toEqual({ bookId: BOOK_ID, ms: 0, chars: 0 })
+  })
+
+  it('stat:read 只收位置，字数由主进程算并原样返回', async () => {
+    const { stats } = setup()
+    const args = { bookId: BOOK_ID, chapterIndex: 3, charOffset: 1200, enteredAt: 800 }
+    expect(await call(CH.statRead, args)).toBe(42)
+    expect(stats.readAt.mock.calls[0]?.[0]).toEqual(args)
+  })
+
+  it('stat:read 的负数、小数、超上限与缺字段被拒，不碰统计服务', async () => {
+    const { stats } = setup()
+    for (const raw of [
+      { bookId: BOOK_ID, chapterIndex: -1, charOffset: 0, enteredAt: 0 },
+      { bookId: BOOK_ID, chapterIndex: 0, charOffset: -1, enteredAt: 0 },
+      { bookId: BOOK_ID, chapterIndex: 0, charOffset: 0, enteredAt: -1 },
+      { bookId: BOOK_ID, chapterIndex: 1.5, charOffset: 0, enteredAt: 0 },
+      { bookId: BOOK_ID, chapterIndex: 0, charOffset: STAT_MAX_REPORT_CHARS + 1, enteredAt: 0 },
+      { bookId: BOOK_ID, chapterIndex: 0, charOffset: 0 },
+      { bookId: 'not-a-uuid', chapterIndex: 0, charOffset: 0, enteredAt: 0 }
+    ]) {
+      await expect(call(CH.statRead, raw)).rejects.toThrow('参数校验失败: ' + CH.statRead)
+    }
+    expect(stats.readAt).not.toHaveBeenCalled()
   })
 
   it('stat:add 的负数、小数与超上限被拒，不碰统计服务', async () => {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { MIGRATIONS, readSchemaVersion, runMigrations, writeSchemaVersion, type Migration } from '@main/db/migrate'
 import { SCHEMA_V1_SQL } from '@main/db/schema-v1'
 import { SCHEMA_V2_SQL, SCHEMA_VERSION_2 } from '@main/db/schema-v2'
+import { SCHEMA_V3_SQL, SCHEMA_VERSION_3 } from '@main/db/schema-v3'
 import { FakeSqlDatabase } from '../helpers/fake-db'
 
 const custom: Migration[] = [
@@ -16,8 +17,8 @@ describe('迁移', () => {
     expect(db.tables.has('meta')).toBe(true)
 
     const result = runMigrations(db)
-    expect(result).toEqual({ from: 0, to: 2, applied: [1, 2] })
-    expect(db.meta.get('schema_version')).toBe('2')
+    expect(result).toEqual({ from: 0, to: 3, applied: [1, 2, 3] })
+    expect(db.meta.get('schema_version')).toBe('3')
     expect(db.executed.some((sql) => sql.includes('CREATE TABLE IF NOT EXISTS book'))).toBe(true)
     expect(db.executed.some((sql) => sql.includes('CREATE TABLE IF NOT EXISTS bookmark'))).toBe(true)
   })
@@ -36,7 +37,7 @@ describe('迁移', () => {
     const before = db.executed.length
     const calls: number[] = []
     const result = runMigrations(db, { onBeforeMigrate: (from) => calls.push(from) })
-    expect(result).toEqual({ from: 2, to: 2, applied: [] })
+    expect(result).toEqual({ from: 3, to: 3, applied: [] })
     expect(calls).toEqual([])
     // 读版本号时会再执行一次 meta 建表（幂等），因此只断言没有新增迁移 SQL
     const appended = db.executed.slice(before)
@@ -69,22 +70,43 @@ describe('迁移', () => {
     )
   })
 
-  it('v1 的库升到 v2 时会跑 annotations 这条迁移', () => {
+  it('v1 的库会依次跑 annotations 与 reading_span 两条迁移', () => {
     const db = new FakeSqlDatabase()
     db.meta.set('schema_version', '1')
     // 先用第 2 条之前的版本把库停在 v1，模拟 0.1.2 及更早装出来的数据目录
     const calls: number[] = []
     const result = runMigrations(db, { onBeforeMigrate: (from) => calls.push(from) })
     expect(calls).toEqual([1])
-    expect(result).toEqual({ from: 1, to: 2, applied: [2] })
-    expect(db.meta.get('schema_version')).toBe('2')
+    expect(result).toEqual({ from: 1, to: 3, applied: [2, 3] })
+    expect(db.meta.get('schema_version')).toBe('3')
     expect(db.executed.some((sql) => sql.includes('CREATE TABLE IF NOT EXISTS highlight'))).toBe(true)
+    expect(db.executed.some((sql) => sql.includes('CREATE TABLE IF NOT EXISTS reading_span'))).toBe(
+      true
+    )
   })
 
-  it('内置迁移是 v1 + v2，SQL 覆盖关键约束', () => {
-    expect(MIGRATIONS.map((m) => m.version)).toEqual([1, 2])
-    expect(MIGRATIONS.map((m) => m.name)).toEqual(['init', 'annotations'])
+  it('v2 的库升到 v3 时会跑 reading_span 这条迁移（0.1.4 字数去重）', () => {
+    const db = new FakeSqlDatabase()
+    db.meta.set('schema_version', '2')
+    const calls: number[] = []
+    const result = runMigrations(db, { onBeforeMigrate: (from) => calls.push(from) })
+    expect(calls).toEqual([2])
+    expect(result).toEqual({ from: 2, to: 3, applied: [3] })
+    expect(db.meta.get('schema_version')).toBe('3')
+    expect(db.executed.some((sql) => sql.includes('CREATE TABLE IF NOT EXISTS reading_span'))).toBe(
+      true
+    )
+  })
+
+  it('内置迁移是 v1 + v2 + v3，SQL 覆盖关键约束', () => {
+    expect(MIGRATIONS.map((m) => m.version)).toEqual([1, 2, 3])
+    expect(MIGRATIONS.map((m) => m.name)).toEqual(['init', 'annotations', 'reading_span'])
     expect(MIGRATIONS[1]?.version).toBe(SCHEMA_VERSION_2)
+    expect(MIGRATIONS[2]?.version).toBe(SCHEMA_VERSION_3)
+    // 水位线表：主键 (书, 天, 章) —— 一天一章只有一行，书删了跟着走
+    expect(SCHEMA_V3_SQL).toContain('CREATE TABLE IF NOT EXISTS reading_span')
+    expect(SCHEMA_V3_SQL).toContain('PRIMARY KEY (book_id, day, chapter_index)')
+    expect(SCHEMA_V3_SQL).toContain('ON DELETE CASCADE')
     expect(SCHEMA_V1_SQL).toContain('PRIMARY KEY (book_id, idx)')
     expect(SCHEMA_V1_SQL).toContain('ON DELETE CASCADE')
     expect(SCHEMA_V1_SQL).toContain("DEFAULT 'txt'")

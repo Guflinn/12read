@@ -19,6 +19,7 @@ import {
   searchArgsSchema,
   settingsSchema,
   statAddArgsSchema,
+  statReadArgsSchema,
   statGetArgsSchema
 } from '@shared/schema'
 import type {
@@ -232,6 +233,14 @@ export function registerIpc(ctx: IpcContext): void {
   handle(CH.statAdd, statAddArgsSchema, ({ bookId, ms, chars }): void => {
     ctx.stats.add({ bookId, ms, chars })
   })
+
+  // 0.1.4：字数不信任渲染层 —— 只收「读完停哪儿了」，去重与累计都在服务里做
+  handle(
+    CH.statRead,
+    statReadArgsSchema,
+    ({ bookId, chapterIndex, charOffset, enteredAt }): number =>
+      ctx.stats.readAt({ bookId, chapterIndex, charOffset, enteredAt })
+  )
 
   handle(CH.statGet, statGetArgsSchema, ({ days }): ReadingStats => ctx.stats.summary(days))
 

@@ -15,7 +15,8 @@ import {
   searchArgsSchema,
   settingsSchema,
   statAddArgsSchema,
-  statGetArgsSchema
+  statGetArgsSchema,
+  statReadArgsSchema
 } from '@shared/schema'
 import { STAT_MAX_REPORT_CHARS, STAT_MAX_REPORT_MS } from '@shared/core/stats'
 
@@ -124,6 +125,25 @@ describe('IPC 入参校验：合法用例', () => {
         query: 'x'.repeat(80),
         scope: 'book',
         chapterIndex: 0
+      }).success
+    ).toBe(true)
+  })
+
+  it('统计入参（0.1.4 的 stat:read）：位置与进章点接受 0 与上限', () => {
+    expect(
+      statReadArgsSchema.safeParse({
+        bookId: VALID_ID,
+        chapterIndex: 0,
+        charOffset: 0,
+        enteredAt: 0
+      }).success
+    ).toBe(true)
+    expect(
+      statReadArgsSchema.safeParse({
+        bookId: VALID_ID,
+        chapterIndex: 41,
+        charOffset: STAT_MAX_REPORT_CHARS,
+        enteredAt: STAT_MAX_REPORT_CHARS
       }).success
     ).toBe(true)
   })

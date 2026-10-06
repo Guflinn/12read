@@ -9,6 +9,30 @@ export const STAT_IDLE_MS = 60_000
 /** 单次位移超过这个字数就不算「读」，只当作跳转（点书签、拖滚动条、跳章）。 */
 export const STAT_MAX_STEP_CHARS = 5_000
 
+/** 停下来这么久才算「读了一会儿」：滑动期间一直在重置（0.1.4 起用它决定字数怎么记）。 */
+export const STAT_READ_PAUSE_MS = 2_000
+
+/** 停留上报的最小位移：不到这个字数就不必再报一次（主进程算出来也会是 0）。 */
+export const STAT_MIN_REPORT_CHARS = 20
+
+/**
+ * 「读到的位置」→ 这次该记多少新字数（0.1.4）。
+ *
+ * `mark` 是**这一天在这一章读到过的最远偏移**（高水位线，存在 `reading_span` 表），
+ * 于是同一段文字当天只会记一次：来回刷、往回翻都不重复计。
+ * 返回 0 有三种情况，都表示「不算新读的字」：
+ *   1. 没前进（`offset <= mark`）—— 在读过的范围里来回；
+ *   2. 一步跨得太远（`> STAT_MAX_STEP_CHARS`）—— 那是跳转/拖滚动条，不是读；
+ *   3. 位移为 0。
+ */
+export function charsReadStep(mark: number, offset: number): number {
+  const from = Number.isFinite(mark) ? mark : 0
+  const to = Number.isFinite(offset) ? offset : 0
+  const delta = to - from
+  if (delta <= 0 || delta > STAT_MAX_STEP_CHARS) return 0
+  return Math.trunc(delta)
+}
+
 /** 单次上报的上限：防呆，别让时钟被改或假 API 灌进离谱数字。 */
 export const STAT_MAX_REPORT_MS = 6 * 60 * 60 * 1000
 export const STAT_MAX_REPORT_CHARS = 10_000_000

@@ -51,11 +51,12 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 下一步（按顺序）
 
-1. **0.1.3 发布已完结（2026-10-05）**：push / tag / GitHub Release / 仓库转公开全部做完，没有遗留。当前处于「大版本刚收口」的节点，节奏回到**一次一件事**。
-2. **下一版 0.2.0 已立项（2026-10-06 用户拍板「立项」）**：EPUB 支持。范围 / 两项已定决策（ZIP 手写 lenient reader、插图 U+FFFC 占位内联渲染）/ 不做清单 / 实施顺序 / 性能预算，全部见 [docs/MVP.md](docs/MVP.md) 第 10 节「已立项：0.2.0」。**等用户说开工再动代码**；开工后按实施顺序逐步 commit，每步带测试。
-3. **日常节奏**：用户真实使用中报 bug 就按 0.1.4 修 —— 改动攒在 `main`，发小版还是攒着，节奏由用户定。
-4. **若在受限环境跑 e2e**：先设 `TWELVE_READ_E2E_ELECTRON_ARGS="--no-sandbox --disable-gpu"`（原因见「已知坑」）。
-5. **若 `pnpm verify` 偶发 1 例 `Hook timed out`**：直接重跑一次；那是磁盘繁忙导致的 hook 超时，与本轮代码无关（见「待用户拍板 / 没做完的」）。
+1. **0.1.4 已排期（2026-10-06 用户拍板）**：只装**窗口尺寸 / 位置记忆**（`window.ts` 的 1200×800 写死 → 存 bounds 到 settings，启动恢复 + 屏幕可见性校验）。范围与测试要求见 [docs/MVP.md](docs/MVP.md) 第 10 节「已排期：0.1.4」。**等用户说开工再动代码。**
+2. **备份还原：待立项，先聊策略**（用户 2026-10-06 定「单独立一版，先聊策略」）。三个待定策略见 [docs/MVP.md](docs/MVP.md) 第 10 节「待立项：备份还原」；解包可复用 0.2.0 的 ZIP reader，故排在 EPUB 之后更划算。
+3. **0.2.0 EPUB 已立项（2026-10-06）**：范围 / 两项已定决策（ZIP 手写 lenient reader、插图 U+FFFC 占位内联渲染）/ 不做清单 / 实施顺序 / 性能预算，见 [docs/MVP.md](docs/MVP.md) 第 10 节「已立项：0.2.0」。另有「格式路线图」（MOBI 0.3.0 首选、Markdown、文字层 PDF）同节。
+4. **候选池（不排期）**：主题跟随系统 / 摘录导出（书签+划线）/ 目录筛选框 —— 见 MVP.md 第 10 节「候选池」。
+5. **若在受限环境跑 e2e**：先设 `TWELVE_READ_E2E_ELECTRON_ARGS="--no-sandbox --disable-gpu"`（原因见「已知坑」）。
+6. **若 `pnpm verify` 偶发 1 例 `Hook timed out`**：直接重跑一次；那是磁盘繁忙导致的 hook 超时，与本轮代码无关（见「待用户拍板 / 没做完的」）。
 
 ## 待用户拍板 / 没做完的
 

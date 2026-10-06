@@ -11,3 +11,6 @@ playwright-report/
 .vite/
 *.local
 .workbuddy/
+
+# electron-vite 构建时生成的临时配置文件（TS 配置的 JS 影子，跑完就该没）
+electron.vite.config.*.mjs

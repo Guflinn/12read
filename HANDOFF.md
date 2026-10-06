@@ -39,7 +39,8 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 ## 现在在哪（以 `git log` 为准）
 
 - 分支 `main`，工作区干净。**别在这里写死 HEAD**：这两段描述的是「完成本文件这次 commit 之前」的提交，改 HANDOFF 本身就会把 HEAD 往前挪一格，写死的哈希永远追不上。要看真实 HEAD，敲 `git log -1 --oneline`。
-- 版本号 `0.1.3`（package.json）。`origin/main` 停在 `271a84b`，**本地领先若干提交且未 push**（具体数字用 `git rev-list --count origin/main..main` 现取，别照抄本文档里的旧值）；tag `v0.1.0`–`v0.1.3` 也都只在本地。
+- 版本号 `0.1.3`（package.json）。**2026-10-05 已发布并推送**：`origin/main` 与本地同步（核对用 `git rev-list --count origin/main..main`，应为 0；本文档不写死哈希），tag `v0.1.0`–`v0.1.3` 全部已推上远端；**仓库已于 2026-10-05 转为 public**（https://github.com/Guflinn/12read ）。
+- **0.1.3 已发布上线（2026-10-05）**：GitHub Release「十二阅读 v0.1.3 内测版（Windows）」（Pre-release）已建，正文含全部新增 / 性能 / 修复说明 + 安装 SHA-256；附件 `twelve-read-setup-0.1.3.exe`（102,766,157 B）与 `.exe.sha256` 已上传，匿名可下载。**发版长期规矩（用户定）：每次 push 必须附带本次更新内容（Release notes）**；发 Release 走 GitHub REST API（本机无 gh CLI）。
 - **0.1.3 已按方案 A 收口（2026-10-05 用户拍板「并进 0.1.3」）**，本轮做完五件事：
   1. **重打包**：`release/` 下 0.1.3 全套产物已重新生成（安装包 / `.blockmap` / `.sha256` / `latest.yml` / `win-unpacked`）。**最近一次重打是修了「阅读统计排版重叠」之后**，新安装包 `twelve-read-setup-0.1.3.exe` = 102,766,157 B。**内容级验证过**：解 NSIS 内 `resources/app.asar`，确认渲染层含 `stats-bar-track`（排版修复）与 `已加书签` 文案、已无 `btn-split`。
   2. **重打 tag**：`v0.1.3` 原指向 `88b00e0`（不含 `bc62d00` 删除那刀）；已删并重建，指向本轮全部收口后的 HEAD。tag 说明文案**逐字保留**原文。`git merge-base --is-ancestor bc62d00 v0.1.3` 为真。tag 从未 push，重打对远端无影响；**重建后的 tag 时间戳是 2026-10-05**，早于此的安装包一律是旧产物。
@@ -50,14 +51,15 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 下一步（按顺序）
 
-1. **发布（唯一没做的事，且需用户点头）**：`git push origin main` + `git push origin --tags`（tag 是重打过的 `v0.1.3`，push 时不需要 `--force` —— 远端从来没有过这个 tag，是本机首次推送）。GitHub Release 名写 `十二阅读 v0.1.3 内测版（Windows）`、勾 Pre-release（命名约定见 [CHANGELOG.md](CHANGELOG.md) 第 6-8 行），产物用 `release/twelve-read-setup-0.1.3.exe`（当前大小 102,766,157 B，`latest.yml` 里的 sha512 已核对一致）。
-2. **若在受限环境跑 e2e**：先设 `TWELVE_READ_E2E_ELECTRON_ARGS="--no-sandbox --disable-gpu"`（原因见「已知坑」）。
-3. **若 `pnpm verify` 偶发 1 例 `Hook timed out`**：直接重跑一次；那是磁盘繁忙导致的 hook 超时，与本轮代码无关（见「待用户拍板 / 没做完的」）。
-4. Backlog（PWA、分页模式、EPUB 等）见 [docs/MVP.md](docs/MVP.md) 第 10 节。
+1. **0.1.3 发布已完结（2026-10-05）**：push / tag / GitHub Release / 仓库转公开全部做完，没有遗留。当前处于「大版本刚收口」的节点，节奏回到**一次一件事**。
+2. **下一版方向（需用户拍板，别自作主张开工）**：Backlog 见 [docs/MVP.md](docs/MVP.md) 第 10 节 —— PWA 离线建议砍掉（桌面版不联网）；**EPUB 支持是 0.2.0 的头号候选**（涉及新解析器与渲染管线，适合单独立项）；护眼 sepia / 全屏沉浸用户 2026-10-04 明确不要，继续搁置。
+3. **日常节奏**：用户真实使用中报 bug 就按 0.1.4 修 —— 改动攒在 `main`，发小版还是攒着，节奏由用户定。
+4. **若在受限环境跑 e2e**：先设 `TWELVE_READ_E2E_ELECTRON_ARGS="--no-sandbox --disable-gpu"`（原因见「已知坑」）。
+5. **若 `pnpm verify` 偶发 1 例 `Hook timed out`**：直接重跑一次；那是磁盘繁忙导致的 hook 超时，与本轮代码无关（见「待用户拍板 / 没做完的」）。
 
 ## 待用户拍板 / 没做完的
 
-- **推送与 GitHub Release 没做**：按规矩「用户明确同意前不 push」，本轮全程未 push。发不发由用户定。
+- **（已完结 2026-10-05）推送与 GitHub Release**：当时唯一没做的事已做完 —— `main` + tag `v0.1.3` 已推、Release「十二阅读 v0.1.3 内测版（Windows）」已建（Pre-release，附安装包与 sha256）、仓库已转 public。**新增长期规矩：每次 push 必须附带 Release notes。**
 - **`release/` 里的 0.1.0–0.1.2 旧产物留着没动**（它们本就该在，各自的 tag 也对得上），只有 0.1.3 被换成新构建。
 - **本机跑不了 e2e 是环境限制、不是缺陷**：受限沙箱里 Chromium GPU 进程必崩导致 electron FATAL。已用环境变量留了口子，默认行为不变。**换到普通终端 / CI 上直接 `pnpm test:e2e` 即可，无需任何设置。**
 - **未验证项（如实记录）**：新安装包没走一遍「图形界面下真实双击安装 → 启动」的全程，只做到「exe 能起、无 FATAL 退出（exit 0）」「解 NSIS 内 asar 与源码一致（含统计排版修复与书签提示文案）」；排版修复本身另用 Playwright 真实启动应用截图核对过（轴标签 12.3px < 柱宽 20px、三张卡说明同基线）。若要求更硬的证据，需要一台有桌面会话的机器。

@@ -101,6 +101,17 @@ export class ReadingStatRepository {
     return rows.map((row) => readDay(row as SqlRow))
   }
 
+  /** 闭区间 [fromDay, toDay] 里每天的合计，按日期升序；没有记录的日子不会出现（外面填 0）。 */
+  between(fromDay: string, toDay: string): DayTotals[] {
+    const rows = this.db
+      .prepare(
+        `SELECT day, COALESCE(SUM(ms), 0) AS ms, COALESCE(SUM(chars), 0) AS chars
+         FROM reading_stat WHERE day >= ? AND day <= ? GROUP BY day ORDER BY day ASC`
+      )
+      .all(fromDay, toDay)
+    return rows.map((row) => readDay(row as SqlRow))
+  }
+
   /** 有记录的所有日期，从新到旧；算连续阅读天数用。 */
   days(): string[] {
     const rows = this.db.prepare(`SELECT DISTINCT day FROM reading_stat ORDER BY day DESC`).all()

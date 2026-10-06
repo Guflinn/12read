@@ -2,7 +2,11 @@ import { z } from 'zod'
 import { UUID_V4_RE } from '@shared/core/ids'
 import { MANUAL_ENCODINGS, SEARCH_SCOPES } from '@shared/types'
 import { SEARCH_MAX_QUERY_CHARS } from '@shared/core/search'
-import { STAT_MAX_REPORT_CHARS, STAT_MAX_REPORT_MS } from '@shared/core/stats'
+import {
+  STAT_GOAL_MAX_MINUTES,
+  STAT_MAX_REPORT_CHARS,
+  STAT_MAX_REPORT_MS
+} from '@shared/core/stats'
 
 /** bookId 一律 uuid v4：同一个正则也用于 main 侧拼路径前的校验（TECH.md 4.2）。 */
 export const bookIdSchema = z.string().regex(UUID_V4_RE, 'bookId 必须是 uuid v4')
@@ -97,6 +101,11 @@ export const statGetArgsSchema = z.object({
   days: z.number().int().min(1).max(90)
 })
 
+/** 日历视图（0.1.4）：要哪个自然月，'YYYY-MM'。 */
+export const statCalendarArgsSchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/, 'month 必须是 YYYY-MM')
+})
+
 export const progressSchema = z.object({
   bookId: bookIdSchema,
   chapterIndex: chapterIndexSchema,
@@ -118,7 +127,9 @@ export const settingsSchema = z.object({
   bold: z.boolean().default(false),
   // 0.1.2 及更早没有字体与栏宽，同样补默认值
   fontFamily: z.enum(['song', 'hei', 'kai', 'fang', 'deng']).default('song'),
-  pageWidth: z.enum(['narrow', 'medium', 'wide', 'full']).default('medium')
+  pageWidth: z.enum(['narrow', 'medium', 'wide', 'full']).default('medium'),
+  // 0.1.4 新增每日目标；旧设置里没有这个字段，default(0) 补成「没设目标」
+  dailyGoalMinutes: z.number().int().min(0).max(STAT_GOAL_MAX_MINUTES).default(0)
 })
 
 /** 导入进度是 main -> renderer 的推送，双侧同样校验。 */

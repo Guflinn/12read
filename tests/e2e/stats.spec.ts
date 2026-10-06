@@ -105,3 +105,103 @@ test('字数去重：同一段来回刷，今天读的字数不会跟着涨（0.
   // 还是那么多字：同一段内容当天只算一次（旧逻辑这里会翻好几倍）
   expect(await todayChars()).toBe(afterFirstRead)
 })
+
+/** 直接从渲染层调 API 给「今天」记一段时间：跳过 15 秒的节拍，专测界面怎么显示。 */
+async function seedToday(page: Page, ms: number): Promise<void> {
+  await page.evaluate(async (amount) => {
+    const api = (
+      window as unknown as {
+        reader: {
+          listBooks(): Promise<Array<{ id: string }>>
+          addReadingStat(bookId: string, ms: number, chars: number): Promise<void>
+        }
+      }
+    ).reader
+    const books = await api.listBooks()
+    const first = books[0]
+    if (first) await api.addReadingStat(first.id, amount, 0)
+  }, ms)
+}
+
+test('书架显示今天读了多久，设了目标还会显示进度与「已达标」（0.1.4）', async () => {
+  const bookPath = writeNovelFile(makeTempDir('12read-today-src-'), '今日书.txt', buildNovel())
+  const page = await openApp(makeTempDir('12read-today-'))
+  if (!app) throw new Error('应用未启动')
+  await stubOpenDialog(app, [bookPath])
+  await page.click('#btn-import')
+  await expect(page.locator('.book-card')).toHaveCount(1)
+
+  // 还没读过、也没设目标：这行不显示
+  await expect(page.locator('#shelf-today')).toHaveCount(0)
+
+  await seedToday(page, 12 * 60_000)
+  await page.reload()
+  await page.waitForSelector('#btn-import')
+  await expect(page.locator('#shelf-today')).toHaveText('今天已读 12 分钟')
+
+  // 在阅读器里把每日目标设成 30 分钟
+  await page.click('.book-card')
+  await page.waitForSelector('#reader-content p')
+  await page.click('#btn-settings')
+  await expect(page.locator('#settings-sheet')).toHaveClass(/on/)
+  await page.click('#goal-30')
+  await page.keyboard.press('Escape')
+
+  // 回书架：这行变成带进度的样子
+  await page.click('#btn-back')
+  await page.waitForSelector('#btn-import')
+  await expect(page.locator('#shelf-today')).toHaveText('今天已读 12 / 30 分钟')
+
+  // 再攒到超过目标 → 写「已达标」
+  await seedToday(page, 20 * 60_000)
+  await page.reload()
+  await page.waitForSelector('#btn-import')
+  await expect(page.locator('#shelf-today')).toHaveText('今天已读 32 / 30 分钟 · 已达标')
+})
+
+test('统计面板：切到日历看整月格子，能翻到上个月（0.1.4）', async () => {
+  const bookPath = writeNovelFile(makeTempDir('12read-cal-src-'), '日历书.txt', buildNovel())
+  const page = await openApp(makeTempDir('12read-cal-'))
+  if (!app) throw new Error('应用未启动')
+  await stubOpenDialog(app, [bookPath])
+  await page.click('#btn-import')
+  await expect(page.locator('.book-card')).toHaveCount(1)
+
+  // 给今天记 20 分钟，日历上今天那格就该有色
+  await seedToday(page, 20 * 60_000)
+
+  await page.click('#btn-stats')
+  await expect(page.locator('#stats-body')).toBeVisible()
+  // 默认还是柱状图
+  await expect(page.locator('#stats-bars')).toBeVisible()
+
+  await page.click('#stats-view-calendar')
+  const now = new Date()
+  const month = String(now.getFullYear()) + '-' + String(now.getMonth() + 1).padStart(2, '0')
+  const today = month + '-' + String(now.getDate()).padStart(2, '0')
+  await expect(page.locator('#cal-month')).toHaveText(month)
+
+  // 格子数是 7 的倍数，日期格数与当月天数一致
+  const total = await page.locator('#cal-grid .stats-cal-cell').count()
+  const dated = await page.locator('#cal-grid .stats-cal-cell[data-day]').count()
+  expect(total % 7).toBe(0)
+  expect(dated).toBe(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate())
+  // 今天那格有记录（色阶 > 0）
+  await expect(page.locator('#cal-grid [data-day="' + today + '"]')).toHaveAttribute(
+    'data-level',
+    /[1-4]/
+  )
+  // 停在当前月时不能往未来翻
+  await expect(page.locator('#cal-next')).toBeDisabled()
+
+  // 翻到上个月：标题变了，能再翻回来
+  const before = month
+  await page.click('#cal-prev')
+  await expect(page.locator('#cal-month')).not.toHaveText(before)
+  await expect(page.locator('#cal-next')).toBeEnabled()
+  await page.click('#cal-next')
+  await expect(page.locator('#cal-month')).toHaveText(before)
+
+  await page.locator('.modal-actions .btn.primary').click()
+  await expect(page.locator('.modal')).toHaveCount(0)
+})

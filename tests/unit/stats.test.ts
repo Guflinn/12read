@@ -3,11 +3,18 @@ import {
   charsReadStep,
   dayKey,
   dayParts,
+  daysInMonth,
   fillDays,
   formatDuration,
+  goalProgress,
+  heatLevel,
+  monthCells,
+  monthKeyOf,
   shiftDay,
+  shiftMonth,
   STAT_MAX_STEP_CHARS,
-  streakFromDays
+  streakFromDays,
+  todayReadText
 } from '@shared/core/stats'
 
 describe('dayKey', () => {
@@ -146,5 +153,112 @@ describe('charsReadStep', () => {
     expect(charsReadStep(Number.NaN, 300)).toBe(300)
     expect(charsReadStep(0, Number.POSITIVE_INFINITY)).toBe(0)
     expect(charsReadStep(100, Number.NaN)).toBe(0)
+  })
+})
+
+/**
+ * 0.1.4 新增：每日目标、书架文案、日历格子与色阶。
+ * 这几条都是纯函数，界面只是把它们的结果摆出来。
+ */
+describe('goalProgress', () => {
+  it('没设目标（0 或负数）时一律当作关闭', () => {
+    expect(goalProgress(0, 0)).toEqual({ on: false, reached: false, percent: 0 })
+    expect(goalProgress(999_999, 0).on).toBe(false)
+    expect(goalProgress(999_999, -30).on).toBe(false)
+  })
+
+  it('按分钟算进度并夹到 0..100', () => {
+    expect(goalProgress(0, 30)).toEqual({ on: true, reached: false, percent: 0 })
+    expect(goalProgress(15 * 60_000, 30).percent).toBe(50)
+    expect(goalProgress(30 * 60_000, 30)).toEqual({ on: true, reached: true, percent: 100 })
+    // 超了也只到 100
+    expect(goalProgress(90 * 60_000, 30).percent).toBe(100)
+  })
+
+  it('时长是坏值时当 0 处理，不抛异常', () => {
+    expect(goalProgress(Number.NaN, 30).percent).toBe(0)
+    expect(goalProgress(-5000, 30).reached).toBe(false)
+  })
+})
+
+describe('todayReadText', () => {
+  it('没读又没设目标：返回空串（那行不显示）', () => {
+    expect(todayReadText(0, 0)).toBe('')
+  })
+
+  it('没设目标但今天读了：只说读了多久', () => {
+    expect(todayReadText(25 * 60_000, 0)).toBe('今天已读 25 分钟')
+  })
+
+  it('设了目标：显示进度，达标加「已达标」', () => {
+    expect(todayReadText(12 * 60_000, 30)).toBe('今天已读 12 / 30 分钟')
+    expect(todayReadText(30 * 60_000, 30)).toBe('今天已读 30 / 30 分钟 · 已达标')
+    expect(todayReadText(45 * 60_000, 30)).toBe('今天已读 45 / 30 分钟 · 已达标')
+  })
+
+  it('设了目标但今天还没读：给一句提醒', () => {
+    expect(todayReadText(0, 30)).toBe('今天还没开始读 · 目标 30 分钟')
+  })
+})
+
+describe('heatLevel', () => {
+  it('没读或当月没有峰值时是 0（不上色）', () => {
+    expect(heatLevel(0, 3600_000)).toBe(0)
+    expect(heatLevel(60_000, 0)).toBe(0)
+    expect(heatLevel(Number.NaN, 100)).toBe(0)
+  })
+
+  it('按占峰值的比例分四档', () => {
+    expect(heatLevel(100, 1000)).toBe(1)
+    expect(heatLevel(250, 1000)).toBe(2)
+    expect(heatLevel(500, 1000)).toBe(3)
+    expect(heatLevel(750, 1000)).toBe(4)
+    expect(heatLevel(1000, 1000)).toBe(4)
+  })
+})
+
+describe('monthKeyOf / daysInMonth / shiftMonth', () => {
+  it('从日期取月份键，格式不对给空串', () => {
+    expect(monthKeyOf('2026-10-07')).toBe('2026-10')
+    expect(monthKeyOf('2026-1-7')).toBe('')
+    expect(monthKeyOf('乱七八糟')).toBe('')
+  })
+
+  it('每月天数，闰年二月也对', () => {
+    expect(daysInMonth('2026-10')).toBe(31)
+    expect(daysInMonth('2026-02')).toBe(28)
+    expect(daysInMonth('2028-02')).toBe(29)
+    expect(daysInMonth('2026-13')).toBe(0)
+  })
+
+  it('月份前后移，跨年对', () => {
+    expect(shiftMonth('2026-10', -1)).toBe('2026-09')
+    expect(shiftMonth('2026-01', -1)).toBe('2025-12')
+    expect(shiftMonth('2026-12', 1)).toBe('2027-01')
+    expect(shiftMonth('2026-10', -13)).toBe('2025-09')
+    expect(shiftMonth('坏月份', 1)).toBe('坏月份')
+  })
+})
+
+describe('monthCells', () => {
+  it('从周一开始排，前面补白格，最后补满整周', () => {
+    // 2026-10-01 是周四 → 前面补周一/二/三三格
+    const cells = monthCells('2026-10')
+    expect(cells.slice(0, 3).every((cell) => cell.day === null)).toBe(true)
+    expect(cells[3]).toEqual({ day: '2026-10-01', date: 1 })
+    expect(cells).toHaveLength(31 + 3 + 1) // 31 天 + 前 3 格 + 最后补 1 格凑满 5 周
+    expect(cells.length % 7).toBe(0)
+    expect(cells.at(-1)?.day).toBeNull()
+  })
+
+  it('整月天数与日号都对', () => {
+    const days = monthCells('2026-02').filter((cell) => cell.day !== null)
+    expect(days).toHaveLength(28)
+    expect(days.at(-1)).toEqual({ day: '2026-02-28', date: 28 })
+  })
+
+  it('月份格式不对给空数组', () => {
+    expect(monthCells('2026/10')).toEqual([])
+    expect(monthCells('2026-13')).toEqual([])
   })
 })

@@ -197,6 +197,16 @@ export interface ReadSpanInput {
   enteredAt: number
 }
 
+/** 某个自然月的每日阅读量（0.1.4 的日历视图）：days 覆盖整月，没读的日子补 0。 */
+export interface ReadingCalendar {
+  /** 'YYYY-MM' */
+  month: string
+  /** 整月的每一天，从 1 号到最后一天。 */
+  days: ReadingDay[]
+  /** 当月单日最长时长，用来定色深；整月都没读时为 0。 */
+  maxMs: number
+}
+
 export interface ReadingStats {
   todayMs: number
   todayChars: number
@@ -279,6 +289,8 @@ export interface ReaderSettings {
   fontFamily: FontFamilyKey
   /** 正文栏宽，写给 --page-w。 */
   pageWidth: PageWidthKey
+  /** 每日阅读目标（分钟）；0 表示没设目标（0.1.4）。 */
+  dailyGoalMinutes: number
 }
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
@@ -287,7 +299,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   theme: 'day',
   bold: false,
   fontFamily: 'song',
-  pageWidth: 'medium'
+  pageWidth: 'medium',
+  dailyGoalMinutes: 0
 }
 
 /** 单章渲染上限之上的分块阈值，见 TECH.md 8.1。 */

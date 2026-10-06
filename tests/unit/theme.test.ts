@@ -25,7 +25,7 @@ describe('applyTheme', () => {
     const root = fakeRoot()
 
     applyTheme(
-      { fontSize: 22, lineHeight: 2.25, theme: 'night', bold: true, fontFamily: 'kai', pageWidth: 'wide' },
+      { fontSize: 22, lineHeight: 2.25, theme: 'night', bold: true, fontFamily: 'kai', pageWidth: 'wide', dailyGoalMinutes: 0 },
       root
     )
 
@@ -50,11 +50,11 @@ describe('applyTheme', () => {
 
   it('字体与栏宽跟着设置走，未知取值回退默认', () => {
     const root = fakeRoot()
-    applyTheme({ ...DEFAULT_SETTINGS, fontFamily: 'fang' as const, pageWidth: 'narrow' as const }, root)
+    applyTheme({ ...DEFAULT_SETTINGS, fontFamily: 'fang' as const, pageWidth: 'narrow' as const, dailyGoalMinutes: 0 }, root)
     expect(root.style.props.get('--font-body')).toContain('FangSong')
     expect(root.style.props.get('--page-w')).toBe('30rem')
 
-    applyTheme({ ...DEFAULT_SETTINGS, fontFamily: 'comic' as never, pageWidth: 'huge' as never }, root)
+    applyTheme({ ...DEFAULT_SETTINGS, fontFamily: 'comic' as never, pageWidth: 'huge' as never, dailyGoalMinutes: 0 }, root)
     expect(root.style.props.get('--font-body')).toContain('SimSun')
     expect(root.style.props.get('--page-w')).toBe('40rem')
   })

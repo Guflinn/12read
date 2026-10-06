@@ -27,6 +27,8 @@ export const CH = {
   /** 阅读统计（0.1.4）：renderer 报「在这儿停下读过」的位置，字数由主进程按当天水位线去重后算。 */
   statRead: 'stat:read',
   statGet: 'stat:get',
+  /** 日历视图（0.1.4）：取某个自然月每天的阅读量，给统计面板的格子图用。 */
+  statCalendar: 'stat:calendar',
   /** 导出备份（0.1.3 第 9 项）：整库打一个 zip，只导出不恢复。 */
   backupExport: 'backup:export',
   progressGet: 'progress:get',

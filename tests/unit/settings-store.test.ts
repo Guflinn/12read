@@ -16,7 +16,7 @@ function makeHarness(stored: ReaderSettings): { saveSettings: ReturnType<typeof 
 
 beforeEach(() => {
   useSettingsStore.setState({
-    settings: { fontSize: 19, lineHeight: 1.9, theme: 'day', bold: false, fontFamily: 'song', pageWidth: 'medium' },
+    settings: { fontSize: 19, lineHeight: 1.9, theme: 'day', bold: false, fontFamily: 'song', pageWidth: 'medium', dailyGoalMinutes: 0 },
     ready: false
   })
 })
@@ -33,7 +33,7 @@ describe('settings store', () => {
       theme: 'sepia' as unknown as 'day',
       bold: true,
       fontFamily: 'heiti' as unknown as 'song',
-      pageWidth: 'huge' as unknown as 'medium'
+      pageWidth: 'huge' as unknown as 'medium', dailyGoalMinutes: 0
     })
     await useSettingsStore.getState().load()
     const settings = useSettingsStore.getState().settings
@@ -50,7 +50,8 @@ describe('settings store', () => {
       theme: 'day',
       bold: undefined as unknown as boolean,
       fontFamily: undefined as unknown as 'song',
-      pageWidth: undefined as unknown as 'medium'
+      pageWidth: undefined as unknown as 'medium',
+      dailyGoalMinutes: undefined as unknown as number
     })
     await useSettingsStore.getState().load()
     const settings = useSettingsStore.getState().settings
@@ -72,7 +73,7 @@ describe('settings store', () => {
   })
 
   it('apply 立刻生效并写回，字号被夹紧', async () => {
-    const harness = makeHarness({ fontSize: 19, lineHeight: 1.9, theme: 'day', bold: false, fontFamily: 'song', pageWidth: 'medium' })
+    const harness = makeHarness({ fontSize: 19, lineHeight: 1.9, theme: 'day', bold: false, fontFamily: 'song', pageWidth: 'medium', dailyGoalMinutes: 0 })
     useSettingsStore.getState().apply({ fontSize: 100 })
     expect(useSettingsStore.getState().settings.fontSize).toBe(27)
 
@@ -83,13 +84,13 @@ describe('settings store', () => {
       theme: 'day',
       bold: false,
       fontFamily: 'song',
-      pageWidth: 'medium'
+      pageWidth: 'medium', dailyGoalMinutes: 0
     })
   })
 
   it('字体与栏宽立刻生效并写回，未知取值不会写进去', async () => {
-    const harness = makeHarness({ fontSize: 19, lineHeight: 1.9, theme: 'day', bold: false, fontFamily: 'song', pageWidth: 'medium' })
-    useSettingsStore.getState().apply({ fontFamily: 'kai', pageWidth: 'wide' })
+    const harness = makeHarness({ fontSize: 19, lineHeight: 1.9, theme: 'day', bold: false, fontFamily: 'song', pageWidth: 'medium', dailyGoalMinutes: 0 })
+    useSettingsStore.getState().apply({ fontFamily: 'kai', pageWidth: 'wide', dailyGoalMinutes: 0 })
     expect(useSettingsStore.getState().settings.fontFamily).toBe('kai')
     expect(useSettingsStore.getState().settings.pageWidth).toBe('wide')
 
@@ -97,11 +98,30 @@ describe('settings store', () => {
     expect(useSettingsStore.getState().settings.fontFamily).toBe('song')
 
     await vi.waitFor(() => expect(harness.saveSettings).toHaveBeenCalled())
-    expect(harness.saveSettings.mock.calls.at(-1)?.[0]).toMatchObject({ fontFamily: 'song', pageWidth: 'wide' })
+    expect(harness.saveSettings.mock.calls.at(-1)?.[0]).toMatchObject({ fontFamily: 'song', pageWidth: 'wide', dailyGoalMinutes: 0 })
+  })
+
+  it('每日目标：合法值立刻生效，越界与非法值被夹紧；没设时是 0', async () => {
+    const harness = makeHarness({ fontSize: 19, lineHeight: 1.9, theme: 'day', bold: false, fontFamily: 'song', pageWidth: 'medium', dailyGoalMinutes: 0 })
+
+    useSettingsStore.getState().apply({ dailyGoalMinutes: 30 })
+    expect(useSettingsStore.getState().settings.dailyGoalMinutes).toBe(30)
+
+    useSettingsStore.getState().apply({ dailyGoalMinutes: 9999 })
+    expect(useSettingsStore.getState().settings.dailyGoalMinutes).toBe(600)
+
+    useSettingsStore.getState().apply({ dailyGoalMinutes: -5 })
+    expect(useSettingsStore.getState().settings.dailyGoalMinutes).toBe(0)
+
+    useSettingsStore.getState().apply({ dailyGoalMinutes: Number.NaN })
+    expect(useSettingsStore.getState().settings.dailyGoalMinutes).toBe(0)
+
+    await vi.waitFor(() => expect(harness.saveSettings).toHaveBeenCalled())
+    expect(harness.saveSettings.mock.calls.at(-1)?.[0]).toMatchObject({ dailyGoalMinutes: 0 })
   })
 
   it('加粗开关立刻生效并写回', async () => {
-    const harness = makeHarness({ fontSize: 19, lineHeight: 1.9, theme: 'day', bold: false, fontFamily: 'song', pageWidth: 'medium' })
+    const harness = makeHarness({ fontSize: 19, lineHeight: 1.9, theme: 'day', bold: false, fontFamily: 'song', pageWidth: 'medium', dailyGoalMinutes: 0 })
     useSettingsStore.getState().apply({ bold: true })
     expect(useSettingsStore.getState().settings.bold).toBe(true)
 

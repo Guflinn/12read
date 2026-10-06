@@ -20,6 +20,7 @@ import {
   settingsSchema,
   statAddArgsSchema,
   statReadArgsSchema,
+  statCalendarArgsSchema,
   statGetArgsSchema
 } from '@shared/schema'
 import type {
@@ -30,6 +31,7 @@ import type {
   Highlight,
   Progress,
   ReaderSettings,
+  ReadingCalendar,
   ReadingStats,
   SearchResult,
   ShelfBook
@@ -243,6 +245,11 @@ export function registerIpc(ctx: IpcContext): void {
   )
 
   handle(CH.statGet, statGetArgsSchema, ({ days }): ReadingStats => ctx.stats.summary(days))
+
+  // 日历视图（0.1.4）：整月每天的阅读量，没读的日子补 0
+  handle(CH.statCalendar, statCalendarArgsSchema, ({ month }): ReadingCalendar =>
+    ctx.stats.calendar(month)
+  )
 
   // 导出备份：位置由用户在「另存为」里选，取消返回 null；失败翻成中文提示
   handle(CH.backupExport, emptyArgsSchema, async (): Promise<BackupResult | null> => {

@@ -195,3 +195,39 @@ describe('ReadingStatsService.readAt（字数去重）', () => {
     expect(repo.dayTotals('2026-10-05').chars).toBe(100)
   })
 })
+
+describe('ReadingStatsService.calendar（0.1.4 日历视图）', () => {
+  it('整月每天一行、没读的补 0，并给出当月峰值', () => {
+    const repo = makeRepo()
+    const service = new ReadingStatsService(repo, () => TODAY)
+    service.add({ bookId: 'b1', ms: 20 * 60_000, chars: 100 }) // 2026-10-05
+    new ReadingStatsService(repo, () => YESTERDAY).add({ bookId: 'b2', ms: 40 * 60_000, chars: 200 })
+
+    const calendar = service.calendar('2026-10')
+    expect(calendar.month).toBe('2026-10')
+    expect(calendar.days).toHaveLength(31)
+    expect(calendar.days[0]).toEqual({ day: '2026-10-01', ms: 0, chars: 0 })
+    expect(calendar.days[4]).toEqual({ day: '2026-10-05', ms: 20 * 60_000, chars: 100 })
+    expect(calendar.days[30]?.day).toBe('2026-10-31')
+    // 峰值取当月最长的一天（10-04 的 40 分钟）
+    expect(calendar.maxMs).toBe(40 * 60_000)
+    // 跨月的记录不会漏进来
+    expect(calendar.days.filter((day) => day.ms > 0)).toHaveLength(2)
+  })
+
+  it('整月都没读：全是 0，峰值为 0（界面不上色）', () => {
+    const repo = makeRepo()
+    const service = new ReadingStatsService(repo, () => TODAY)
+    const calendar = service.calendar('2026-07')
+    expect(calendar.days).toHaveLength(31)
+    expect(calendar.days.every((day) => day.ms === 0)).toBe(true)
+    expect(calendar.maxMs).toBe(0)
+  })
+
+  it('二月按实际天数，月份格式不对给空数组', () => {
+    const repo = makeRepo()
+    const service = new ReadingStatsService(repo, () => TODAY)
+    expect(service.calendar('2028-02').days).toHaveLength(29)
+    expect(service.calendar('2026-13')).toEqual({ month: '2026-13', days: [], maxMs: 0 })
+  })
+})

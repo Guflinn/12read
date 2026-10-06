@@ -1,5 +1,12 @@
-import { charsReadStep, dayKey, fillDays, shiftDay, streakFromDays } from '@shared/core/stats'
-import { READING_STAT_TOP_BOOKS, type ReadingStats } from '@shared/types'
+import {
+  charsReadStep,
+  dayKey,
+  daysInMonth,
+  fillDays,
+  shiftDay,
+  streakFromDays
+} from '@shared/core/stats'
+import { READING_STAT_TOP_BOOKS, type ReadingCalendar, type ReadingStats } from '@shared/types'
 import type { ReadingStatRepository } from '../db/reading-repository'
 
 export interface ReadingStatInput {
@@ -88,6 +95,19 @@ export class ReadingStatsService {
       updatedAt: stamp
     })
     return step
+  }
+
+  /**
+   * 日历视图（0.1.4）：某个自然月每天的阅读量，覆盖整月（没读的补 0）。
+   * 顺便给当月单日最长时长，UI 用它定色深。
+   */
+  calendar(month: string): ReadingCalendar {
+    const total = daysInMonth(month)
+    if (total === 0) return { month, days: [], maxMs: 0 }
+    const lastDay = month + '-' + String(total).padStart(2, '0')
+    const days = fillDays(this.repo.between(month + '-01', lastDay), lastDay, total)
+    const maxMs = days.reduce((max, day) => Math.max(max, day.ms), 0)
+    return { month, days, maxMs }
   }
 
   summary(days: number): ReadingStats {

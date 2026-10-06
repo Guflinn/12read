@@ -72,8 +72,10 @@
     text-align: center; color: var(--dim); font-size: 13.5px; transition: .15s; }
   .dropzone.hot { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 
-  .shelf-bar { display: flex; justify-content: space-between; align-items: baseline; margin: 22px 0 14px;
+  .shelf-bar { display: flex; align-items: baseline; gap: 12px; margin: 22px 0 14px;
     font-size: 13px; color: var(--dim); }
+  /* 书数占左边，今天读数与「本地存储」靠右（0.1.4 插了一个「今天已读 …」） */
+  #shelf-count { margin-right: auto; }
 
   .shelf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 22px 20px; }
   .book-card { position: relative; border-radius: 12px; padding: 9px 9px 12px; transition: .16s; }
@@ -216,6 +218,8 @@
 
   /* ---------- 书架工具条（搜索 / 排序） ---------- */
   .shelf-tools { display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; }
+  /* 书架那行「今天已读 …」（0.1.4）：夹在书数与「本地存储」之间，弱化但不能被忽略 */
+  #shelf-today { font-size: 12px; color: var(--dim); white-space: nowrap; }
   .shelf-search { flex: 1 1 auto; min-width: 0; padding: 8px 12px; font: inherit; font-size: 14px; color: var(--text);
     background: var(--surface); border: 1px solid var(--line); border-radius: 9px; }
   .shelf-search::placeholder { color: var(--dim); }
@@ -313,3 +317,32 @@
     white-space: nowrap; font-size: 13.5px; }
   .stats-top-num { flex: 0 0 auto; font-size: 12px; color: var(--dim); }
   .stats-empty { margin: 8px 2px; font-size: 13px; line-height: 1.8; }
+  /* 每日目标（0.1.4）：今天那张卡里的一小条进度 */
+  .stats-goal { display: flex; align-items: center; gap: 6px; margin-top: 5px;
+    font-size: 11px; color: var(--dim); white-space: nowrap; }
+  .stats-goal.on { color: var(--accent); font-weight: 600; }
+  .stats-goal-track { flex: 0 0 34px; height: 4px; border-radius: 2px; background: var(--line);
+    overflow: hidden; }
+  .stats-goal-fill { display: block; height: 100%; border-radius: 2px;
+    background: color-mix(in srgb, var(--accent) 70%, transparent); }
+  /* 视图切换（最近 N 天 / 日历） */
+  .stats-views { display: flex; gap: 6px; margin: 14px 0 8px; }
+  /* 日历（0.1.4）：7 列格子，色深按当天时长相对当月峰值 */
+  .stats-cal-head { display: flex; align-items: center; justify-content: center; gap: 12px;
+    margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--ink, inherit); }
+  .cal-arrow { width: 24px; height: 24px; line-height: 1; border: 1px solid var(--line);
+    border-radius: 6px; background: var(--bg); color: var(--dim); cursor: pointer; font-size: 14px; }
+  .cal-arrow:disabled { opacity: .4; cursor: default; }
+  .stats-cal-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+    margin-bottom: 4px; font-size: 11px; color: var(--dim); text-align: center; }
+  .stats-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  /* 每格 34px 高、圆角小方块；日号压在左上角，色深表示读得久不久 */
+  .stats-cal-cell { position: relative; height: 34px; border-radius: 6px; padding: 3px 5px;
+    font-size: 10.5px; color: var(--dim); background: var(--line); }
+  .stats-cal-cell.blank { background: transparent; }
+  .stats-cal-cell[data-level='1'] { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+  .stats-cal-cell[data-level='2'] { background: color-mix(in srgb, var(--accent) 36%, transparent); }
+  .stats-cal-cell[data-level='3'] { background: color-mix(in srgb, var(--accent) 58%, transparent); }
+  .stats-cal-cell[data-level='4'] { background: color-mix(in srgb, var(--accent) 80%, transparent);
+    color: #fff; }
+  .stats-cal-note { margin: 8px 2px 0; font-size: 12px; color: var(--dim); }

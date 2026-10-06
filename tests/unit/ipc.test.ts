@@ -8,6 +8,7 @@ import type {
   Highlight,
   Progress,
   ReaderSettings,
+  ReadingCalendar,
   ReadingStats,
   SearchResult,
   ShelfBook
@@ -136,7 +137,7 @@ const SETTINGS: ReaderSettings = {
   theme: 'day',
   bold: false,
   fontFamily: 'song',
-  pageWidth: 'medium'
+  pageWidth: 'medium', dailyGoalMinutes: 0
 }
 
 function makeContext(): {
@@ -207,6 +208,11 @@ function makeContext(): {
       order.push('statread:' + JSON.stringify(input))
       return 42
     }),
+    calendar: vi.fn((month: string): ReadingCalendar => ({
+      month,
+      days: [],
+      maxMs: 0
+    })),
     summary: vi.fn((): ReadingStats => STATS)
   }
   const backup = {
@@ -622,7 +628,7 @@ describe('IPC 注册与转发', () => {
       theme: 'night' as const,
       bold: true,
       fontFamily: 'kai' as const,
-      pageWidth: 'wide' as const
+      pageWidth: 'wide' as const, dailyGoalMinutes: 0
     }
     expect(await call(CH.settingsSave, next)).toEqual(next)
     expect(settings.set.mock.calls[0]?.[0]).toEqual(next)
@@ -660,6 +666,21 @@ describe('IPC 注册与转发', () => {
       await expect(call(CH.statRead, raw)).rejects.toThrow('参数校验失败: ' + CH.statRead)
     }
     expect(stats.readAt).not.toHaveBeenCalled()
+  })
+
+  it('stat:calendar 转发月份并返回整月数据，月份格式不对被拒', async () => {
+    const { stats } = setup()
+    expect(await call(CH.statCalendar, { month: '2026-10' })).toEqual({
+      month: '2026-10',
+      days: [],
+      maxMs: 0
+    })
+    expect(stats.calendar.mock.calls[0]?.[0]).toBe('2026-10')
+
+    for (const raw of [{ month: '2026-1' }, { month: '202610' }, { month: 202610 }, {}]) {
+      await expect(call(CH.statCalendar, raw)).rejects.toThrow('参数校验失败: ' + CH.statCalendar)
+    }
+    expect(stats.calendar).toHaveBeenCalledTimes(1)
   })
 
   it('stat:add 的负数、小数与超上限被拒，不碰统计服务', async () => {

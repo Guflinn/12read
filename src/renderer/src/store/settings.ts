@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { STAT_GOAL_MAX_MINUTES } from '@shared/core/stats'
 import { DEFAULT_SETTINGS, type ReaderSettings } from '@shared/types'
 import { readerApi } from '@/core/api'
 import { clampFontSize } from '@/core/reading'
@@ -18,8 +19,15 @@ function normalize(next: ReaderSettings): ReaderSettings {
     theme: next.theme === 'night' ? 'night' : 'day',
     bold: next.bold === true,
     fontFamily: isFontFamilyKey(next.fontFamily) ? next.fontFamily : DEFAULT_SETTINGS.fontFamily,
-    pageWidth: isPageWidthKey(next.pageWidth) ? next.pageWidth : DEFAULT_SETTINGS.pageWidth
+    pageWidth: isPageWidthKey(next.pageWidth) ? next.pageWidth : DEFAULT_SETTINGS.pageWidth,
+    dailyGoalMinutes: clampGoal(next.dailyGoalMinutes)
   }
+}
+
+/** 每日目标夹到 0..STAT_GOAL_MAX_MINUTES；0 表示关闭，非数字回默认。 */
+function clampGoal(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_SETTINGS.dailyGoalMinutes
+  return Math.min(STAT_GOAL_MAX_MINUTES, Math.max(0, Math.trunc(value)))
 }
 
 /** 阅读设置：内存里立刻生效，落盘是尽力而为（失败只提示，不打断阅读）。 */

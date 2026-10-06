@@ -11,6 +11,7 @@ import type {
   ManualEncoding,
   Progress,
   ReadSpanInput,
+  ReadingCalendar,
   ReaderSettings,
   ReadingStats,
   SearchResult,
@@ -81,6 +82,8 @@ export interface ReaderApi {
    */
   addReadSpan(input: ReadSpanInput): Promise<number>
   getReadingStats(days: number): Promise<ReadingStats>
+  /** 日历视图（0.1.4）：某个自然月每天的阅读量，没读的日子补 0。 */
+  getReadingCalendar(month: string): Promise<ReadingCalendar>
   /**
    * 导出备份（0.1.3 第 9 项）：主进程弹「另存为」，把整库打成一个 zip。
    * 用户取消返回 null；导出本身只读本机数据，不会动书库。

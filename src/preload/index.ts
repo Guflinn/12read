@@ -21,7 +21,8 @@ import {
   settingsSchema,
   statAddArgsSchema,
   statReadArgsSchema,
-  statGetArgsSchema
+  statGetArgsSchema,
+  statCalendarArgsSchema
 } from '@shared/schema'
 import type {
   AnnotationId,
@@ -37,6 +38,7 @@ import type {
   Progress,
   ReaderSettings,
   ReadSpanInput,
+  ReadingCalendar,
   ReadingStats,
   SearchResult,
   SearchScope,
@@ -101,6 +103,8 @@ const readerApi: ReaderApi = {
     invoke(CH.statRead, statReadArgsSchema, input),
   getReadingStats: (days: number): Promise<ReadingStats> =>
     invoke(CH.statGet, statGetArgsSchema, { days }),
+  getReadingCalendar: (month: string): Promise<ReadingCalendar> =>
+    invoke(CH.statCalendar, statCalendarArgsSchema, { month }),
   exportBackup: (): Promise<BackupResult | null> =>
     invoke(CH.backupExport, emptyArgsSchema, undefined),
   getProgress: (bookId: string): Promise<Progress | null> =>

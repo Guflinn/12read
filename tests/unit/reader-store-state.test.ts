@@ -68,6 +68,7 @@ function makeApi(): ApiMock {
     addReadingStat: vi.fn(async () => undefined),
     addReadSpan: vi.fn(async () => 0),
     getReadingStats: vi.fn(),
+    getReadingCalendar: vi.fn(),
     exportBackup: vi.fn(async () => null),
     readChapter: vi.fn(async () => TEXT),
     getProgress: vi.fn(async () => PROGRESS),

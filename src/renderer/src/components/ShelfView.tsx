@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { todayReadText } from '@shared/core/stats'
 import type { Book, ManualEncoding, ShelfBook } from '@shared/types'
 import { readerApi } from '@/core/api'
 import {
@@ -13,6 +14,7 @@ import {
 import { ENCODING_CHOICES } from '@/core/encoding-choices'
 import { SHELF_SORTS, shelfView, type ShelfSort } from '@/core/shelf'
 import { useLibraryStore } from '@/store/library'
+import { useSettingsStore } from '@/store/settings'
 import { ImportStatus } from './ImportStatus'
 import { Modal } from './Modal'
 import { StatsSheet } from './StatsSheet'
@@ -125,10 +127,31 @@ export function ShelfView({
   const [exporting, setExporting] = useState(false)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<ShelfSort>('recent')
+  /** 今天读了多久（0.1.4）：进书架时取一次；从阅读器回来自会重新挂载，所以不用订阅。 */
+  const [todayMs, setTodayMs] = useState<number | null>(null)
+  const dailyGoalMinutes = useSettingsStore((s) => s.settings.dailyGoalMinutes)
   const now = Date.now()
   const totalChars = books.reduce((sum, book) => sum + book.charCount, 0)
   const shown = shelfView(books, query, sort)
   const filtering = query.trim().length > 0
+  // 没读又没设目标时是空串，那行就不显示（见 shared/core/stats.ts）
+  const todayText = todayMs === null ? '' : todayReadText(todayMs, dailyGoalMinutes)
+
+  useEffect(() => {
+    let alive = true
+    readerApi()
+      .getReadingStats(1)
+      .then((result) => {
+        if (alive) setTodayMs(result.todayMs)
+      })
+      .catch(() => {
+        // 统计读不出来不影响书架：那行不显示就是
+        if (alive) setTodayMs(null)
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
 
   /**
    * 导出备份：主进程弹「另存为」，然后把整库打包写出去。
@@ -256,6 +279,11 @@ export function ShelfView({
           <span id="shelf-count">
             {books.length === 0 ? '书架空着' : books.length + ' 本 · 共 ' + formatChars(totalChars)}
           </span>
+          {todayText ? (
+            <span id="shelf-today" title="今天的阅读时长">
+              {todayText}
+            </span>
+          ) : null}
           <span id="storage-note">本地 SQLite 存储 · 不联网</span>
         </div>
 

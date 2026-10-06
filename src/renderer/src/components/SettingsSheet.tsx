@@ -3,13 +3,21 @@ import { FONT_FAMILIES, PAGE_WIDTHS } from '@/core/typography'
 import { useReaderStore } from '@/store/reader'
 import { useSettingsStore } from '@/store/settings'
 
+/** 每日目标的几个档位；0 = 关闭（0.1.4）。 */
+const GOAL_CHOICES: ReadonlyArray<{ value: number; label: string }> = [
+  { value: 0, label: '关' },
+  { value: 15, label: '15 分' },
+  { value: 30, label: '30 分' },
+  { value: 60, label: '60 分' }
+]
+
 const LINE_HEIGHT_LABELS: ReadonlyArray<{ value: number; label: string }> = [
   { value: 1.6, label: '紧凑' },
   { value: 1.9, label: '标准' },
   { value: 2.25, label: '宽松' }
 ]
 
-/** 设置面板：字号 / 行距 / 字重 / 字体 / 宽度 / 主题。改字号只重排版，进度按字符偏移保持不动（TECH.md 6.4）。 */
+/** 设置面板：字号 / 行距 / 字重 / 字体 / 宽度 / 主题 / 每日目标。改字号只重排版，进度按字符偏移保持不动（TECH.md 6.4）。 */
 export function SettingsSheet(): React.JSX.Element {
   const settings = useSettingsStore((s) => s.settings)
   const apply = useSettingsStore((s) => s.apply)
@@ -135,12 +143,31 @@ export function SettingsSheet(): React.JSX.Element {
         </div>
       </div>
 
+      <div className="sheet-row">
+        <span className="label">每日目标</span>
+        <div className="grow">
+          {GOAL_CHOICES.map((item) => (
+            <button
+              key={item.value}
+              id={'goal-' + item.value}
+              className={settings.dailyGoalMinutes === item.value ? 'pill on' : 'pill'}
+              data-goal={item.value}
+              onClick={() => apply({ dailyGoalMinutes: item.value })}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="sheet-hint">
         调字号会让正文重新排版，但<b>阅读位置不变</b> —— 这就是进度不用「第几页」记录的原因。
         <br />
         <b>← →</b> 翻页 · <b>Ctrl + ← →</b> 切换章节 · <b>Esc</b> 关面板 / 返回书架
         <br />
         行距可选：{LINE_HEIGHTS.join(' / ')}
+        <br />
+        每日目标只管显示：达标后书架那行会写「已达标」，不做提醒、不弹窗。
       </div>
       <div className="modal-actions">
         <button className="btn ghost" onClick={() => setSheet(false)}>

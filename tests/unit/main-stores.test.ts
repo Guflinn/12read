@@ -127,7 +127,7 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
       theme: 'night' as const,
       bold: true,
       fontFamily: 'kai' as const,
-      pageWidth: 'wide' as const
+      pageWidth: 'wide' as const, dailyGoalMinutes: 0
     }
     const meta = makeMetaHarness({ [KEY]: JSON.stringify(stored) })
     expect(new SettingsStore(meta.repo).get()).toEqual(stored)
@@ -141,7 +141,7 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
       theme: 'night',
       bold: false,
       fontFamily: 'song',
-      pageWidth: 'medium'
+      pageWidth: 'medium', dailyGoalMinutes: 0
     })
   })
 
@@ -163,7 +163,7 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
       theme: 'night' as const,
       bold: true,
       fontFamily: 'fang' as const,
-      pageWidth: 'narrow' as const
+      pageWidth: 'narrow' as const, dailyGoalMinutes: 0
     }
     const returned = new SettingsStore(meta.repo).set(next)
     expect(returned).toEqual(next)
@@ -178,7 +178,7 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
       theme: 'night',
       bold: true,
       fontFamily: 'song',
-      pageWidth: 'medium'
+      pageWidth: 'medium', dailyGoalMinutes: 0
     })
     expect(returned).toEqual(DEFAULT_SETTINGS)
     expect(meta.set).not.toHaveBeenCalled()

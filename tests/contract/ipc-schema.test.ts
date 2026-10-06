@@ -16,6 +16,7 @@ import {
   settingsSchema,
   statAddArgsSchema,
   statGetArgsSchema,
+  statCalendarArgsSchema,
   statReadArgsSchema
 } from '@shared/schema'
 import { STAT_MAX_REPORT_CHARS, STAT_MAX_REPORT_MS } from '@shared/core/stats'
@@ -127,6 +128,15 @@ describe('IPC 入参校验：合法用例', () => {
         chapterIndex: 0
       }).success
     ).toBe(true)
+  })
+
+  it('统计入参（0.1.4 的 stat:calendar）：月份必须是 YYYY-MM', () => {
+    expect(statCalendarArgsSchema.safeParse({ month: '2026-10' }).success).toBe(true)
+    expect(statCalendarArgsSchema.safeParse({ month: '2026-1' }).success).toBe(false)
+    expect(statCalendarArgsSchema.safeParse({ month: '2026/10' }).success).toBe(false)
+    expect(statCalendarArgsSchema.safeParse({ month: '202610' }).success).toBe(false)
+    expect(statCalendarArgsSchema.safeParse({ month: 202610 }).success).toBe(false)
+    expect(statCalendarArgsSchema.safeParse({}).success).toBe(false)
   })
 
   it('统计入参（0.1.4 的 stat:read）：位置与进章点接受 0 与上限', () => {

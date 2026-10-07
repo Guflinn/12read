@@ -41,7 +41,8 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 ## 现在在哪（以 `git log` 为准）
 
 - 分支 `main`，工作区干净。**别在这里写死 HEAD**：这两段描述的是「完成本文件这次 commit 之前」的提交，改 HANDOFF 本身就会把 HEAD 往前挪一格，写死的哈希永远追不上。要看真实 HEAD，敲 `git log -1 --oneline`。
-- 版本号 `0.1.3`（package.json）。**2026-10-05 已发布并推送**：`origin/main` 与本地同步（核对用 `git rev-list --count origin/main..main`，应为 0；本文档不写死哈希），tag `v0.1.0`–`v0.1.3` 全部已推上远端；**仓库已于 2026-10-05 转为 public**（https://github.com/Guflinn/12read ）。
+- 版本号 **`0.1.4`**（package.json）。**2026-10-07 已发布并推送**：`origin/main` 与本地同步（核对用 `git rev-list --count origin/main..main`，应为 0），tag `v0.1.0`–`v0.1.4` 全部已在远端；**仓库 2026-10-05 起为 public**（https://github.com/Guflinn/12read ）。
+- **0.1.4 已发布上线（2026-10-07）**：GitHub Release「十二阅读 v0.1.4 内测版（Windows）」（Pre-release）已建 —— https://github.com/Guflinn/12read/releases/tag/v0.1.4 ，正文含新增 / 修复 / 数据与版本 / 安装说明 + SHA-256；附件 `twelve-read-setup-0.1.4.exe`（102,770,571 B）与 `.exe.sha256` 已上传，**匿名下载核对过**（sha256 附件内容与本地一致）。发版走 `release-build/upload-release-0.1.4.py`（无 gh CLI，走 REST API；代理端口自动探测）。
 - **0.1.3 已发布上线（2026-10-05）**：GitHub Release「十二阅读 v0.1.3 内测版（Windows）」（Pre-release）已建，正文含全部新增 / 性能 / 修复说明 + 安装 SHA-256；附件 `twelve-read-setup-0.1.3.exe`（102,766,157 B）与 `.exe.sha256` 已上传，匿名可下载。**发版长期规矩（用户定）：每次 push 必须附带本次更新内容（Release notes）**；发 Release 走 GitHub REST API（本机无 gh CLI）。
 - **0.1.3 已按方案 A 收口（2026-10-05 用户拍板「并进 0.1.3」）**，本轮做完五件事：
   1. **重打包**：`release/` 下 0.1.3 全套产物已重新生成（安装包 / `.blockmap` / `.sha256` / `latest.yml` / `win-unpacked`）。**最近一次重打是修了「阅读统计排版重叠」之后**，新安装包 `twelve-read-setup-0.1.3.exe` = 102,766,157 B。**内容级验证过**：解 NSIS 内 `resources/app.asar`，确认渲染层含 `stats-bar-track`（排版修复）与 `已加书签` 文案、已无 `btn-split`。
@@ -68,9 +69,10 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
      - 打包绕坑：`release/win-unpacked` 里两个 `.asar` 被外部进程占用删不掉（safe-delete 也拦），
        改用 `pnpm exec electron-builder --win nsis -c.directories.output=release-out` 出到备用目录，
        再把产物 `cp` 回 `release/`（**拷出去可以，删不行**）。
-     - 待办：**用户开代理后** → `git push`（用官方 git，见下）+ tag 推送 + 跑
-       `python release-build/upload-release-0.1.4.py` 建 Release（Pre-release）。
-     - 发版说明草稿：`release-build/release-notes-0.1.4.md`（已填体积与校验和）。
+     - **2026-10-07 已全部发完**：main（17 个 commit）与 tag `v0.1.4` 已推；Release 已建并上传附件；
+       `origin/main..main` = 0。**发版用的代理端口是 7890，不是 4592**（2026-10-07 实测换过；
+       上传脚本会自动探测，见下方已知坑）。
+     - 发版说明：`release-build/release-notes-0.1.4.md`（已填体积与校验和）。
    - 版本状态：**`package.json` 已标 `0.1.4`**（2026-10-07 用户定「提前标」，**与 0.1.3 那轮发版时才升的做法不同**）→ 界面上显示的就是 0.1.4；CHANGELOG 里仍是「未发布」段，**发版时不必再动 package.json**。注意：`release/` 里的安装包与 GitHub Release 仍是已发布的 0.1.3（冻结产物，别改）。
 2. **备份「还原」已砍（2026-10-07 用户决定，从计划删除）**：不做导入备份。0.1.3 已交付的「导出备份」保留现状，但**导出的包应用读不回来、价值有限** —— 以后用户若重提要重新立项，别自作主张开工，也别再拿它当卖点。
 3. **0.2.0 EPUB 已立项（2026-10-06）**：范围 / 两项已定决策（ZIP 手写 lenient reader、插图 U+FFFC 占位内联渲染）/ 不做清单 / 实施顺序 / 性能预算，见 [docs/MVP.md](docs/MVP.md) 第 10 节「已立项：0.2.0」。另有「格式路线图」（MOBI 0.3.0 首选、Markdown、文字层 PDF）同节。
@@ -80,6 +82,7 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 待用户拍板 / 没做完的
 
+- **（已完结 2026-10-07）0.1.4 推送与 GitHub Release**：`main` + tag `v0.1.4` 已推，Release（Pre-release）已建，附件为安装包与 sha256。**长期规矩照旧：每次 push 必须附带 Release notes。**
 - **（已完结 2026-10-05）推送与 GitHub Release**：当时唯一没做的事已做完 —— `main` + tag `v0.1.3` 已推、Release「十二阅读 v0.1.3 内测版（Windows）」已建（Pre-release，附安装包与 sha256）、仓库已转 public。**新增长期规矩：每次 push 必须附带 Release notes。**
 - **`release/` 里的 0.1.0–0.1.2 旧产物留着没动**（它们本就该在，各自的 tag 也对得上），只有 0.1.3 被换成新构建。
 - **本机跑不了 e2e 是环境限制、不是缺陷**：受限沙箱里 Chromium GPU 进程必崩导致 electron FATAL。已用环境变量留了口子，默认行为不变。**换到普通终端 / CI 上直接 `pnpm test:e2e` 即可，无需任何设置。**
@@ -109,6 +112,10 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 - **打包/构建时目录删除会被环境的 safe-delete 拦掉**：批量删除超过 50 个文件时，构建链路（vite 清 `out/`、electron-builder 清 `release/win-unpacked`）会报 `SAFE_DELETE_BULK_CONFIRM_REQUIRED`。绕法是**先手工清干净再构建**：`cmd //c "rmdir /S /Q out"` 与 `cmd //c "rmdir /S /Q release\win-unpacked"`（这条能绕过 shim，bash 的 `rm -rf` 与 PowerShell 的 `Remove-Item` 都会被截）。若个别 `.asar` 被外部进程占用删不掉，构建可改用 `-c.directories.output=<别的目录>` 绕开被占死的那条路。
 - **`pnpm test:e2e` 也会撞同一个 safe-delete 拦门**：playwright 每轮开头要清 `test-results/`，攒够 50+ 个文件后直接报 `SAFE_DELETE_BULK_CONFIRM_REQUIRED`（错误里会写 `"targets":["…\\test-results"]`，看着像构建失败，其实一条用例都没跑）。**跑 e2e 前先 `cmd //c "rmdir /S /Q test-results"`** 即可；`out/` 同理，如果 vite 的 `emptyOutDir` 被拦，也是先手工清 `out/`。
 - `release/`、`out/`、`coverage/`、`test-results/` 都在 `.gitignore` 里，别提交产物。`.workbuddy/` 也已忽略（Agent 的本地记忆目录）。
+- **代理端口会变**：2026-10-07 实测**从 `4592` 换成了 `7890`**（`netstat -ano | grep LISTENING` 里能看到）。
+  推送/上传前先探一次：`"/c/Program Files/Git/cmd/git.exe" -c http.proxy=http://127.0.0.1:<端口> … ls-remote origin`。
+  `release-build/upload-release-*.py` 已内置候选端口自动探测（可用 `TWELVE_READ_PROXY` 指定）。
+  另外 `reg.exe` 在当前沙箱里被拦（读注册表拿系统代理这条路走不通），用 netstat 找端口即可。
 - **Agent 的 shell 里 `git` 会解析到 PortableGit（`/mingw64/bin/git`），凭据操作会卡死**（2026-10-07 实测）：
   `which -a git` 第一项是 `/mingw64/bin/git`，它的 system 层 `credential.helper = helper-selector` 会弹 GUI 选择器，
   `git credential fill` 直接卡住 2 分钟被杀（`SIGTERM`）。**涉及凭据 / 推送时显式用官方 git**：

@@ -138,6 +138,12 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   ② 测试代码里的 `rmSync` 躲不掉（那是 Node 层），只能认，定期清；
   ③ 被删的都是**可再生的产物**（构建输出、测试临时库），源码 / 书 / release/ 里的安装包从不经过回收站。
   与用户提到回收站时，先**去 `C://$Recycle.Bin//<SID>//$I*` 里读原路径**再答话，别凭印象说「不是我」。
+- **打包卡住 10 分钟不动 → 多半是 Electron 在偷偷重下 + 陈旧下载锁**（2026-10-08 踩了 20 分钟）：
+  现象是 `release-out*/` 空目录、进程一直挂着。两步排查：
+  ① `ls ~/AppData/Local/electron/Cache/` 看有没有当前版本（项目用 38.8.6，缓存里只有 38.2.2 就说明要重下
+     —— 那台机器没代理时会静默卡死）→ 带 `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/` 重跑；
+  ② 若报 `Lock file is already being held`，是我上次 kill 掉进程留下的**陈旧下载锁**（`/tmp/eb-dl-*.lock*`，
+     注意它是**目录**不是文件）—— 清掉再跑；锁清掉后 Electron 已下好，40 秒就能出包。
 - **代理端口会变**：2026-10-07 实测**从 `4592` 换成了 `7890`**（`netstat -ano | grep LISTENING` 里能看到）。
   推送/上传前先探一次：`"/c/Program Files/Git/cmd/git.exe" -c http.proxy=http://127.0.0.1:<端口> … ls-remote origin`。
   `release-build/upload-release-*.py` 已内置候选端口自动探测（可用 `TWELVE_READ_PROXY` 指定）。

@@ -8,6 +8,7 @@ import type {
   Highlight,
   Progress,
   ReaderSettings,
+  BookImage,
   ReadingCalendar,
   ReadingStats,
   SearchResult,
@@ -155,6 +156,7 @@ function makeContext(): {
   stats: Record<string, ReturnType<typeof vi.fn>>
   backup: Record<string, ReturnType<typeof vi.fn>>
   update: Record<string, ReturnType<typeof vi.fn>>
+  images: Record<string, ReturnType<typeof vi.fn>>
   content: Record<string, ReturnType<typeof vi.fn>>
   progress: Record<string, ReturnType<typeof vi.fn>>
   settings: Record<string, ReturnType<typeof vi.fn>>
@@ -219,6 +221,9 @@ function makeContext(): {
   const backup = {
     exportTo: vi.fn(async (): Promise<BackupResult> => BACKUP_RESULT)
   }
+  const images = {
+    list: vi.fn((): BookImage[] => [{ offset: 3, url: 'reader-image://book/0001.png' }])
+  }
   const update = {
     check: vi.fn(async (): Promise<{ outcome: string; info: null }> => ({
       outcome: 'latest',
@@ -252,6 +257,7 @@ function makeContext(): {
     progress,
     settings,
     update,
+    images,
     deviceId: 'device-1'
   } as unknown as IpcContext
   registerIpc(ctx)
@@ -268,7 +274,8 @@ function makeContext(): {
     content,
     progress,
     settings,
-    update
+    update,
+    images
   }
 }
 
@@ -691,6 +698,14 @@ describe('IPC 注册与转发', () => {
       await expect(call(CH.statCalendar, raw)).rejects.toThrow('参数校验失败: ' + CH.statCalendar)
     }
     expect(stats.calendar).toHaveBeenCalledTimes(1)
+  })
+
+  it('book:images 转发 bookId 并返回图片清单', async () => {
+    const { images } = setup()
+    expect(await call(CH.bookImages, { bookId: BOOK_ID })).toEqual([
+      { offset: 3, url: 'reader-image://book/0001.png' }
+    ])
+    expect(images.list).toHaveBeenCalledWith(BOOK_ID)
   })
 
   it('update:check 转发给更新服务并原样返回三态结果', async () => {

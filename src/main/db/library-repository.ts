@@ -1,5 +1,6 @@
 import type {
   Book,
+  BookFormat,
   Chapter,
   ChapterKind,
   CharOffset,
@@ -15,6 +16,8 @@ export interface NewBookRecord {
   id: string
   title: string
   author: string | null
+  /** 按格式分派提取器；不传按 txt（0.1.x 的老行为）。 */
+  format?: BookFormat
   encoding: Encoding
   byteSize: number
   charCount: number
@@ -65,12 +68,13 @@ export class LibraryRepository {
     const insert = this.db.transaction(() => {
       this.db
         .prepare(
-          `INSERT INTO book (${BOOK_COLUMNS}) VALUES (?, ?, ?, 'txt', ?, ?, ?, ?, ?, ?, ?, NULL)`
+          `INSERT INTO book (${BOOK_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`
         )
         .run(
           record.id,
           record.title,
           record.author,
+          record.format ?? 'txt',
           record.encoding,
           record.byteSize,
           record.charCount,

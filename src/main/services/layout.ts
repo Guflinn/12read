@@ -5,12 +5,17 @@ import { isAbsolute, join, relative, resolve, sep } from 'node:path'
  * 纯路径计算，不 import electron，因此可以直接单测。
  *   <root>/library.db
  *   <root>/books/<bookId>/source.bin | content.txt | chapters/0000.txt
+ *                                  | images/ + images.json（EPUB 的内联图，派生物）
  */
 export const DB_FILE = 'library.db'
 export const BOOKS_DIR = 'books'
 export const SOURCE_FILE = 'source.bin'
 export const CONTENT_FILE = 'content.txt'
 export const CHAPTERS_DIR = 'chapters'
+/** EPUB 的内联图片（0.2.0 第 5 项）：派生物，不进备份包。 */
+export const IMAGES_DIR = 'images'
+/** 图片清单：正文里的 U+FFFC 占位 → 图片文件（按偏移排序）。 */
+export const IMAGES_MANIFEST = 'images.json'
 /** 导出备份包里的清单文件名（0.1.3 第 9 项）。 */
 export const BACKUP_MANIFEST_FILE = '12read-backup.json'
 
@@ -36,6 +41,14 @@ export function contentPath(root: string, bookId: string): string {
 
 export function chaptersDir(root: string, bookId: string): string {
   return join(bookDir(root, bookId), CHAPTERS_DIR)
+}
+
+export function imagesDir(root: string, bookId: string): string {
+  return join(bookDir(root, bookId), IMAGES_DIR)
+}
+
+export function imagesManifestPath(root: string, bookId: string): string {
+  return join(bookDir(root, bookId), IMAGES_MANIFEST)
 }
 
 /** 章节文件名固定 4 位补零，保证目录内按章序排列。 */

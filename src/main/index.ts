@@ -1,6 +1,6 @@
 import { copyFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { BrowserWindow, app } from 'electron'
+import { BrowserWindow, app, protocol } from 'electron'
 import { CH } from '@shared/channels'
 import { installCsp } from './csp'
 import { AnnotationsRepository } from './db/annotations-repository'
@@ -9,6 +9,7 @@ import { LibraryRepository } from './db/library-repository'
 import { MetaRepository } from './db/meta-repository'
 import { ReadingStatRepository } from './db/reading-repository'
 import { runMigrations } from './db/migrate'
+import { BookImagesService, IMAGE_SCHEME } from './services/book-images'
 import { registerIpc } from './ipc'
 import { BackupService } from './services/backup'
 import { ChapterEditor } from './services/chapter-editor'
@@ -67,8 +68,19 @@ function bootstrap(): () => void {
   // 正文缓存 64MB：阅读与搜索共用同一个实例，别各建一份（0.1.3 第 7 项）
   const content = new FileContentReader(root, repo)
 
+  // 内联图片：清单走 IPC，字节走自定义协议（只放行书库内的 images/ 文件）
+  const images = new BookImagesService(root)
+  protocol.handle(IMAGE_SCHEME, (request: Request): Response => {
+    const found = images.resolve(request.url)
+    if (!found) return new Response('', { status: 404 })
+    return new Response(new Uint8Array(found.data), {
+      headers: { 'content-type': found.mime, 'cache-control': 'no-store' }
+    })
+  })
+
   registerIpc({
     importer,
+    images,
     library: new LibraryService(root, repo),
     chapters: new ChapterEditor(repo),
     annotations: new AnnotationsRepository(db),
@@ -95,6 +107,15 @@ function bootstrap(): () => void {
     win.on('close', () => windowState.set(captureWindowState(win)))
   }
 }
+
+/**
+ * 内联图片的自定义协议（0.2.0 第 5 项）：`registerSchemesAsPrivileged` 必须在
+ * app ready **之前**调用，否则渲染层的 `<img src="reader-image://…">` 会被当成
+ * 非法协议挡掉。standard + secure 让它按普通 URL 处理（相对路径、CSP 匹配都正常）。
+ */
+protocol.registerSchemesAsPrivileged([
+  { scheme: IMAGE_SCHEME, privileges: { standard: true, secure: true } }
+])
 
 app.whenReady().then(() => {
   installCsp(isDev)

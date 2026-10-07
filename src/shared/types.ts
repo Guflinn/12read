@@ -12,7 +12,12 @@ export type CharOffset = number
 
 export type BookId = string
 
-export type BookFormat = 'txt'
+/**
+ * 支持的书籍格式。0.2.0 起不再只有 txt —— 提取器按格式分派，
+ * 但下游（进度 / 书签 / 划线 / 搜索 / 统计）只认「连续正文 + 章节表 + UTF-16 偏移」，
+ * 所以新增格式不会动到它们（TECH.md「格式路线图」）。
+ */
+export type BookFormat = 'txt' | 'epub' | 'mobi' | 'md' | 'pdf'
 
 /**
  * 检测到的源文件编码。unknown 表示解码结果可疑，仅附警告，不阻塞导入。
@@ -56,6 +61,17 @@ export interface Book {
 export interface ShelfBook extends Book {
   /** 0..100；从未读过是 0。 */
   percent: number
+}
+
+/**
+ * 正文里的内联图片（0.2.0 第 5 项）：EPUB 每张图在正文里占一个 U+FFFC 占位符，
+ * 这里给出「占位符偏移 → 可加载的 URL」，渲染层原地换成 <img>。
+ */
+export interface BookImage {
+  /** 占位符在全书正文里的偏移（UTF-16）。 */
+  offset: CharOffset
+  /** 自定义协议地址（reader-image://…），由主进程按书库内的文件回应。 */
+  url: string
 }
 
 export interface Chapter {

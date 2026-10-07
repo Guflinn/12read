@@ -6,7 +6,14 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ImportStage } from '@shared/types'
 import { ImportError } from '@main/services/import-error'
-import { CHAPTERS_DIR, CONTENT_FILE, SOURCE_FILE, chapterFileName } from '@main/services/layout'
+import {
+  CHAPTERS_DIR,
+  CONTENT_FILE,
+  IMAGES_DIR,
+  IMAGES_MANIFEST,
+  SOURCE_FILE,
+  chapterFileName
+} from '@main/services/layout'
 import { runDecodeJob, type DecodeJob, type DecodeJobResult } from '@main/workers/decode-job'
 import {
   CHAPTERED_TEXT,
@@ -238,5 +245,98 @@ describe('runDecodeJob 分片模式（sliced）', () => {
       const body = await readFile(join(destDir, CHAPTERS_DIR, chapterFileName(index)), 'utf8')
       expect(body).toBe(CHAPTERED_TEXT.slice(chapter.startOffset, chapter.startOffset + chapter.charLength))
     }
+  })
+})
+
+describe('runDecodeJob：EPUB（0.2.0 第 4/5 项）', () => {
+  const EPUB = join(process.cwd(), 'tests/fixtures/mini.epub')
+
+  it('整本模式：写 content.txt，结果带 format 与 OPF 里的书名作者', async () => {
+    const job: DecodeJob = {
+      taskId: 't1',
+      sourcePath: EPUB,
+      destDir,
+      contentMode: 'single',
+      format: 'epub'
+    }
+    const result = await runDecodeJob(job, () => undefined)
+
+    expect(result.format).toBe('epub')
+    expect(result.title).toBe('测试样书')
+    expect(result.author).toBe('测试作者')
+    expect(result.encoding).toBe('utf-8')
+    expect(result.usedFallback).toBe(false)
+    expect(result.chapters.map((chapter) => chapter.title)).toEqual([
+      '第一章 起风',
+      '第二章 落雨',
+      '第二节 独行',
+      '第三章 天晴'
+    ])
+    const text = await readFile(join(destDir, CONTENT_FILE), 'utf8')
+    expect(text.length).toBe(result.charCount)
+    expect(text).toContain('风从山口进来')
+    // 原始字节留着，便于以后用新提取器重新提取（第 6 项）
+    expect(existsSync(join(destDir, SOURCE_FILE))).toBe(true)
+    // 整本模式不建 chapters 目录
+    expect(existsSync(join(destDir, CHAPTERS_DIR))).toBe(false)
+  })
+
+  it('切片模式：按章写 chapters/NNNN.txt，并落图片与清单', async () => {
+    const job: DecodeJob = {
+      taskId: 't2',
+      sourcePath: EPUB,
+      destDir,
+      contentMode: 'sliced',
+      format: 'epub'
+    }
+    const result = await runDecodeJob(job, () => undefined)
+
+    const files = (await readdir(join(destDir, CHAPTERS_DIR))).sort()
+    expect(files).toEqual([chapterFileName(0), chapterFileName(1), chapterFileName(2), chapterFileName(3)])
+    const first = await readFile(join(destDir, CHAPTERS_DIR, chapterFileName(0)), 'utf8')
+    expect(first).toContain('第一章 起风')
+
+    // 图片：@pics/pic1.png 落成 0001.png，清单里有「偏移 → 文件」
+    const imageFiles = await readdir(join(destDir, IMAGES_DIR))
+    expect(imageFiles).toEqual(['0001.png'])
+    const manifest = JSON.parse(await readFile(join(destDir, IMAGES_MANIFEST), 'utf8')) as {
+      images: Array<{ offset: number; file: string }>
+    }
+    expect(manifest.images).toHaveLength(1)
+    expect(manifest.images[0]?.file).toBe('0001.png')
+    expect(result.charCount).toBeGreaterThan(0)
+  })
+
+  it('重新提取（redecode 语义）：编码参数对 EPUB 无效，但能再跑一次并覆盖旧产物', async () => {
+    const first = await runDecodeJob(
+      { taskId: 't3', sourcePath: EPUB, destDir, contentMode: 'single', format: 'epub' },
+      () => undefined
+    )
+    // 传一个编码（UI 上 TXT 才会用）也不该改变 EPUB 的提取结果
+    const again = await runDecodeJob(
+      {
+        taskId: 't4',
+        sourcePath: EPUB,
+        destDir,
+        contentMode: 'single',
+        format: 'epub',
+        encoding: 'gb18030'
+      },
+      () => undefined
+    )
+    expect(again.charCount).toBe(first.charCount)
+    expect(again.chapters).toEqual(first.chapters)
+  })
+
+  it('坏 EPUB 给中文错误，且什么都不落盘', async () => {
+    const bad = join(root, 'broken.epub')
+    await writeFile(bad, Buffer.alloc(4096, 0x41))
+    await expect(
+      runDecodeJob(
+        { taskId: 't5', sourcePath: bad, destDir, contentMode: 'single', format: 'epub' },
+        () => undefined
+      )
+    ).rejects.toThrow(/找不到结尾记录/)
+    expect(existsSync(destDir)).toBe(false)
   })
 })

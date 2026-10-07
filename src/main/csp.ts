@@ -8,7 +8,8 @@ export const PROD_CSP = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data:",
+  // 内联图片走自定义协议（0.2.0）：reader-image://<bookId>/<文件>，只放行这一条
+  "img-src 'self' data: reader-image:",
   "font-src 'self' data:",
   "connect-src 'none'",
   "object-src 'none'",

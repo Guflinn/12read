@@ -3,6 +3,7 @@ import { SEARCH_MAX_HITS, SEARCH_MAX_HITS_PER_CHAPTER } from '@shared/core/searc
 import type { SearchScope } from '@shared/types'
 import { spotLabel } from '@/core/annotations'
 import { useReaderStore } from '@/store/reader'
+import { placeholderAsText } from '@/core/images'
 
 /** 边打边搜的防抖：打字停这么久才真发请求（大书一次全书搜索要读几十个章文件）。 */
 const SEARCH_DEBOUNCE_MS = 320
@@ -148,9 +149,9 @@ export function SearchPanel(): React.JSX.Element {
                   >
                     <span className="anno-pos">{spotLabel(chapters, hit.chapterIndex)}</span>
                     <span className="anno-text search-text">
-                      {hit.before}
+                      {placeholderAsText(hit.before)}
                       <mark className="search-hit">{hit.match}</mark>
-                      {hit.after}
+                      {placeholderAsText(hit.after)}
                     </span>
                   </button>
                 </li>

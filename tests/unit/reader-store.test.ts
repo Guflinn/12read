@@ -4,6 +4,7 @@ import {
   CHUNK_FIRST_RENDER_CHARS,
   type BackupResult,
   type Book,
+  type BookImage,
   type Bookmark,
   type BookmarkInput,
   type Chapter,
@@ -81,6 +82,7 @@ interface Harness {
   removeHighlight: ReturnType<typeof vi.fn>
   listBookmarks: ReturnType<typeof vi.fn>
   listHighlights: ReturnType<typeof vi.fn>
+  getBookImages: ReturnType<typeof vi.fn>
   searchBook: ReturnType<typeof vi.fn>
   addReadingStat: ReturnType<typeof vi.fn>
   addReadSpan: ReturnType<typeof vi.fn>
@@ -118,6 +120,8 @@ function makeHarness(
   )
   const removeBookmark = vi.fn(async (): Promise<void> => undefined)
   const removeHighlight = vi.fn(async (): Promise<void> => undefined)
+  // 图片清单：默认没图（TXT 走的就是这条路），要测图片的用例自己 mock
+  const getBookImages = vi.fn(async (): Promise<BookImage[]> => [])
   // 搜索默认给「一处都没找到」：单个用例再按需 mockResolvedValueOnce
   const addReadingStat = vi.fn(async (): Promise<void> => undefined)
   const addReadSpan = vi.fn(async (): Promise<number> => 0)
@@ -161,6 +165,7 @@ function makeHarness(
     addBookmark,
     removeBookmark,
     listHighlights,
+    getBookImages,
     addHighlight,
     removeHighlight,
     searchBook,
@@ -191,6 +196,7 @@ function makeHarness(
     removeHighlight,
     listBookmarks,
     listHighlights,
+    getBookImages,
     searchBook,
     addReadingStat,
     addReadSpan,

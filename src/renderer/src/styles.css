@@ -241,6 +241,11 @@
   #app-version { font-size: 11.5px; letter-spacing: .4px;
     color: var(--dim); opacity: .85; pointer-events: none; user-select: none; }
 
+  /* ---------- 内联图片（0.2.0 第 5 项） ---------- */
+  /* 正文里的 U+FFFC 换成 <img>：限宽居中，别把版心撑破；高度自适应 */
+  .inline-image { display: block; max-width: 100%; height: auto; margin: 10px auto;
+    border-radius: 4px; }
+
   /* ---------- 书签与划线（0.1.3 第 6 项） ---------- */
   mark.hl { padding: 0 1px; border-radius: 3px; color: inherit; cursor: pointer;
     background: color-mix(in srgb, var(--accent) 26%, transparent); }

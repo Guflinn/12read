@@ -26,6 +26,7 @@ import {
 } from '@shared/schema'
 import type {
   BackupResult,
+  BookImage,
   Book,
   Bookmark,
   Chapter,
@@ -40,6 +41,7 @@ import type {
 } from '@shared/types'
 import type { AnnotationsRepository } from './db/annotations-repository'
 import type { BackupService } from './services/backup'
+import type { BookImagesService } from './services/book-images'
 import type { UpdateService } from './services/update'
 import type { ChapterEditor } from './services/chapter-editor'
 import type { FileContentReader } from './services/content-reader'
@@ -67,6 +69,8 @@ export interface IpcContext {
   backup: BackupService
   /** 检查更新（0.1.5）：拉远端 Release 比版本号，只提示不下载。 */
   update: UpdateService
+  /** EPUB 内联图片（0.2.0 第 5 项）。 */
+  images: BookImagesService
   progress: SqlProgressStore
   settings: SettingsStore
   /** 本机设备 id，随 app:info 一次性交给渲染进程（TECH.md 6.1）。 */
@@ -116,9 +120,13 @@ export function registerIpc(ctx: IpcContext): void {
 
   handle(CH.filePick, emptyArgsSchema, async (): Promise<string[]> => {
     const result = await dialog.showOpenDialog({
-      title: '选择要导入的 TXT 文件',
+      title: '选择要导入的书',
       properties: ['openFile', 'multiSelections'],
-      filters: [{ name: '纯文本', extensions: ['txt'] }]
+      filters: [
+        { name: '支持的格式', extensions: ['txt', 'epub'] },
+        { name: '纯文本', extensions: ['txt'] },
+        { name: 'EPUB 电子书', extensions: ['epub'] }
+      ]
     })
     return result.canceled ? [] : result.filePaths
   })
@@ -161,6 +169,9 @@ export function registerIpc(ctx: IpcContext): void {
       throw new Error('重新解码失败（' + error.code + '）：' + error.message)
     }
   })
+
+  // 内联图片清单（0.2.0 第 5 项）：字节走 reader-image:// 协议，这里只给「偏移 → URL」
+  handle(CH.bookImages, getArgsSchema, ({ bookId }): BookImage[] => ctx.images.list(bookId))
 
   handle(CH.bookChapters, getArgsSchema, ({ bookId }): Promise<Chapter[]> =>
     ctx.library.chapters(bookId)

@@ -33,6 +33,8 @@ export const CH = {
   updateCheck: 'update:check',
   /** 打开更新下载页（0.1.5）：地址只允许是 GitHub 的 https 链接。 */
   updateOpen: 'update:open',
+  /** 书的内联图片清单（0.2.0 第 5 项）：偏移 → URL，没有图就是空数组。 */
+  bookImages: 'book:images',
   /** 导出备份（0.1.3 第 9 项）：整库打一个 zip，只导出不恢复。 */
   backupExport: 'backup:export',
   progressGet: 'progress:get',

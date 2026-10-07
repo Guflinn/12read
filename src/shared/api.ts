@@ -2,6 +2,7 @@ import type {
   AnnotationId,
   BackupResult,
   Book,
+  BookImage,
   Bookmark,
   BookmarkInput,
   Chapter,
@@ -82,6 +83,8 @@ export interface ReaderApi {
    * 拖过去的整段不算），返回这次记了多少字。
    */
   addReadSpan(input: ReadSpanInput): Promise<number>
+  /** 内联图片清单（0.2.0）：没有图的书写回空数组。 */
+  getBookImages(bookId: string): Promise<BookImage[]>
   getReadingStats(days: number): Promise<ReadingStats>
   /** 日历视图（0.1.4）：某个自然月每天的阅读量，没读的日子补 0。 */
   getReadingCalendar(month: string): Promise<ReadingCalendar>

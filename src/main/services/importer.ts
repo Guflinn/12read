@@ -1,10 +1,10 @@
 import { existsSync } from 'node:fs'
 import { mkdir, rm, stat } from 'node:fs/promises'
-import { join } from 'node:path'
+import { extname, join } from 'node:path'
 import { Worker } from 'node:worker_threads'
 import { cleanTitleFromPath } from '@shared/core/filename'
 import { newBookId } from '@shared/core/ids'
-import type { Book, ImportProgress, ImportStage, ManualEncoding } from '@shared/types'
+import type { Book, BookFormat, ImportProgress, ImportStage, ManualEncoding } from '@shared/types'
 import { SLICE_MODE_BYTES } from '@shared/types'
 import type { LibraryRepository } from '../db/library-repository'
 import { runDecodeJob, type DecodeJob, type DecodeJobResult } from '../workers/decode-job'
@@ -20,6 +20,13 @@ export interface ImportServiceOptions {
    * 只为可测性留出的注入口：单测指向临时脚本就能覆盖 worker 分支，生产行为完全不变。
    */
   workerPath?: string
+}
+
+/** 按扩展名分派提取器（0.2.0）：认得的走各自的分支，其它一律按 TXT 处理。 */
+function formatOf(filePath: string): BookFormat {
+  const ext = extname(filePath).toLowerCase()
+  if (ext === '.epub') return 'epub'
+  return 'txt'
 }
 
 type WorkerEnvelope =
@@ -74,10 +81,13 @@ export class ImportService {
 
     const bookId = newBookId()
     const destDir = bookDir(root, bookId)
+    const format = formatOf(filePath)
     const job: DecodeJob = {
       taskId,
       sourcePath: filePath,
       destDir,
+      format,
+      // 大头书按章切片，阅读器一次只读一章（TXT 与 EPUB 同一套判断）
       contentMode: info.size > SLICE_MODE_BYTES ? 'sliced' : 'single'
     }
 
@@ -90,8 +100,10 @@ export class ImportService {
       const book = repo.insertBook(
         {
           id: bookId,
-          title: cleaned.title,
-          author: cleaned.author,
+          // 文件里写了书名/作者就用它（EPUB 的 OPF 通常比文件名干净得多），没写才退文件名
+          title: result.title ?? cleaned.title,
+          author: result.author ?? cleaned.author,
+          format: result.format,
           encoding: result.encoding,
           byteSize: info.size,
           charCount: result.charCount,
@@ -137,7 +149,10 @@ export class ImportService {
         sourcePath: source,
         destDir: bookDir(root, bookId),
         contentMode: book.contentMode,
-        encoding: encoding === 'auto' ? undefined : encoding
+        // 非 TXT 格式没有「编码」这回事：EPUB 按规范就是 UTF-8/UTF-16，
+        // 这里的「重新解码」等价于「用最新提取器重新提取」（0.2.0 第 6 项）。
+        format: book.format,
+        encoding: book.format === 'txt' && encoding !== 'auto' ? encoding : undefined
       })
       repo.replaceDecoded(
         bookId,

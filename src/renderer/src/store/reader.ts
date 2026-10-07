@@ -7,6 +7,7 @@ import {
   CHUNK_THRESHOLD_CHARS,
   type AnnotationId,
   type Book,
+  type BookImage,
   type Bookmark,
   type CharOffset,
   type Chapter,
@@ -50,6 +51,8 @@ export interface ReadingSpot {
 export interface ReaderState {
   book: Book | null
   chapters: Chapter[]
+  /** 内联图片清单（0.2.0）：全局偏移 → URL；TXT 书是空数组。 */
+  images: BookImage[]
   chapterIndex: number
   chapterText: string
   /** 分块渲染：已渲染到本章的第几个字符。 */
@@ -344,6 +347,7 @@ async function applyChapterEdit(run: (bookId: string) => Promise<Chapter[]>): Pr
 
 export const useReaderStore = create<ReaderState>((set, get) => ({
   book: null,
+  images: [],
   chapters: [],
   chapterIndex: 0,
   chapterText: '',
@@ -398,16 +402,19 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       searching: false,
       searchError: null,
       searchResult: null,
-      flash: null
+      flash: null,
+      images: []
     })
     try {
-      const [book, chapters, progress, bookmarks, highlights] = await Promise.all([
+      const [book, chapters, progress, bookmarks, highlights, images] = await Promise.all([
         api.getBook(bookId),
         api.chapters(bookId),
         api.getProgress(bookId),
         // 书签与划线读不出来也不该挡着看书，交给 catch 之外的默认空列表
         api.listBookmarks(bookId).catch((): Bookmark[] => []),
-        api.listHighlights(bookId).catch((): Highlight[] => [])
+        api.listHighlights(bookId).catch((): Highlight[] => []),
+        // 图片清单同理：读不出来就是没图，正文照常读（TXT 书本来就是空的）
+        api.getBookImages(bookId).catch((): BookImage[] => [])
       ])
       if (mine !== seq) return
       if (!book) throw new Error('这本书已不在书架里')
@@ -420,6 +427,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       set({
         book,
         chapters,
+        images,
         chapterIndex: index,
         chapterText: text,
         visibleChars: initialVisible(text),

@@ -29,6 +29,7 @@ import type {
   AnnotationId,
   BackupResult,
   Book,
+  BookImage,
   Bookmark,
   BookmarkInput,
   Chapter,
@@ -103,6 +104,8 @@ const readerApi: ReaderApi = {
     invoke(CH.statAdd, statAddArgsSchema, { bookId, ms, chars }),
   addReadSpan: (input: ReadSpanInput): Promise<number> =>
     invoke(CH.statRead, statReadArgsSchema, input),
+  getBookImages: (bookId: string): Promise<BookImage[]> =>
+    invoke(CH.bookImages, getArgsSchema, { bookId }),
   getReadingStats: (days: number): Promise<ReadingStats> =>
     invoke(CH.statGet, statGetArgsSchema, { days }),
   getReadingCalendar: (month: string): Promise<ReadingCalendar> =>

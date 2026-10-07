@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { normalizeSelection, rangesOfChapter, splitHighlighted } from '@/core/annotations'
 import { offsetForScrollTop, scrollTopForOffset, splitParagraphs } from '@/core/paragraphs'
+import { chapterImages, splitByImages } from '@/core/images'
 import { chapterLabel, progressLabel } from '@/core/reading'
 import { STAT_READ_PAUSE_MS } from '@shared/core/stats'
 import { BOOKMARK_DWELL_MS, BOOKMARK_REST_MS, useReaderStore } from '@/store/reader'
@@ -92,6 +93,20 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
     () => splitParagraphs(chapterText.slice(0, visibleChars)),
     [chapterText, visibleChars]
   )
+
+  /**
+   * 本章的图片：正文里是 U+FFFC 占位符，这里把「章内偏移 → URL」备好，
+   * 渲染段落时原地换成 <img>（0.2.0 第 5 项）。TXT 书这里是空的。
+   */
+  const images = useReaderStore((s) => s.images)
+  const imageByOffset = useMemo(() => {
+    const map = new Map<number, string>()
+    if (!chapter) return map
+    for (const image of chapterImages(images, chapter.startOffset, chapter.charLength)) {
+      map.set(image.offset, image.url)
+    }
+    return map
+  }, [images, chapter])
 
   // 正文第一段常常就是章节标题，避免重复显示
   const body = useMemo(() => {
@@ -421,17 +436,35 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
                     paraRefs.current[index] = el
                   }}
                 >
-                  {splitHighlighted(paragraph.text, paragraph.offset, ranges).map((segment, part) =>
-                    segment.highlightId ? (
-                      <mark
-                        key={segment.highlightId + '-' + part}
-                        className="hl"
-                        data-hl-id={segment.highlightId}
-                      >
-                        {segment.text}
-                      </mark>
+                  {splitByImages(paragraph.text, paragraph.offset, imageByOffset).map((piece, index) =>
+                    piece.kind === 'image' ? (
+                      piece.url === null ? null : (
+                        <img
+                          key={'img-' + index}
+                          className="inline-image"
+                          src={piece.url}
+                          alt="插图"
+                          data-image-offset={paragraph.offset + piece.at}
+                        />
+                      )
                     ) : (
-                      <span key={'plain-' + part}>{segment.text}</span>
+                      splitHighlighted(
+                        piece.text,
+                        paragraph.offset + piece.start,
+                        ranges
+                      ).map((segment, part) =>
+                        segment.highlightId ? (
+                          <mark
+                            key={segment.highlightId + '-' + index + '-' + part}
+                            className="hl"
+                            data-hl-id={segment.highlightId}
+                          >
+                            {segment.text}
+                          </mark>
+                        ) : (
+                          <span key={'plain-' + index + '-' + part}>{segment.text}</span>
+                        )
+                      )
                     )
                   )}
                 </p>

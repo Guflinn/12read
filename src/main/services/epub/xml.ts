@@ -14,12 +14,18 @@
  */
 
 export interface XmlNode {
-  /** 标签名，含命名空间前缀原样（`dc:title`）。 */
+  /** 标签名，含命名空间前缀原样（`dc:title`）。多顶层元素/纯文本时是合成的 `#document`。 */
   tag: string
   /** 属性名同样含前缀原样。 */
   attrs: Record<string, string>
+  /** 只含子元素，供「找某个标签」的遍历用。 */
   children: XmlNode[]
-  /** 直接文本（不含子元素里的），已解实体。 */
+  /**
+   * **保序的混合内容**：元素与字符串（文字）按文档顺序排 —— `甲<span>乙</span>丙` 就是
+   * `['甲', <span>, '丙']`。取正文必须走这个，走 `children + text` 会把顺序搞乱。
+   */
+  nodes: Array<XmlNode | string>
+  /** 直接文本（不含子元素里的）拼起来，已解实体；`textOf` 之外的场景方便直接用。 */
   text: string
 }
 
@@ -62,10 +68,10 @@ export function allDescendants(node: XmlNode, name: string): XmlNode[] {
   return found
 }
 
-/** 节点内所有文本（含子孙），拼接后 trim —— 取书名、作者、目录标题用。 */
+/** 节点内所有文本（含子孙），按**文档顺序**拼接后 trim —— 取书名、作者、目录标题用。 */
 export function textOf(node: XmlNode): string {
-  let out = node.text
-  for (const child of node.children) out += textOf(child)
+  let out = ''
+  for (const child of node.nodes) out += typeof child === 'string' ? child : textOf(child)
   return out.replace(/\s+/g, ' ').trim()
 }
 
@@ -140,13 +146,20 @@ function parseAttrs(source: string): Record<string, string> {
  */
 export function parseXml(source: string): XmlNode | null {
   const stack: XmlNode[] = []
-  let root: XmlNode | null = null
+  /** 文档级的有序节点（多个顶层元素、或没有元素只有文字时，包成一个合成的 #document）。 */
+  const top: Array<XmlNode | string> = []
   let at = 0
 
   const pushText = (raw: string): void => {
-    if (raw === '' || stack.length === 0) return
-    const target = stack[stack.length - 1]
-    if (target) target.text += decodeEntities(raw)
+    if (raw === '') return
+    const decoded = decodeEntities(raw)
+    const parent = stack[stack.length - 1]
+    if (!parent) {
+      appendText(top, decoded)
+      return
+    }
+    parent.text += decoded
+    appendText(parent.nodes, decoded)
   }
 
   while (at < source.length) {
@@ -175,7 +188,12 @@ export function parseXml(source: string): XmlNode | null {
       const end = source.indexOf(']]>', at)
       const body = source.slice(at + 9, end < 0 ? source.length : end)
       const target = stack[stack.length - 1]
-      if (target) target.text += body
+      if (target) {
+        target.text += body
+        appendText(target.nodes, body)
+      } else {
+        appendText(top, body)
+      }
       at = end < 0 ? source.length : end + 3
       continue
     }
@@ -216,13 +234,38 @@ export function parseXml(source: string): XmlNode | null {
     at = end + 1
     if (tag === '') continue
 
-    const node: XmlNode = { tag, attrs: parseAttrs(body.slice(nameEnd)), children: [], text: '' }
+    const node: XmlNode = {
+      tag,
+      attrs: parseAttrs(body.slice(nameEnd)),
+      children: [],
+      nodes: [],
+      text: ''
+    }
     const parent = stack[stack.length - 1]
-    if (parent) parent.children.push(node)
-    else if (root === null) root = node
+    if (parent) {
+      parent.children.push(node)
+      parent.nodes.push(node)
+    } else {
+      top.push(node)
+    }
 
     if (!selfClosing) stack.push(node)
   }
 
-  return root
+  if (top.length === 0) return null
+  const elements = top.filter((item): item is XmlNode => typeof item !== 'string')
+  const texts = top.filter((item): item is string => typeof item === 'string')
+  // 只有一个元素、其余只是声明/注释之间的换行 → 它就是根（别为了空白多包一层）
+  if (elements.length === 1 && texts.every((text) => text.trim() === '')) {
+    return elements[0] as XmlNode
+  }
+  // 多个顶层元素 / 只有文字（HTML 片段很常见）：包一个合成文档节点，别丢东西
+  return { tag: '#document', attrs: {}, children: elements, nodes: top, text: texts.join('') }
+}
+
+/** 往有序节点里追加文字；相邻的文字合并成一段，别把 nodes 打得太碎。 */
+function appendText(nodes: Array<XmlNode | string>, text: string): void {
+  const last = nodes[nodes.length - 1]
+  if (typeof last === 'string') nodes[nodes.length - 1] = last + text
+  else nodes.push(text)
 }

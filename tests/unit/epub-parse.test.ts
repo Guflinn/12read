@@ -76,9 +76,28 @@ describe('epub/xml.ts（手写 lenient XML）', () => {
     expect(root ? textOf(root) : null).toBe('十二 阅读')
   })
 
-  it('没有元素时返回 null', () => {
-    expect(parseXml('只有文字没有标签')).toBeNull()
+  it('没有元素时：纯文字包成合成文档节点（别丢字），空串才返回 null', () => {
+    const onlyText = parseXml('只有文字没有标签')
+    expect(onlyText?.tag).toBe('#document')
+    expect(onlyText ? textOf(onlyText) : null).toBe('只有文字没有标签')
     expect(parseXml('')).toBeNull()
+  })
+
+  it('多个顶层元素（HTML 片段）包成合成文档节点，顺序不乱', () => {
+    const doc = parseXml('<p>一</p>\n<p>二</p>')
+    expect(doc?.tag).toBe('#document')
+    expect(doc?.children.map((child) => child.tag)).toEqual(['p', 'p'])
+    expect(doc ? textOf(doc) : null).toBe('一 二')
+  })
+
+  it('混合内容保序：节点自己的文字夹在子元素中间时，nodes 按文档顺序排', () => {
+    const root = parseXml('<p>甲<span>乙</span>丙</p>')
+    expect(root?.nodes.map((item) => (typeof item === 'string' ? item : item.tag))).toEqual([
+      '甲',
+      'span',
+      '丙'
+    ])
+    expect(root ? textOf(root) : null).toBe('甲乙丙')
   })
 })
 

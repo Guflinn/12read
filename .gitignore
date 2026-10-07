@@ -17,3 +17,7 @@ electron.vite.config.*.mjs
 
 # 备用打包输出目录（release/win-unpacked 被占用时用它绕开，见 HANDOFF 已知坑）
 release-out/
+
+# 用户提供的真实书样本（版权内容 + 大文件，只在本机做实测，绝不入库）
+# 通配两种目录名：2026-10-07 就是因为旧名 epub格式测试文件/ 没被盖住而误提交过一次
+*格式测试文件/

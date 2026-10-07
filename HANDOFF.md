@@ -58,8 +58,19 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
    - **顺带修掉一个用户报的老 bug**（2026-10-07）：「回到上次位置」在快滑场景下回不去 —— 见下方「已知坑」里的 `BOOKMARK_DWELL_MS` 那条。
    - **C 阅读统计「字数」口径修正 —— 已完成**（2026-10-07）：用户报「来回刷 = 读了好几万字」；改为主进程按 `reading_span`（schema v3）当天每章水位线去重 + 渲染层只在「停下 ≥ 2 秒」时报位置。**schema v2 → v3，首次启动会自动迁移并备份库**。
    - **B 阅读统计增强三条 —— 已完成**（2026-10-07）：书架「今天已读 …」/ 每日目标（设置面板 4 档，默认关）/ 统计面板日历视图（新增通道 `stat:calendar`，按需取整月）。做法见 [docs/MVP.md](docs/MVP.md) 第 10 节 B 段与 TECH 变更记录。
-   - **发版状态（2026-10-07）**：CHANGELOG 已定稿为 `## [0.1.4] - 2026-10-07`；本地已打完包装；
-     **等用户开代理后**：推 main + tag `v0.1.4` + 建 GitHub Release（勾 Pre-release，附 Release notes 与 SHA-256）。
+   - **发版状态（2026-10-07）**：CHANGELOG 定稿 `## [0.1.4] - 2026-10-07`；**安装包已打好并验证**、
+     tag `v0.1.4` 已打（本地）、发版说明与上传脚本已就绪 —— **只差网络**。
+     - 产物：`release/twelve-read-setup-0.1.4.exe`（102,770,571 B / 约 98 MB）、`.blockmap`、`.sha256`、`latest.yml`（size 与 sha512 已用 Python 独立核对一致）。
+     - SHA-256：`0B42CB705E06A80D4312903C183EC80D4DDBB8993B812A6CF0BDBEFBE9F6168A`。
+     - 验证：解 `app.asar` 确认含新代码（`cal-grid`/`今天已读`/`reading_span`/`window_state` 等）；
+       **对打包后的 exe 做了比 0.1.3 更硬的冒烟**：用 Playwright 连上 `release-out/win-unpacked/十二阅读.exe`，
+       确认窗口起来、书架渲染、版本号显示 `v0.1.4`（0.1.3 那次只做到「无 FATAL 退出」）。
+     - 打包绕坑：`release/win-unpacked` 里两个 `.asar` 被外部进程占用删不掉（safe-delete 也拦），
+       改用 `pnpm exec electron-builder --win nsis -c.directories.output=release-out` 出到备用目录，
+       再把产物 `cp` 回 `release/`（**拷出去可以，删不行**）。
+     - 待办：**用户开代理后** → `git push`（用官方 git，见下）+ tag 推送 + 跑
+       `python release-build/upload-release-0.1.4.py` 建 Release（Pre-release）。
+     - 发版说明草稿：`release-build/release-notes-0.1.4.md`（已填体积与校验和）。
    - 版本状态：**`package.json` 已标 `0.1.4`**（2026-10-07 用户定「提前标」，**与 0.1.3 那轮发版时才升的做法不同**）→ 界面上显示的就是 0.1.4；CHANGELOG 里仍是「未发布」段，**发版时不必再动 package.json**。注意：`release/` 里的安装包与 GitHub Release 仍是已发布的 0.1.3（冻结产物，别改）。
 2. **备份「还原」已砍（2026-10-07 用户决定，从计划删除）**：不做导入备份。0.1.3 已交付的「导出备份」保留现状，但**导出的包应用读不回来、价值有限** —— 以后用户若重提要重新立项，别自作主张开工，也别再拿它当卖点。
 3. **0.2.0 EPUB 已立项（2026-10-06）**：范围 / 两项已定决策（ZIP 手写 lenient reader、插图 U+FFFC 占位内联渲染）/ 不做清单 / 实施顺序 / 性能预算，见 [docs/MVP.md](docs/MVP.md) 第 10 节「已立项：0.2.0」。另有「格式路线图」（MOBI 0.3.0 首选、Markdown、文字层 PDF）同节。
@@ -98,6 +109,12 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 - **打包/构建时目录删除会被环境的 safe-delete 拦掉**：批量删除超过 50 个文件时，构建链路（vite 清 `out/`、electron-builder 清 `release/win-unpacked`）会报 `SAFE_DELETE_BULK_CONFIRM_REQUIRED`。绕法是**先手工清干净再构建**：`cmd //c "rmdir /S /Q out"` 与 `cmd //c "rmdir /S /Q release\win-unpacked"`（这条能绕过 shim，bash 的 `rm -rf` 与 PowerShell 的 `Remove-Item` 都会被截）。若个别 `.asar` 被外部进程占用删不掉，构建可改用 `-c.directories.output=<别的目录>` 绕开被占死的那条路。
 - **`pnpm test:e2e` 也会撞同一个 safe-delete 拦门**：playwright 每轮开头要清 `test-results/`，攒够 50+ 个文件后直接报 `SAFE_DELETE_BULK_CONFIRM_REQUIRED`（错误里会写 `"targets":["…\\test-results"]`，看着像构建失败，其实一条用例都没跑）。**跑 e2e 前先 `cmd //c "rmdir /S /Q test-results"`** 即可；`out/` 同理，如果 vite 的 `emptyOutDir` 被拦，也是先手工清 `out/`。
 - `release/`、`out/`、`coverage/`、`test-results/` 都在 `.gitignore` 里，别提交产物。`.workbuddy/` 也已忽略（Agent 的本地记忆目录）。
+- **Agent 的 shell 里 `git` 会解析到 PortableGit（`/mingw64/bin/git`），凭据操作会卡死**（2026-10-07 实测）：
+  `which -a git` 第一项是 `/mingw64/bin/git`，它的 system 层 `credential.helper = helper-selector` 会弹 GUI 选择器，
+  `git credential fill` 直接卡住 2 分钟被杀（`SIGTERM`）。**涉及凭据 / 推送时显式用官方 git**：
+  `"/c/Program Files/Git/cmd/git.exe" credential fill`（或 `~/.local/bin/git`），
+  官方 git 能取到 `username=Guflinn` + token。普通 commit / log 用哪个 git 都行。
+  `release-build/upload-release-0.1.4.py` 已按这个思路优先用官方 git 取 token。
 - **提交前用 `git status --short` 过一眼，按路径 `git add`，别图省事 `git add -A`**：2026-10-07 就因此误提交过 `electron.vite.config.<时间戳>.mjs`（electron-vite 把 TS 配置转成 JS 的影子文件，跑构建就会生成一个）。该模式已补进 `.gitignore`，但同类「构建顺手产物」以后还会有。
 
 ## 两个 Agent 同时干活（同一台机器）

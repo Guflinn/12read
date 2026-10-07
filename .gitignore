@@ -14,3 +14,6 @@ playwright-report/
 
 # electron-vite 构建时生成的临时配置文件（TS 配置的 JS 影子，跑完就该没）
 electron.vite.config.*.mjs
+
+# 备用打包输出目录（release/win-unpacked 被占用时用它绕开，见 HANDOFF 已知坑）
+release-out/

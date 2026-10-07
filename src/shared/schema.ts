@@ -22,6 +22,11 @@ export const getArgsSchema = z.object({ bookId: bookIdSchema })
 
 export const emptyArgsSchema = z.undefined().or(z.null())
 
+/** 打开更新下载页（0.1.5）：只接受 GitHub 的 https 地址，别的一律拒（main 侧还会再验一次）。 */
+export const updateOpenArgsSchema = z.object({
+  url: z.string().startsWith('https://github.com/', 'url 必须是 github.com 的 https 链接')
+})
+
 export const renameArgsSchema = z.object({
   bookId: bookIdSchema,
   title: z.string().trim().min(1, '书名不能为空').max(200)

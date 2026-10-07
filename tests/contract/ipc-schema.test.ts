@@ -17,7 +17,8 @@ import {
   statAddArgsSchema,
   statGetArgsSchema,
   statCalendarArgsSchema,
-  statReadArgsSchema
+  statReadArgsSchema,
+  updateOpenArgsSchema
 } from '@shared/schema'
 import { STAT_MAX_REPORT_CHARS, STAT_MAX_REPORT_MS } from '@shared/core/stats'
 
@@ -128,6 +129,26 @@ describe('IPC 入参校验：合法用例', () => {
         chapterIndex: 0
       }).success
     ).toBe(true)
+  })
+
+  it('更新入参（0.1.5 的 update:open）：只收 github.com 的 https 链接', () => {
+    expect(
+      updateOpenArgsSchema.safeParse({
+        url: 'https://github.com/Guflinn/12read/releases/tag/v0.1.6'
+      }).success
+    ).toBe(true)
+    for (const bad of [
+      'http://github.com/Guflinn/12read', // 非 https
+      'https://example.com/x', // 别的站
+      'https://github.com.evil.com/x', // 仿冒域名
+      'https://github.company.com/x',
+      'file:///etc/passwd',
+      ''
+    ]) {
+      expect(updateOpenArgsSchema.safeParse({ url: bad }).success).toBe(false)
+    }
+    expect(updateOpenArgsSchema.safeParse({}).success).toBe(false)
+    expect(updateOpenArgsSchema.safeParse({ url: 123 }).success).toBe(false)
   })
 
   it('统计入参（0.1.4 的 stat:calendar）：月份必须是 YYYY-MM', () => {

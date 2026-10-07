@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { todayReadText } from '@shared/core/stats'
-import type { Book, ManualEncoding, ShelfBook } from '@shared/types'
+import type { Book, ManualEncoding, ShelfBook, UpdateInfo } from '@shared/types'
 import { readerApi } from '@/core/api'
 import {
   coverGradient,
@@ -19,6 +19,9 @@ import { ImportStatus } from './ImportStatus'
 import { Modal } from './Modal'
 import { StatsSheet } from './StatsSheet'
 import { toast } from './Toast'
+
+/** 每次启动只自动查一次（ShelfView 会随路由反复挂载，别每回书架都打一次网络）。 */
+let autoCheckedOnce = false
 
 function BookCard({
   book,
@@ -129,6 +132,9 @@ export function ShelfView({
   const [sort, setSort] = useState<ShelfSort>('recent')
   /** 今天读了多久（0.1.4）：进书架时取一次；从阅读器回来自会重新挂载，所以不用订阅。 */
   const [todayMs, setTodayMs] = useState<number | null>(null)
+  /** 检查更新（0.1.5）：只提示不下载；失败静默。 */
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
   const dailyGoalMinutes = useSettingsStore((s) => s.settings.dailyGoalMinutes)
   const now = Date.now()
   const totalChars = books.reduce((sum, book) => sum + book.charCount, 0)
@@ -136,6 +142,49 @@ export function ShelfView({
   const filtering = query.trim().length > 0
   // 没读又没设目标时是空串，那行就不显示（见 shared/core/stats.ts）
   const todayText = todayMs === null ? '' : todayReadText(todayMs, dailyGoalMinutes)
+
+  /** 手动检查：三种结果都给一句准话，别让人不知道点没点上。 */
+  const checkUpdate = (): void => {
+    if (checkingUpdate) return
+    setCheckingUpdate(true)
+    readerApi()
+      .checkUpdate()
+      .then((result) => {
+        if (result.outcome === 'update' && result.info) {
+          setUpdateInfo(result.info)
+          toast('发现新版本 v' + result.info.version + '，点左下角那行去下载')
+        } else if (result.outcome === 'latest') {
+          toast('已是最新版本 v' + version)
+        } else {
+          toast('检查更新失败：多半是没连上网')
+        }
+      })
+      .catch(() => toast('检查更新失败'))
+      .finally(() => setCheckingUpdate(false))
+  }
+
+  const openUpdatePage = (): void => {
+    if (!updateInfo) return
+    void readerApi()
+      .openUpdatePage(updateInfo.url)
+      .catch(() => toast('打不开下载页'))
+  }
+
+  // 启动后静默查一次更新（每次会话一次）。查不到 / 没网都不吭声 —— 那不是用户要处理的事。
+  useEffect(() => {
+    if (autoCheckedOnce) return
+    autoCheckedOnce = true
+    let alive = true
+    readerApi()
+      .checkUpdate()
+      .then((result) => {
+        if (alive && result.outcome === 'update' && result.info) setUpdateInfo(result.info)
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [])
 
   useEffect(() => {
     let alive = true
@@ -321,11 +370,26 @@ export function ShelfView({
         </div>
       </div>
 
-      {version ? (
-        <footer className="app-version" id="app-version" title={'十二阅读 ' + version}>
-          v{version}
-        </footer>
-      ) : null}
+      <footer className="app-footer">
+        {version ? (
+          <span className="app-version" id="app-version" title={'十二阅读 ' + version}>
+            v{version}
+          </span>
+        ) : null}
+        <button
+          className="app-check-update"
+          id="btn-check-update"
+          disabled={checkingUpdate}
+          onClick={checkUpdate}
+        >
+          {checkingUpdate ? '正在检查…' : '检查更新'}
+        </button>
+        {updateInfo ? (
+          <button className="app-update-notice" id="update-notice" onClick={openUpdatePage}>
+            有新版本 v{updateInfo.version} · 去下载
+          </button>
+        ) : null}
+      </footer>
 
       {renaming ? (
         <Modal

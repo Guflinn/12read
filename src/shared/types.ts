@@ -197,6 +197,29 @@ export interface ReadSpanInput {
   enteredAt: number
 }
 
+/**
+ * 「有新版本」的信息（0.1.5）。只用于提示与打开下载页 —— 本版不做自动下载安装。
+ * 检查失败时一律返回 null，界面什么都不用显示。
+ */
+export interface UpdateInfo {
+  /** 远端版本号（已去掉 tag 的 v 前缀），如 '0.1.5'。 */
+  version: string
+  /** 该 Release 的网页地址，点「去下载」时交给系统浏览器打开。 */
+  url: string
+  /** 发布时间（ISO 字符串），远端没给就是 null。 */
+  publishedAt: string | null
+}
+
+/**
+ * 检查更新的结果（0.1.5）。分三态是为了手动检查时能给对提示：
+ * 「已是最新」和「没连上网」对用户是完全不同的两件事，混在一起只能含糊其辞。
+ */
+export interface UpdateCheckResult {
+  outcome: 'update' | 'latest' | 'failed'
+  /** outcome === 'update' 时有值。 */
+  info: UpdateInfo | null
+}
+
 /** 某个自然月的每日阅读量（0.1.4 的日历视图）：days 覆盖整月，没读的日子补 0。 */
 export interface ReadingCalendar {
   /** 'YYYY-MM' */

@@ -154,6 +154,7 @@ function makeContext(): {
   search: Record<string, ReturnType<typeof vi.fn>>
   stats: Record<string, ReturnType<typeof vi.fn>>
   backup: Record<string, ReturnType<typeof vi.fn>>
+  update: Record<string, ReturnType<typeof vi.fn>>
   content: Record<string, ReturnType<typeof vi.fn>>
   progress: Record<string, ReturnType<typeof vi.fn>>
   settings: Record<string, ReturnType<typeof vi.fn>>
@@ -218,6 +219,13 @@ function makeContext(): {
   const backup = {
     exportTo: vi.fn(async (): Promise<BackupResult> => BACKUP_RESULT)
   }
+  const update = {
+    check: vi.fn(async (): Promise<{ outcome: string; info: null }> => ({
+      outcome: 'latest',
+      info: null
+    })),
+    open: vi.fn(async (): Promise<void> => undefined)
+  }
   const content = {
     readChapter: vi.fn(async (): Promise<string> => '正文'),
     invalidate: vi.fn((bookId: string) => {
@@ -243,6 +251,7 @@ function makeContext(): {
     content,
     progress,
     settings,
+    update,
     deviceId: 'device-1'
   } as unknown as IpcContext
   registerIpc(ctx)
@@ -258,7 +267,8 @@ function makeContext(): {
     backup,
     content,
     progress,
-    settings
+    settings,
+    update
   }
 }
 
@@ -681,6 +691,23 @@ describe('IPC 注册与转发', () => {
       await expect(call(CH.statCalendar, raw)).rejects.toThrow('参数校验失败: ' + CH.statCalendar)
     }
     expect(stats.calendar).toHaveBeenCalledTimes(1)
+  })
+
+  it('update:check 转发给更新服务并原样返回三态结果', async () => {
+    const { update } = setup()
+    expect(await call(CH.updateCheck, undefined)).toEqual({ outcome: 'latest', info: null })
+    expect(update.check).toHaveBeenCalledTimes(1)
+  })
+
+  it('update:open 只放 github 链接过去，别的网址被拒且不碰服务', async () => {
+    const { update } = setup()
+    await call(CH.updateOpen, { url: 'https://github.com/Guflinn/12read/releases/tag/v0.1.6' })
+    expect(update.open).toHaveBeenCalledWith('https://github.com/Guflinn/12read/releases/tag/v0.1.6')
+
+    for (const raw of [{ url: 'https://example.com/x' }, { url: 'http://github.com/x' }, {}]) {
+      await expect(call(CH.updateOpen, raw)).rejects.toThrow('参数校验失败: ' + CH.updateOpen)
+    }
+    expect(update.open).toHaveBeenCalledTimes(1)
   })
 
   it('stat:add 的负数、小数与超上限被拒，不碰统计服务', async () => {

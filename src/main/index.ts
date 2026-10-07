@@ -21,6 +21,7 @@ import { SqlProgressStore } from './services/progress-store'
 import { ReadingStatsService } from './services/reading-stats'
 import { BookSearchService } from './services/search'
 import { SettingsStore } from './services/settings-store'
+import { UpdateService } from './services/update'
 import { captureWindowState, WindowStateStore } from './services/window-state'
 import { createMainWindow } from './window'
 
@@ -77,6 +78,7 @@ function bootstrap(): () => void {
     backup: new BackupService({ root, db, repo, version: app.getVersion() }),
     progress: new SqlProgressStore(repo),
     settings: new SettingsStore(meta),
+    update: new UpdateService(),
     deviceId: deviceIdOf(meta)
   })
 

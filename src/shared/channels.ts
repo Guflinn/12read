@@ -29,6 +29,10 @@ export const CH = {
   statGet: 'stat:get',
   /** 日历视图（0.1.4）：取某个自然月每天的阅读量，给统计面板的格子图用。 */
   statCalendar: 'stat:calendar',
+  /** 检查更新（0.1.5）：查远端最新 Release，只提示不下载；失败返回 null。 */
+  updateCheck: 'update:check',
+  /** 打开更新下载页（0.1.5）：地址只允许是 GitHub 的 https 链接。 */
+  updateOpen: 'update:open',
   /** 导出备份（0.1.3 第 9 项）：整库打一个 zip，只导出不恢复。 */
   backupExport: 'backup:export',
   progressGet: 'progress:get',

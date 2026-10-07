@@ -234,7 +234,11 @@
   .modal-note { font-size: 12.5px; line-height: 1.7; color: var(--dim); margin: 8px 0 0; }
 
   /* ---------- 书架左下角的版本角标 ---------- */
-  #app-version { position: fixed; left: 26px; bottom: 10px; font-size: 11.5px; letter-spacing: .4px;
+  /* 左下角这一条：版本号 + 检查更新 +（有新版时的）去下载（0.1.5）。
+     整条固定在左下，内部用 flex 排；#app-version 不再自己定位。 */
+  .app-footer { position: fixed; left: 26px; bottom: 10px; display: flex; align-items: center;
+    gap: 10px; }
+  #app-version { font-size: 11.5px; letter-spacing: .4px;
     color: var(--dim); opacity: .85; pointer-events: none; user-select: none; }
 
   /* ---------- 书签与划线（0.1.3 第 6 项） ---------- */
@@ -317,6 +321,13 @@
     white-space: nowrap; font-size: 13.5px; }
   .stats-top-num { flex: 0 0 auto; font-size: 12px; color: var(--dim); }
   .stats-empty { margin: 8px 2px; font-size: 13px; line-height: 1.8; }
+  /* 检查更新（0.1.5）：低调的文字按钮，不抢注意力 */
+  .app-check-update { border: 0; background: none; padding: 0; font: inherit; font-size: 11.5px;
+    color: var(--dim); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+  .app-check-update:disabled { opacity: .6; cursor: default; text-decoration: none; }
+  /* 有新版本时的提示：做成按钮，点一下去下载页 */
+  .app-update-notice { border: 1px solid var(--accent); background: none; cursor: pointer;
+    font: inherit; font-size: 11.5px; padding: 2px 8px; border-radius: 999px; color: var(--accent); }
   /* 每日目标（0.1.4）：今天那张卡里的一小条进度 */
   .stats-goal { display: flex; align-items: center; gap: 6px; margin-top: 5px;
     font-size: 11px; color: var(--dim); white-space: nowrap; }

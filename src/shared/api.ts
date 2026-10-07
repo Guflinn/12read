@@ -16,7 +16,8 @@ import type {
   ReadingStats,
   SearchResult,
   SearchScope,
-  ShelfBook
+  ShelfBook,
+  UpdateCheckResult
 } from './types'
 
 /**
@@ -84,6 +85,13 @@ export interface ReaderApi {
   getReadingStats(days: number): Promise<ReadingStats>
   /** 日历视图（0.1.4）：某个自然月每天的阅读量，没读的日子补 0。 */
   getReadingCalendar(month: string): Promise<ReadingCalendar>
+  /**
+   * 检查更新（0.1.5）：拉远端最新 Release 并比版本号，返回三态结果。
+   * 自动检查时只关心 outcome === 'update'；手动检查时三态都给用户一句准话。
+   */
+  checkUpdate(): Promise<UpdateCheckResult>
+  /** 打开更新下载页（0.1.5）：交给系统浏览器。 */
+  openUpdatePage(url: string): Promise<void>
   /**
    * 导出备份（0.1.3 第 9 项）：主进程弹「另存为」，把整库打成一个 zip。
    * 用户取消返回 null；导出本身只读本机数据，不会动书库。

@@ -21,6 +21,7 @@ import {
   statAddArgsSchema,
   statReadArgsSchema,
   statCalendarArgsSchema,
+  updateOpenArgsSchema,
   statGetArgsSchema
 } from '@shared/schema'
 import type {
@@ -33,11 +34,13 @@ import type {
   ReaderSettings,
   ReadingCalendar,
   ReadingStats,
+  UpdateCheckResult,
   SearchResult,
   ShelfBook
 } from '@shared/types'
 import type { AnnotationsRepository } from './db/annotations-repository'
 import type { BackupService } from './services/backup'
+import type { UpdateService } from './services/update'
 import type { ChapterEditor } from './services/chapter-editor'
 import type { FileContentReader } from './services/content-reader'
 import { toImportError, type ImportError } from './services/import-error'
@@ -62,6 +65,8 @@ export interface IpcContext {
   stats: ReadingStatsService
   /** 导出备份（0.1.3 第 9 项）：只读本机数据打一个 zip。 */
   backup: BackupService
+  /** 检查更新（0.1.5）：拉远端 Release 比版本号，只提示不下载。 */
+  update: UpdateService
   progress: SqlProgressStore
   settings: SettingsStore
   /** 本机设备 id，随 app:info 一次性交给渲染进程（TECH.md 6.1）。 */
@@ -250,6 +255,12 @@ export function registerIpc(ctx: IpcContext): void {
   handle(CH.statCalendar, statCalendarArgsSchema, ({ month }): ReadingCalendar =>
     ctx.stats.calendar(month)
   )
+
+  // 检查更新（0.1.5）：只提示不下载；失败一律 null，界面不显示任何东西
+  handle(CH.updateCheck, emptyArgsSchema, (): Promise<UpdateCheckResult> => ctx.update.check())
+
+  // 打开下载页：地址由渲染层回传，但两边都只放 github.com 的 https 链接进来
+  handle(CH.updateOpen, updateOpenArgsSchema, ({ url }): Promise<void> => ctx.update.open(url))
 
   // 导出备份：位置由用户在「另存为」里选，取消返回 null；失败翻成中文提示
   handle(CH.backupExport, emptyArgsSchema, async (): Promise<BackupResult | null> => {

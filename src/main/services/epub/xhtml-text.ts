@@ -24,10 +24,19 @@ export interface ExtractedImage {
   offset: number
 }
 
+/** 带 id 的元素在文本里的落点：EPUB 的目录靠 `href#id` 定位到章（0.2.0 第 3 步）。 */
+export interface ExtractedAnchor {
+  id: string
+  /** 该元素内容**开始处**在 `text` 里的下标。 */
+  offset: number
+}
+
 export interface ExtractedText {
   /** 纯文本：段落之间一个 \n，无空段。 */
   text: string
   images: ExtractedImage[]
+  /** 带 id 的元素的落点，给目录的 `#片段` 用。 */
+  anchors: ExtractedAnchor[]
 }
 
 /** 图片占位符：Unicode 对象替换字符。 */
@@ -62,10 +71,13 @@ function isNoisyAlt(alt: string): boolean {
  */
 export function extractXhtmlText(xhtml: string, baseDir: string): ExtractedText {
   const root = parseXml(xhtml)
-  if (!root) return { text: '', images: [] }
+  if (!root) return { text: '', images: [], anchors: [] }
 
   const paragraphs: string[] = []
   const images: ExtractedImage[] = []
+  const anchors: ExtractedAnchor[] = []
+  /** 当前正在处理的元素上挂着的 id（收段时换算成全局偏移）。 */
+  let pendingIds: string[] = []
   /** 当前段落累积的文字。 */
   let buffer = ''
   /** 当前段落里已出现的图片（记录占位符在 buffer 中的下标，收段时再换算成全局偏移）。 */
@@ -89,10 +101,16 @@ export function extractXhtmlText(xhtml: string, baseDir: string): ExtractedText 
     const raw = buffer
     buffer = ''
     const pendingHere = pending
+    const idsHere = pendingIds
     pending = []
+    pendingIds = []
 
     const trimmed = raw.trim()
-    if (trimmed === '') return
+    if (trimmed === '') {
+      // 空段落里的 id 也算落点：读者跳到那儿就是这一段的开头
+      for (const id of idsHere) anchors.push({ id, offset: emitted })
+      return
+    }
     const lead = raw.length - raw.trimStart().length
 
     if (paragraphs.length > 0) emitted += 1 // 段落之间的 \n
@@ -103,6 +121,7 @@ export function extractXhtmlText(xhtml: string, baseDir: string): ExtractedText 
         images.push({ src: image.src, offset: paragraphStart + at })
       }
     }
+    for (const id of idsHere) anchors.push({ id, offset: paragraphStart })
     paragraphs.push(trimmed)
     emitted += trimmed.length
   }
@@ -136,6 +155,10 @@ export function extractXhtmlText(xhtml: string, baseDir: string): ExtractedText 
     }
     if (local === 'hr') return
 
+    // 带 id 的元素：它内容开始的位置就是目录 `#片段` 的落点
+    const id = node.attrs['id']
+    if (id !== undefined && id !== '') pendingIds.push(id)
+
     // **必须按 nodes 的文档顺序走**：节点自己的文字可能夹在子元素中间（`甲<span>乙</span>丙`）
     for (const child of node.nodes) {
       if (typeof child === 'string') {
@@ -151,5 +174,5 @@ export function extractXhtmlText(xhtml: string, baseDir: string): ExtractedText 
   visit(root)
   flush()
 
-  return { text: paragraphs.join('\n'), images }
+  return { text: paragraphs.join('\n'), images, anchors }
 }

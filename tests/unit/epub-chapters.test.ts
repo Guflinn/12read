@@ -313,6 +313,104 @@ describe('epub/chapters.ts：目录层级与垃圾项过滤', () => {
   })
 })
 
+describe('epub/chapters.ts：合集分组（0.2.0）', () => {
+  it('目录顶层是卷名时，把卷名挂到该卷的章上（跨卷自动换组）', () => {
+    const files: Record<string, string> = {
+      'OEBPS/toc.ncx': `<ncx><navMap>
+        <navPoint><navLabel><text>甲集</text></navLabel><content src="a.xhtml"/>
+          <navPoint><navLabel><text>第一章</text></navLabel><content src="a.xhtml"/></navPoint>
+          <navPoint><navLabel><text>第二章</text></navLabel><content src="a.xhtml"/></navPoint>
+        </navPoint>
+        <navPoint><navLabel><text>乙集</text></navLabel><content src="b.xhtml"/>
+          <navPoint><navLabel><text>第一章</text></navLabel><content src="b.xhtml"/></navPoint>
+        </navPoint>
+      </navMap></ncx>`,
+      'OEBPS/a.xhtml': '<p>甲集</p><p>第一章</p><p>甲一</p><p>第二章</p><p>甲二</p>',
+      'OEBPS/b.xhtml': '<p>乙集</p><p>第一章</p><p>乙一</p>'
+    }
+    const opf = parseOpf(
+      `<package><manifest>
+         <item id="n" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+         <item id="a" href="a.xhtml" media-type="application/xhtml+xml"/>
+         <item id="b" href="b.xhtml" media-type="application/xhtml+xml"/>
+       </manifest><spine toc="n"><itemref idref="a"/><itemref idref="b"/></spine></package>`,
+      'OEBPS/content.opf'
+    )
+    const { text, chapters } = buildEpubContent(opf, (href) => files[href] ?? null)
+    expect(chapters.map((chapter) => [chapter.groupTitle, chapter.title])).toEqual([
+      ['甲集', '甲集'],
+      ['甲集', '第一章'],
+      ['甲集', '第二章'],
+      ['乙集', '乙集'],
+      ['乙集', '第一章']
+    ])
+    assertCoversText(chapters, text.length)
+  })
+
+  it('普通书（目录是平的）不给分组，行为与以前完全一致', () => {
+    const files: Record<string, string> = {
+      'OEBPS/toc.ncx': `<ncx><navMap>
+        <navPoint><navLabel><text>第一章</text></navLabel><content src="a.xhtml"/></navPoint>
+        <navPoint><navLabel><text>第二章</text></navLabel><content src="a.xhtml"/></navPoint>
+      </navMap></ncx>`,
+      'OEBPS/a.xhtml': '<p>第一章</p><p>甲</p><p>第二章</p><p>乙</p>'
+    }
+    const opf = parseOpf(
+      `<package><manifest>
+         <item id="n" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+         <item id="a" href="a.xhtml" media-type="application/xhtml+xml"/>
+       </manifest><spine toc="n"><itemref idref="a"/></spine></package>`,
+      'OEBPS/content.opf'
+    )
+    const { chapters } = buildEpubContent(opf, (href) => files[href] ?? null)
+    expect(chapters.every((chapter) => chapter.groupTitle === null)).toBe(true)
+  })
+
+  it('标题在正文里找不到、但那一页没有文字（封面 / 纯插图页）→ 落点定在文件开头，不丢', () => {
+    const files: Record<string, string> = {
+      'OEBPS/toc.ncx': `<ncx><navMap>
+        <navPoint><navLabel><text>封面</text></navLabel><content src="cover.xhtml"/></navPoint>
+        <navPoint><navLabel><text>第一章</text></navLabel><content src="a.xhtml"/></navPoint>
+      </navMap></ncx>`,
+      // 封面页：标题只在 <head><title> 里（提取时会跳过），正文只有一张图
+      'OEBPS/cover.xhtml': '<html><head><title>封面</title></head><body><img src="c.png"/></body></html>',
+      'OEBPS/a.xhtml': '<p>第一章</p><p>甲</p>'
+    }
+    const opf = parseOpf(
+      `<package><manifest>
+         <item id="n" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+         <item id="c" href="cover.xhtml" media-type="application/xhtml+xml"/>
+         <item id="a" href="a.xhtml" media-type="application/xhtml+xml"/>
+       </manifest><spine toc="n"><itemref idref="c"/><itemref idref="a"/></spine></package>`,
+      'OEBPS/content.opf'
+    )
+    const { text, chapters } = buildEpubContent(opf, (href) => files[href] ?? null)
+    expect(chapters.map((chapter) => chapter.title)).toEqual(['封面', '第一章'])
+    expect(chapters[0]?.startOffset).toBe(0)
+    assertCoversText(chapters, text.length)
+  })
+
+  it('有正文但标题对不上的条目仍然跳过（不硬塞），封面兜底不会误伤', () => {
+    const files: Record<string, string> = {
+      'OEBPS/toc.ncx': `<ncx><navMap>
+        <navPoint><navLabel><text>第一章</text></navLabel><content src="a.xhtml"/></navPoint>
+        <navPoint><navLabel><text>目录里瞎写的标题</text></navLabel><content src="a.xhtml"/></navPoint>
+      </navMap></ncx>`,
+      'OEBPS/a.xhtml': '<p>第一章</p><p>甲</p><p>乙</p>'
+    }
+    const opf = parseOpf(
+      `<package><manifest>
+         <item id="n" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+         <item id="a" href="a.xhtml" media-type="application/xhtml+xml"/>
+       </manifest><spine toc="n"><itemref idref="a"/></spine></package>`,
+      'OEBPS/content.opf'
+    )
+    const { text, chapters } = buildEpubContent(opf, (href) => files[href] ?? null)
+    expect(chapters.map((chapter) => chapter.title)).toEqual(['第一章'])
+    assertCoversText(chapters, text.length)
+  })
+})
+
 describe('epub/chapters.ts：兜底', () => {
   it('完全没有目录：一个 spine 文件一章，短首行当章名', () => {
     const opf = parseOpf(

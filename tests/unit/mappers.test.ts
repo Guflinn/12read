@@ -91,23 +91,26 @@ describe('数据库行映射', () => {
     expect(toShelfBook({}).percent).toBe(0)
   })
 
-  it('章节行映射出偏移量', () => {
-    const chapter = toChapter({
+  it('章节行映射出偏移量与分组（group_title 没写就是 null）', () => {
+    const base = {
       book_id: BOOK_ID,
       idx: 2,
       title: '第二章 归途',
       start_offset: 120,
       char_length: 40,
       kind: 'segment'
-    })
-    expect(chapter).toEqual({
+    }
+    expect(toChapter(base)).toEqual({
       bookId: BOOK_ID,
       index: 2,
       title: '第二章 归途',
+      groupTitle: null,
       startOffset: 120,
       charLength: 40,
       kind: 'segment'
     })
+    // 合集类 EPUB：卷名跟着章一起读回来
+    expect(toChapter({ ...base, group_title: '红高粱家族' }).groupTitle).toBe('红高粱家族')
   })
 
   it('进度行允许空引文与空设备号', () => {

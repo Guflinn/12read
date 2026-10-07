@@ -38,6 +38,8 @@ export interface DecodeJob {
 
 export interface DecodedChapter {
   title: string
+  /** 卷 / 册名（合集类 EPUB 才有，0.2.0）。 */
+  groupTitle?: string | null
   startOffset: CharOffset
   charLength: number
   kind: ChapterKind
@@ -99,6 +101,7 @@ export async function runDecodeJob(job: DecodeJob, onProgress: ProgressReporter)
     charCount: payload.text.length,
     chapters: payload.chapters.map((chapter) => ({
       title: chapter.title,
+      groupTitle: chapter.groupTitle ?? null,
       startOffset: chapter.startOffset as CharOffset,
       charLength: chapter.charLength,
       kind: chapter.kind
@@ -117,7 +120,13 @@ interface DecodedPayload {
   format: BookFormat
   encoding: Encoding
   text: string
-  chapters: Array<{ title: string; startOffset: number; charLength: number; kind: ChapterKind }>
+  chapters: Array<{
+    title: string
+    groupTitle?: string | null
+    startOffset: number
+    charLength: number
+    kind: ChapterKind
+  }>
   usedFallback: boolean
   markerHits: number
   suspicious: boolean
@@ -140,6 +149,7 @@ function decodeTextPayload(bytes: Buffer, job: DecodeJob, onProgress: ProgressRe
     text: decoded.text,
     chapters: split.chapters.map((chapter) => ({
       title: chapter.title,
+      groupTitle: null,
       startOffset: chapter.startOffset,
       charLength: chapter.charLength,
       kind: chapter.kind

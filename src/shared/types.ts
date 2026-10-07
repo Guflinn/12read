@@ -78,6 +78,12 @@ export interface Chapter {
   bookId: BookId
   index: number
   title: string
+  /**
+   * 所属的「卷 / 册」名（0.2.0）：合集类 EPUB 才有，普通书与 TXT 为 null。
+   * 只用于目录抽屉的分组展示，正文与阅读器标题不受影响。
+   * （可选是为了不打扰既有测试夹具；库里这列始终有值或 NULL。）
+   */
+  groupTitle?: string | null
   /** 全文解码文本里的起始偏移。 */
   startOffset: CharOffset
   charLength: number

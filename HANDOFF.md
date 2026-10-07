@@ -34,7 +34,7 @@ pnpm build          # 产出 out/
 pnpm dist           # electron-vite build + electron-builder --dir（产出 release/）
 ```
 
-判据：`pnpm verify` 与 e2e 全绿才算可交付（AGENTS.md 第 2 条）。当前基线是 **55 个测试文件 / 634 个用例**（52 单测文件 / 603 用例 + 3 契约文件 / 31 用例），e2e **41 例**（12 个 spec）。
+判据：`pnpm verify` 与 e2e 全绿才算可交付（AGENTS.md 第 2 条）。当前基线是 **56 个测试文件 / 644 个用例**（53 单测文件 / 613 用例 + 3 契约文件 / 31 用例），e2e **41 例**（12 个 spec）。
 
 > ⚠️ **本机跑 `pnpm verify` 会大面积超时（环境性，不是回归）**：文件级并行下，DB / 临时文件密集的用例会成批报 `Test timed out in 5000ms`（annotations-repository、backup、importer、main-library、reading-repository、reading-stats-service）。2026-10-07 做过对照：**同一批文件在「带改动」与「干净代码」上跑，失败条数完全一致** → 磁盘 I/O 争用所致。绕法：`pnpm exec vitest run tests/unit --no-file-parallelism`（全量 43 文件 / 452 用例全绿，约 77s），契约测试 `pnpm exec vitest run tests/contract` 不受影响。
 
@@ -81,6 +81,9 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
    chapters / import）+ `services/book-images.ts`（自定义协议 `reader-image://`）+ decode-job 的
    格式分支 + `book:images` 通道 + 渲染层 `core/images.ts` 与 `&lt;img&gt;` 渲染 + EPUB 走「重新提取」。
    性能：真书完整导入 123ms（90 章）/ 466ms（458 万字 328 章 + 31 图），预算 2s。
+   **另加「合集按册分组」（2026-10-08 用户提出）**：schema v4 纯加列 `chapter.group_title`，
+   目录抽屉按册分隔；莫言那本 328 → 353 章、21 组，扁平目录的书零影响。
+   「一个文件真拆成多本书」的做法**仍未立项**（用户当时选了加分组）。
    **e2e 夹具 `tests/fixtures/mini.epub` 是自有内容的迷你 EPUB 3**（可给别的工具打开，无版权问题）。
    **真实书样本在 `格式测试文件/`（已 gitignore，绝不入库）**：古龙《多情剑客无情剑》(EPUB2 老式标记，
    9 文件 90 章)、莫言《作品全集》(EPUB2 干净形态，820 文件，458 万字)、白夜行 (MOBI/KF6/PalmDOC)、

@@ -98,6 +98,7 @@ export function toChapter(row: SqlRow): Chapter {
     bookId: str(row['book_id']),
     index: int(row['idx']),
     title: str(row['title']),
+    groupTitle: nullableStr(row['group_title']),
     startOffset: int(row['start_offset']) as CharOffset,
     charLength: int(row['char_length']),
     kind: asChapterKind(row['kind'])

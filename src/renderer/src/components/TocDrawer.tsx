@@ -5,6 +5,7 @@ import { kindLabel } from '@/core/reading'
 import { useReaderStore } from '@/store/reader'
 import { Modal } from './Modal'
 import { toast } from './Toast'
+import { groupChapters } from '@/core/toc-groups'
 
 /** 抽屉里的三个分页：章节目录 / 书签 / 划线。 */
 type DrawerTab = 'toc' | 'bookmarks' | 'highlights'
@@ -82,10 +83,20 @@ export function TocDrawer(): React.JSX.Element {
         {tab === 'toc' ? (
           <ol className="toc-list" id="toc-list">
             {open
-              ? chapters.map((chapter) => (
+              ? groupChapters(chapters).flatMap((group) => [
+                  /* 合集类 EPUB：每卷前面加一行「册名」。普通书没有分组，这一行不会出现 */
+                  group.showHeader && group.title !== null ? (
+                    <li className="toc-group" key={'group-' + group.title + '-' + group.items[0]?.index} title={group.title}>
+                      {group.title}
+                    </li>
+                  ) : null,
+                  ...group.items.map(({ chapter, first }) => (
                   <li
                     key={chapter.index}
-                    className={chapter.index === chapterIndex ? 'on' : ''}
+                    className={
+                      (chapter.index === chapterIndex ? 'on' : '') +
+                      (first && group.title !== null ? ' toc-part' : '')
+                    }
                     ref={chapter.index === chapterIndex ? activeRef : null}
                     title={chapter.title}
                     onClick={() => jump(chapter.index, 0)}
@@ -121,7 +132,8 @@ export function TocDrawer(): React.JSX.Element {
                       </button>
                     </span>
                   </li>
-                ))
+                  ))
+                ])
               : null}
           </ol>
         ) : null}

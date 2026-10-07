@@ -19,6 +19,12 @@ import { extractXhtmlText, type ExtractedImage } from './xhtml-text'
 
 export interface EpubChapter {
   title: string
+  /**
+   * 所属的「卷 / 册」名（合集类 EPUB 才有，0.2.0）。
+   * 目录顶层就是卷名、第二层才是各卷的章 —— 把卷名单独带出来，
+   * 读者才能在目录里看出「这一段属于哪本书」。
+   */
+  groupTitle: string | null
   startOffset: number
   charLength: number
   kind: 'chapter' | 'segment'
@@ -117,15 +123,34 @@ function locateFromToc(
   starts: number[],
   read: (href: string) => string | null,
   spineIndexOf: Map<string, number>
-): Array<{ title: string; offset: number }> {
+): Array<{ title: string; groupTitle: string | null; offset: number }> {
   const entries = parseToc(opf, read).filter(
     (entry) => entry.depth <= TOC_MAX_DEPTH && !isPageMarkerTitle(entry.title)
   )
 
   const headings = buildHeadingIndex(parts)
-  const marks: Array<{ title: string; offset: number }> = []
+  const marks: Array<{ title: string; groupTitle: string | null; offset: number }> = []
+
+  /**
+   * 哪些顶层条目算「卷」：**只有下面还挂着子项的那些**。
+   * 不然一本目录本来就平的书（普通小说，全是一级章），会被当成「每章自成一本书」，
+   * 章节表里凭空多出一堆组名。
+   */
+  const groupingTitles = new Set<string>()
+  {
+    let top: string | null = null
+    for (const entry of entries) {
+      if (entry.depth === 1) top = entry.title
+      else if (entry.depth === 2 && top !== null) groupingTitles.add(top)
+    }
+  }
+
+  /** 当前所属的卷名：目录按文档顺序给，遇到顶层就换卷（不是卷的顶层给 null）。 */
+  let group: string | null = null
 
   for (const entry of entries) {
+    if (entry.depth === 1) group = groupingTitles.has(entry.title) ? entry.title : null
+    const own = entry.depth === 1 ? group : group
     const index = spineIndexOf.get(entry.path) ?? lookupByBaseName(spineIndexOf, entry.path)
     const part = index === undefined ? undefined : parts[index]
     const start = index === undefined ? undefined : starts[index]
@@ -138,7 +163,13 @@ function locateFromToc(
           : (part.anchors.find((anchor) => anchor.id === entry.fragment)?.offset ?? null)
       const within = anchored ?? locateByTitle(part.text, entry.title)
       if (within !== null) {
-        marks.push({ title: entry.title, offset: start + within })
+        marks.push({ title: entry.title, groupTitle: own, offset: start + within })
+        continue
+      }
+      // 标题在正文里找不到，但这一页本身没有文字（封面 / 纯插图页）：
+      // 落点定在文件开头，别把这一页整条丢掉（真书实测：每卷的「封面」就是这么丢的）。
+      if (isBlankText(part.text)) {
+        marks.push({ title: entry.title, groupTitle: own, offset: start })
         continue
       }
     }
@@ -151,9 +182,14 @@ function locateFromToc(
     const hit = forward ?? hits[0]
     const hitStart = starts[hit.spine]
     if (hitStart === undefined) continue
-    marks.push({ title: entry.title, offset: hitStart + hit.offset })
+    marks.push({ title: entry.title, groupTitle: own, offset: hitStart + hit.offset })
   }
   return marks
+}
+
+/** 这一页有没有「文字」：只有空白与图片占位符就算没有（封面、纯插图页）。 */
+function isBlankText(text: string): boolean {
+  return text.replace(/\uFFFC/g, '').trim() === ''
 }
 
 /** 在章内按标题文字找落点：段落文字与目录标题**去掉所有空白**后比较（全角空格/换行写法不一）。 */
@@ -208,13 +244,16 @@ function baseName(path: string): string {
 }
 
 /** 落点排序、同落点去重（保留更具体的那条），再算每章长度；开头有内容就补「开篇」。 */
-function toChapters(marks: Array<{ title: string; offset: number }>, text: string): EpubChapter[] {
+function toChapters(
+  marks: Array<{ title: string; groupTitle: string | null; offset: number }>,
+  text: string
+): EpubChapter[] {
   const total = text.length
   const sorted = marks
     .filter((mark) => mark.offset >= 0 && mark.offset < total)
     .slice()
     .sort((left, right) => left.offset - right.offset)
-  const deduped: Array<{ title: string; offset: number }> = []
+  const deduped: Array<{ title: string; groupTitle: string | null; offset: number }> = []
   for (const mark of sorted) {
     const last = deduped[deduped.length - 1]
     if (last && last.offset === mark.offset) deduped[deduped.length - 1] = mark
@@ -225,7 +264,15 @@ function toChapters(marks: Array<{ title: string; offset: number }>, text: strin
   const first = deduped[0]
   if (!first || first.offset > 0) {
     const end = first ? first.offset : total
-    if (end > 0) chapters.push({ title: '开篇', startOffset: 0, charLength: end, kind: 'segment' })
+    if (end > 0) {
+      chapters.push({
+        title: '开篇',
+        groupTitle: null,
+        startOffset: 0,
+        charLength: end,
+        kind: 'segment'
+      })
+    }
   }
   deduped.forEach((mark, index) => {
     const next = deduped[index + 1]
@@ -233,6 +280,7 @@ function toChapters(marks: Array<{ title: string; offset: number }>, text: strin
     if (length <= 0) return
     chapters.push({
       title: mark.title,
+      groupTitle: mark.groupTitle,
       startOffset: mark.offset,
       charLength: length,
       kind: 'chapter'
@@ -265,10 +313,10 @@ function fallbackChapters(parts: SpinePart[], starts: number[], text: string): E
       firstLine !== '' && firstLine.length <= CHAPTER_LINE_MAX_CHARS
         ? firstLine
         : '第 ' + (order + 1) + ' 节'
-    chapters.push({ title, startOffset: start, charLength: length, kind: 'chapter' })
+    chapters.push({ title, groupTitle: null, startOffset: start, charLength: length, kind: 'chapter' })
   })
   if (chapters.length === 0 && total > 0) {
-    chapters.push({ title: '正文', startOffset: 0, charLength: total, kind: 'chapter' })
+    chapters.push({ title: '正文', groupTitle: null, startOffset: 0, charLength: total, kind: 'chapter' })
   }
   return splitHugeChapters(chapters, text)
 }
@@ -294,6 +342,7 @@ function splitHugeChapters(chapters: EpubChapter[], text: string): EpubChapter[]
     for (const inner of split.chapters) {
       out.push({
         title: inner.title,
+        groupTitle: chapter.groupTitle,
         startOffset: chapter.startOffset + inner.startOffset,
         charLength: inner.charLength,
         kind: inner.kind

@@ -15,6 +15,28 @@ import {
 const BOOK_ID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
 
 describe('数据库行映射', () => {
+  it('format 必须读列，不能写死：epub 就是 epub，坏值才退 txt（回归：曾被写死成 txt）', () => {
+    const row = {
+      id: BOOK_ID,
+      title: '书',
+      author: null,
+      encoding: 'utf-8',
+      byte_size: 1,
+      char_count: 1,
+      chapter_count: 1,
+      content_mode: 'single',
+      cover_seed: 1,
+      added_at: 1,
+      last_opened_at: null
+    }
+    expect(toBook({ ...row, format: 'epub' }).format).toBe('epub')
+    expect(toShelfBook({ ...row, format: 'epub', percent: 0 }).format).toBe('epub')
+    expect(toBook({ ...row, format: 'mobi' }).format).toBe('mobi')
+    // 库里是 TEXT：认不出来的一律当 txt，而不是抛错
+    expect(toBook({ ...row, format: '啥东西' }).format).toBe('txt')
+    expect(toBook(row).format).toBe('txt')
+  })
+
   it('把完整行映射成 Book', () => {
     const book = toBook({
       id: BOOK_ID,
@@ -34,7 +56,8 @@ describe('数据库行映射', () => {
       id: BOOK_ID,
       title: '三体',
       author: '刘慈欣',
-      format: 'txt',
+      // 这里以前写的是 'txt'：那是 toBook 把 format 写死成 txt 的 bug，不是预期形状
+      format: 'epub',
       encoding: 'gb18030',
       byteSize: 1024,
       charCount: 512,

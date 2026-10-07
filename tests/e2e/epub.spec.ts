@@ -48,6 +48,9 @@ test('导入 EPUB：书名作者来自文件、按 nav 切章、图片真的能�
   // 文件名是「一个完全不相干的名字.epub」，书名作者必须来自 OPF
   await expect(page.locator('.book-title')).toHaveText('测试样书')
   await expect(page.locator('.book-author')).toContainText('测试作者')
+  // 格式要如实反映在界面上（回归：映射层曾把 format 写死成 txt，角标与「提取」入口全失效）
+  await expect(page.locator('.book-card .cover-badge')).toHaveText('EPUB')
+  await expect(page.locator('.book-card .card-encoding')).toHaveText('提取')
 
   await page.click('.book-card')
   await expect(page.locator('.chapter-title')).toHaveText('第一章 起风')

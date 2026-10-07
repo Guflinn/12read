@@ -34,7 +34,7 @@ pnpm build          # 产出 out/
 pnpm dist           # electron-vite build + electron-builder --dir（产出 release/）
 ```
 
-判据：`pnpm verify` 与 e2e 全绿才算可交付（AGENTS.md 第 2 条）。当前基线是 **55 个测试文件 / 633 个用例**（52 单测文件 / 602 用例 + 3 契约文件 / 31 用例），e2e **41 例**（12 个 spec）。
+判据：`pnpm verify` 与 e2e 全绿才算可交付（AGENTS.md 第 2 条）。当前基线是 **55 个测试文件 / 634 个用例**（52 单测文件 / 603 用例 + 3 契约文件 / 31 用例），e2e **41 例**（12 个 spec）。
 
 > ⚠️ **本机跑 `pnpm verify` 会大面积超时（环境性，不是回归）**：文件级并行下，DB / 临时文件密集的用例会成批报 `Test timed out in 5000ms`（annotations-repository、backup、importer、main-library、reading-repository、reading-stats-service）。2026-10-07 做过对照：**同一批文件在「带改动」与「干净代码」上跑，失败条数完全一致** → 磁盘 I/O 争用所致。绕法：`pnpm exec vitest run tests/unit --no-file-parallelism`（全量 43 文件 / 452 用例全绿，约 77s），契约测试 `pnpm exec vitest run tests/contract` 不受影响。
 

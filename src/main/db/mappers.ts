@@ -61,13 +61,21 @@ export function asChapterKind(value: unknown): ChapterKind {
   return value === 'segment' ? 'segment' : 'chapter'
 }
 
+/**
+ * 库里的 format 是 TEXT，认不出来的一律当 txt。
+ * 注意：**这里必须读列**，不能写死 —— 0.2.0 之前这里是 `const format = 'txt'`，
+ * 结果是 EPUB 书读回来永远自称 TXT，格式角标与「重新提取」入口全都失效（被冒烟测试逮到）。
+ */
+function asBookFormat(value: unknown): BookFormat {
+  return value === 'epub' || value === 'mobi' || value === 'md' || value === 'pdf' ? value : 'txt'
+}
+
 export function toBook(row: SqlRow): Book {
-  const format: BookFormat = 'txt'
   return {
     id: str(row['id']),
     title: str(row['title'], '未命名'),
     author: nullableStr(row['author']),
-    format,
+    format: asBookFormat(row['format']),
     encoding: asEncoding(row['encoding']),
     byteSize: int(row['byte_size']),
     charCount: int(row['char_count']),

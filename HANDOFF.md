@@ -34,7 +34,7 @@ pnpm build          # 产出 out/
 pnpm dist           # electron-vite build + electron-builder --dir（产出 release/）
 ```
 
-判据：`pnpm verify` 与 e2e 全绿才算可交付（AGENTS.md 第 2 条）。当前基线是 **47 个测试文件 / 533 个用例**（44 单测文件 / 502 用例 + 3 契约文件 / 31 用例），e2e **39 例**（11 个 spec）。
+判据：`pnpm verify` 与 e2e 全绿才算可交付（AGENTS.md 第 2 条）。当前基线是 **51 个测试文件 / 607 个用例**（48 单测文件 / 576 用例 + 3 契约文件 / 31 用例），e2e **39 例**（11 个 spec）。
 
 > ⚠️ **本机跑 `pnpm verify` 会大面积超时（环境性，不是回归）**：文件级并行下，DB / 临时文件密集的用例会成批报 `Test timed out in 5000ms`（annotations-repository、backup、importer、main-library、reading-repository、reading-stats-service）。2026-10-07 做过对照：**同一批文件在「带改动」与「干净代码」上跑，失败条数完全一致** → 磁盘 I/O 争用所致。绕法：`pnpm exec vitest run tests/unit --no-file-parallelism`（全量 43 文件 / 452 用例全绿，约 77s），契约测试 `pnpm exec vitest run tests/contract` 不受影响。
 
@@ -76,7 +76,15 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
      - 发版说明：`release-build/release-notes-0.1.4.md`（已填体积与校验和）。
    - 版本状态：**`package.json` 已标 `0.1.4`**（2026-10-07 用户定「提前标」，**与 0.1.3 那轮发版时才升的做法不同**）→ 界面上显示的就是 0.1.4；CHANGELOG 里仍是「未发布」段，**发版时不必再动 package.json**。注意：`release/` 里的安装包与 GitHub Release 仍是已发布的 0.1.3（冻结产物，别改）。
 3. **备份「还原」已砍（2026-10-07 用户决定，从计划删除）**：不做导入备份。0.1.3 已交付的「导出备份」保留现状，但**导出的包应用读不回来、价值有限** —— 以后用户若重提要重新立项，别自作主张开工，也别再拿它当卖点。
-4. **0.2.0 EPUB 已立项（2026-10-06）**：范围 / 两项已定决策（ZIP 手写 lenient reader、插图 U+FFFC 占位内联渲染）/ 不做清单 / 实施顺序 / 性能预算，见 [docs/MVP.md](docs/MVP.md) 第 10 节「已立项：0.2.0」。另有「格式路线图」（MOBI 0.3.0 首选、Markdown、文字层 PDF）同节。
+4. **0.2.0 EPUB 进行中（2026-10-06 立项）**：**第 1–3 项已完成**（zip-reader / xml / ocf / opf /
+   xhtml-text / toc / chapters → 8 个文件在 `src/main/services/epub/`，单测 59+15 例）。
+   剩：**第 4 项接线**（decode-job 按扩展名分支、pick 放行 .epub、`book.format`）、
+   第 5 项内联图片（U+FFFC → &lt;img&gt; + 自定义协议 + CSP）、第 6 项重新提取语义、
+   第 7 项备份兼容、第 8 项 e2e 与性能。
+   **真实书样本在 `格式测试文件/`（已 gitignore，绝不入库）**：古龙《多情剑客无情剑》(EPUB2 老式标记，
+   9 文件 90 章)、莫言《作品全集》(EPUB2 干净形态，820 文件，458 万字)、白夜行 (MOBI/KF6/PalmDOC)、
+   一本 36MB PDF（**扫描件，无文字层**）。实测数据与坑见 TECH 变更记录 2026-10-07 两条。
+5. **0.2.0 的更细计划**：范围 / 两项已定决策（ZIP 手写 lenient reader、插图 U+FFFC 占位内联渲染）/ 不做清单 / 实施顺序 / 性能预算，见 [docs/MVP.md](docs/MVP.md) 第 10 节「已立项：0.2.0」。另有「格式路线图」（MOBI 0.3.0 首选、Markdown、文字层 PDF）同节。
 5. **候选池（不排期）**：主题跟随系统 / 摘录导出（书签+划线）/ 目录筛选框 / 每本书的阅读时长 —— 见 MVP.md 第 10 节「候选池」。
 6. **若在受限环境跑 e2e**：先设 `TWELVE_READ_E2E_ELECTRON_ARGS="--no-sandbox --disable-gpu"`（原因见「已知坑」）。
 7. **若 `pnpm verify` 偶发 1 例 `Hook timed out`**：直接重跑一次；那是磁盘繁忙导致的 hook 超时，与本轮代码无关（见「待用户拍板 / 没做完的」）。

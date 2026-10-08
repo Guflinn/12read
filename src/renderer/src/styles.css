@@ -131,6 +131,25 @@
     gap: 12px; padding: 22px 0 30px; border-top: 1px solid var(--line); }
   .chapter-nav .pos { font-size: 13px; color: var(--dim); }
 
+  /* ---------- 两侧切章箭头（0.2.1） ----------
+     平时半透明不抢眼，悬停显形并浮出「上一章/下一章：章节名」提示；
+     固定在窗口两侧垂直居中，不随正文滚动。第一章/最后一章各自不渲染，
+     「全宽」栏宽下整个不渲染（两侧没有留白，箭头会压住正文）。 */
+  .chapter-edge { position: absolute; top: 50%; transform: translateY(-50%); z-index: 15;
+    width: 40px; height: 68px; border-radius: 10px; display: grid; place-items: center;
+    padding: 0; color: var(--dim); background: transparent; border: 1px solid transparent;
+    opacity: .38; transition: opacity .15s, background .15s, border-color .15s; }
+  .chapter-edge.prev { left: 8px; }
+  .chapter-edge.next { right: 8px; }
+  .chapter-edge:hover { opacity: 1; background: var(--surface); border-color: var(--line); }
+  .chapter-edge::after { content: attr(data-tip); position: absolute; top: 50%; transform: translateY(-50%);
+    background: rgba(28,24,20,.92); color: #fff; font-size: 12px; line-height: 1.5; padding: 5px 10px;
+    border-radius: 8px; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+    opacity: 0; pointer-events: none; transition: opacity .12s; }
+  .chapter-edge.prev::after { left: calc(100% + 8px); }
+  .chapter-edge.next::after { right: calc(100% + 8px); }
+  .chapter-edge:hover::after { opacity: 1; }
+
   .reader-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--line); }
   .reader-progress > div { height: 100%; width: 0; background: var(--accent); transition: width .12s linear; }
   /* 底部浮层：压住正文末尾，但不吃鼠标事件、不参与排版测量 */

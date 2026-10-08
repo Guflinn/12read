@@ -9,6 +9,7 @@ import {
   coverGradient,
   coverInitial,
   describeBook,
+  edgeChapterTip,
   formatBytes,
   formatChars,
   formatPercent,
@@ -144,5 +145,11 @@ describe('书架展示', () => {
     expect(coverInitial('😀书')).toBe('😀')
     expect(coverInitial('  十二  ')).toBe('十')
     expect(coverInitial('   ')).toBe('书')
+  })
+
+  it('两侧切章箭头的悬停提示带方向与章节名（0.2.1）', () => {
+    expect(edgeChapterTip(1, '第二章 转折')).toBe('下一章：第二章 转折')
+    expect(edgeChapterTip(-1, '第一章 起点')).toBe('上一章：第一章 起点')
+    expect(edgeChapterTip(1, '')).toBe('下一章：')
   })
 })

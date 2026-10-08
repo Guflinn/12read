@@ -89,3 +89,12 @@ export function chapterLabel(chapter: Chapter | undefined, total: number): strin
   const position = (chapter.index + 1) + '/' + total
   return kindLabel(chapter.kind) + ' ' + position + ' · ' + chapter.title
 }
+
+/**
+ * 两侧切章箭头的悬停提示（0.2.1）：「上一章：xxx」/「下一章：xxx」。
+ * 长章节刚打开还没读到下面时，靠两侧箭头切章而不用滚到底 —— 提示里带上章节名，
+ * 让用户点之前就知道要切去哪儿。
+ */
+export function edgeChapterTip(dir: -1 | 1, title: string): string {
+  return (dir < 0 ? '上一章：' : '下一章：') + title
+}

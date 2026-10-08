@@ -3,7 +3,7 @@ import type { MouseEvent as ReactMouseEvent } from 'react'
 import { normalizeSelection, rangesOfChapter, splitHighlighted } from '@/core/annotations'
 import { offsetForScrollTop, scrollTopForOffset, splitParagraphs } from '@/core/paragraphs'
 import { chapterImages, splitByImages } from '@/core/images'
-import { chapterLabel, progressLabel } from '@/core/reading'
+import { chapterLabel, edgeChapterTip, progressLabel } from '@/core/reading'
 import { STAT_READ_PAUSE_MS } from '@shared/core/stats'
 import { BOOKMARK_DWELL_MS, BOOKMARK_REST_MS, useReaderStore } from '@/store/reader'
 import { useSettingsStore } from '@/store/settings'
@@ -73,6 +73,7 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
   const fontSize = useSettingsStore((s) => s.settings.fontSize)
   const lineHeight = useSettingsStore((s) => s.settings.lineHeight)
   const theme = useSettingsStore((s) => s.settings.theme)
+  const pageWidth = useSettingsStore((s) => s.settings.pageWidth)
   const applySettings = useSettingsStore((s) => s.apply)
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -521,6 +522,56 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
           </button>
         </nav>
       </main>
+
+      {/*
+        两侧切章箭头（0.2.1）：长章节刚打开还没读到下面时，不用滚到底或开目录就能切章。
+        挂在 section 上（main 只负责滚动），所以位置固定不随滚动跑；z-index 低于抽屉 / 面板（30+）。
+        第一章 / 最后一章各自隐藏；「全宽」栏宽下两侧没有留白，整体不渲染（免得压住正文）。
+      */}
+      {!loading && chapters.length > 0 && pageWidth !== 'full' ? (
+        <>
+          {chapterIndex > 0 ? (
+            <button
+              id="edge-prev"
+              className="chapter-edge prev"
+              data-tip={edgeChapterTip(-1, chapters[chapterIndex - 1].title)}
+              aria-label="上一章"
+              title="上一章"
+              onClick={() => void useReaderStore.getState().prev()}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M15 5 L8 12 L15 19"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          ) : null}
+          {chapterIndex < chapters.length - 1 ? (
+            <button
+              id="edge-next"
+              className="chapter-edge next"
+              data-tip={edgeChapterTip(1, chapters[chapterIndex + 1].title)}
+              aria-label="下一章"
+              title="下一章"
+              onClick={() => void useReaderStore.getState().next()}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M9 5 L16 12 L9 19"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          ) : null}
+        </>
+      ) : null}
 
       <div className="reader-progress">
         <div id="reader-progress-fill" style={{ width: percent.toFixed(2) + '%' }} />

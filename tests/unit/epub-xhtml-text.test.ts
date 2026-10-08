@@ -101,6 +101,20 @@ describe('extractXhtmlText：图片占位（U+FFFC）', () => {
     expect(text).toBe('前\n' + IMAGE_PLACEHOLDER)
   })
 
+  it('SVG 里的图片引用要捞出来（EPUB 封面就是 <svg><image xlink:href></svg> 这种写法）', () => {
+    const { text, images } = extractXhtmlText(
+      '<div><svg viewBox="0 0 600 800"><image xlink:href="../Images/cover.jpg" width="600" height="800"/></svg></div>',
+      'OEBPS/Text'
+    )
+    expect(text).toBe(IMAGE_PLACEHOLDER)
+    expect(images).toEqual([{ src: 'OEBPS/Images/cover.jpg', offset: 0 }])
+  })
+
+  it('SVG 用 href（不带 xlink: 前缀）也认', () => {
+    const { images } = extractXhtmlText('<svg><image href="c.png"/></svg>', 'OEBPS')
+    expect(images[0]?.src).toBe('OEBPS/c.png')
+  })
+
   it('占位符偏移是「在整章文本里的下标」，跨段也算得对', () => {
     const { text, images } = extractXhtmlText(
       '<p>第一段</p><p>图案<img src="b.png"/>之后</p>',

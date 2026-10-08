@@ -14,7 +14,7 @@
  * alt 文字若像人话就附在占位符后面，像文件名就丢掉。
  */
 import { normalizePath } from './errors'
-import { parseXml, type XmlNode } from './xml'
+import { localName, parseXml, type XmlNode } from './xml'
 
 /** 提取出来的图片：包内路径 + 占位符在文本里的偏移。 */
 export interface ExtractedImage {
@@ -143,9 +143,15 @@ export function extractXhtmlText(xhtml: string, baseDir: string): ExtractedText 
     }
 
     if (local === 'svg') {
-      // SVG 内嵌文本按立项暂不处理，整块当一个图（免得把路径数据当正文读进来）
+      // SVG 整块当一个图（免得把路径数据当正文读进来），但**要把里面的图片引用捞出来**：
+      // EPUB 的封面标准写法就是 `<svg><image xlink:href="封面.jpg"/></svg>`，
+      // 只当一个空占位的话封面就整张丢了（真书实测：书名页的封面图就是这么没的）。
+      const ref = findImageRef(node)
       pushChar(IMAGE_PLACEHOLDER)
-      pending.push({ src: '', inBuffer: buffer.length - 1 })
+      pending.push({
+        src: ref === '' ? '' : normalizePath(baseDir, ref),
+        inBuffer: buffer.length - 1
+      })
       return
     }
 
@@ -175,4 +181,18 @@ export function extractXhtmlText(xhtml: string, baseDir: string): ExtractedText 
   flush()
 
   return { text: paragraphs.join('\n'), images, anchors }
+}
+
+/** 在 SVG 子树里找 `<image>` 的实际引用（`xlink:href` 或 `href`），没有就返回空串。 */
+function findImageRef(node: XmlNode): string {
+  for (const child of node.nodes) {
+    if (typeof child === 'string') continue
+    if (localName(child.tag).toLowerCase() === 'image') {
+      const ref = child.attrs['xlink:href'] ?? child.attrs['href'] ?? ''
+      if (ref !== '') return ref
+    }
+    const deeper = findImageRef(child)
+    if (deeper !== '') return deeper
+  }
+  return ''
 }

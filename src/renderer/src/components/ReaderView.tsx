@@ -406,7 +406,17 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
         <button id="btn-toc" className="icon-btn" onClick={() => useReaderStore.getState().setToc(true)}>
           目录
         </button>
-        <button id="btn-settings" className="icon-btn" onClick={() => useReaderStore.getState().setSheet(true)}>
+        <button
+          id="btn-settings"
+          className="icon-btn"
+          title="调排版（再点一下收回）"
+          /* 开关：点一下展开，再点一下收回 —— 不用去点面板里的「完成」
+             （用户 2026-10-08：误触 A 之后还要找「完成」，很影响手感） */
+          onClick={() => {
+            const store = useReaderStore.getState()
+            store.setSheet(!store.sheetOpen)
+          }}
+        >
           Aa
         </button>
       </header>

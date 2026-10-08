@@ -268,12 +268,39 @@ describe('epub/chapters.ts：目录层级与垃圾项过滤', () => {
         ? ncx
         : '<p>第一部</p><p>第一章</p><p>一</p><p>正文</p>'
     )
-    // 用户 2026-10-08：那些「一 / 二 / 三」是**小节**，不是页码 —— 要留下并挂到章上
+    // 用户 2026-10-08：那些「一 / 二 / 三」是**小节**，不是页码 —— 要留下并挂到章上。
+    // 同时：这里的「第一章」只有两个字（标题页），被并进了它自己的小节，
+    // 所以章这一行不再单独占页，标题落在小节正文开头。
     expect(chapters.map((chapter) => [chapter.title, chapter.parentTitle])).toEqual([
       ['第一部', '第一部'],
-      ['第一章', '第一部'],
       ['一', '第一章']
     ])
+  })
+
+  it('章自己有正文时不并页（只有「标题页」那种才并）', () => {
+    const ncx = `<ncx><navMap>
+      <navPoint><navLabel><text>第一部</text></navLabel><content src="a.xhtml"/>
+        <navPoint><navLabel><text>第一章 很长的一章</text></navLabel><content src="a.xhtml"/>
+          <navPoint><navLabel><text>一</text></navLabel><content src="a.xhtml"/></navPoint>
+        </navPoint>
+      </navPoint>
+    </navMap></ncx>`
+    const opf = parseOpf(
+      `<package><manifest>
+         <item id="n" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+         <item id="a" href="a.xhtml" media-type="application/xhtml+xml"/>
+       </manifest><spine toc="n"><itemref idref="a"/></spine></package>`,
+      'OEBPS/content.opf'
+    )
+    const body = '正文'.repeat(40)
+    const { chapters } = buildEpubContent(opf, (href) =>
+      href === 'OEBPS/toc.ncx'
+        ? ncx
+        : '<p>第一部</p><p>第一章 很长的一章</p><p>' + body + '</p><p>一</p><p>乙</p>'
+    )
+    // 章自己有一大段正文 → 保留成独立一章；小节仍然挂在它下面
+    expect(chapters.map((chapter) => chapter.title)).toEqual(['第一部', '第一章 很长的一章', '一'])
+    expect(chapters[2]?.parentTitle).toBe('第一章 很长的一章')
   })
 
   it('更深一层（第 4 层）不取；纯数字标题也照常保留', () => {

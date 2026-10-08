@@ -78,6 +78,20 @@ describe('groupChapters', () => {
     ])
   })
 
+  it('挂错位置的条目要回到它该在的那一册（不再切出两个同名分组）', () => {
+    // 真实书实测：《我們的荊軻》的两段之间插了一条归属《蛙》的「版权页」，
+    // 按相邻分组会切成两个同名组，目录上像凭空多出一遍册名。
+    const groups = groupChapters([
+      chapter('我們的荊軻', '我們的荊軻', '我們的荊軻'),
+      chapter('自序', '我們的荊軻', '我們的荊軻'),
+      chapter('版权页', '蛙', '蛙'),
+      chapter('劇中人物：', '我們的荊軻', '我們的荊軻')
+    ])
+    expect(groups.map((group) => group.title)).toEqual(['我們的荊軻', '蛙'])
+    expect(groups[0]?.items.map((item) => item.chapter.title)).toEqual(['自序', '劇中人物：'])
+    expect(groups[1]?.items.map((item) => item.chapter.title)).toEqual(['版权页'])
+  })
+
   it('空章节表给空数组', () => {
     expect(groupChapters([])).toEqual([])
   })

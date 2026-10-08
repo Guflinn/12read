@@ -154,6 +154,10 @@
     font-size: 13.5px; font-weight: 700; letter-spacing: .3px; color: var(--fg);
     background: var(--accent-soft); border-left: 3px solid var(--accent); cursor: pointer; }
   .toc-list li.toc-group:hover { filter: brightness(.97); }
+  /* 并页之后补出来的「章名」小标题：比册名轻、比正文重 */
+  .toc-list li.toc-subgroup { padding: 10px 14px 2px 22px; font-size: 12.5px; font-weight: 600;
+    color: var(--fg); cursor: default; }
+  .toc-list li.toc-subgroup:hover { background: none; }
   /* 「节」：三级目录最深一层，缩进 + 小一号，看得出它属于上面的章 */
   .toc-list li.toc-section { padding-left: 40px; font-size: 12.5px; color: var(--dim); }
   .toc-list li.toc-section .toc-kind { display: none; }

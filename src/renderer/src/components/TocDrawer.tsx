@@ -98,7 +98,12 @@ export function TocDrawer(): React.JSX.Element {
                       {group.title}
                     </li>
                   ) : null,
-                  ...group.items.map(({ chapter, section }) => (
+                  ...group.items.flatMap(({ chapter, section, subHeader }) => [
+                  subHeader !== null ? (
+                    <li className="toc-subgroup" key={'sub-' + chapter.index + '-' + subHeader}>
+                      {subHeader}
+                    </li>
+                  ) : null,
                   <li
                     key={chapter.index}
                     className={
@@ -139,7 +144,7 @@ export function TocDrawer(): React.JSX.Element {
                       </button>
                     </span>
                   </li>
-                  ))
+                  ])
                 ])
               : null}
           </ol>

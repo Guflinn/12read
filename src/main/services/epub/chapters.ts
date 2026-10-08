@@ -53,6 +53,15 @@ export const TOC_MAX_DEPTH = 3
 /** 单章超过这么多字就退回 TXT 的切章/分段规则（「整本一个文件」的坏例子）。 */
 export const HUGE_CHAPTER_CHARS = 50_000
 
+/**
+ * 这么短的一「章」如果后面紧跟它自己的小节，就并进那一节（0.2.0）。
+ *
+ * 真实书里章节标题常常单独占一页（XHTML 里就一行 `<h1>第一章 红高粱</h1>`），
+ * 于是读者要翻一张只有标题的空页才看到正文 —— 用户 2026-10-08 明确说这「影响观感」，
+ * 要求「直接和第一小节连起来」。并进去之后，标题会成为那一节页面开头的正文。
+ */
+const TINY_CHAPTER_CHARS = 40
+
 interface SpinePart {
   text: string
   images: ExtractedImage[]
@@ -320,7 +329,47 @@ function toChapters(
       kind: 'chapter'
     })
   })
-  return chapters
+  return mergeTinyChapterPages(chapters)
+}
+
+/**
+ * 把「只放了个标题的小页」并进它后面的第一小节：
+ * 条件是 ① 很短 ② 不是册首页（册名页是书的封面，要留着）③ 后面紧跟的那一章正是它的小节。
+ * 合并方式是**把小节往前扩**，于是标题落在正文开头，读者不会再翻到一张空页。
+ */
+function mergeTinyChapterPages(chapters: EpubChapter[]): EpubChapter[] {
+  const out: EpubChapter[] = []
+  /** 上一轮已经把下一章并进来了 —— 这一轮跳过它（不然会重复一条）。 */
+  let skipNext = false
+
+  for (let index = 0; index < chapters.length; index += 1) {
+    const chapter = chapters[index]
+    if (chapter === undefined) continue
+    if (skipNext) {
+      skipNext = false
+      continue
+    }
+    const next = chapters[index + 1]
+    const mergeable =
+      chapter.kind === 'chapter' &&
+      chapter.charLength <= TINY_CHAPTER_CHARS &&
+      chapter.groupTitle !== null &&
+      chapter.title !== chapter.groupTitle &&
+      next !== undefined &&
+      next.parentTitle === chapter.title
+    if (!mergeable || next === undefined) {
+      out.push(chapter)
+      continue
+    }
+    // 把这一页的字并进后面那一节：起点前移、长度加上来
+    out.push({
+      ...next,
+      startOffset: chapter.startOffset,
+      charLength: next.charLength + chapter.charLength
+    })
+    skipNext = true
+  }
+  return out
 }
 
 /**

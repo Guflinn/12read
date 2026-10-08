@@ -129,6 +129,12 @@ test('导入 → 阅读 → 切章 → 改字号 → 重启后回到原处', asy
   await page.keyboard.press('Escape')
   await expect(page.locator('#settings-sheet')).not.toHaveClass(/on/)
 
+  // 再点一下 AA 也能收回（0.2.0：不用去面板里找「完成」）
+  await page.click('#btn-settings')
+  await expect(page.locator('#settings-sheet')).toHaveClass(/on/)
+  await page.click('#btn-settings')
+  await expect(page.locator('#settings-sheet')).not.toHaveClass(/on/)
+
   // 滚一段，等 500ms 节流落盘
   await page.locator('#reader-scroll').evaluate((el) => {
     el.scrollTop = 900

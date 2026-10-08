@@ -144,7 +144,11 @@ export function registerIpc(ctx: IpcContext): void {
     ctx.importer.cancel(taskId)
   })
 
-  handle(CH.bookList, emptyArgsSchema, (): Promise<ShelfBook[]> => ctx.library.list())
+  handle(CH.bookList, emptyArgsSchema, async (): Promise<ShelfBook[]> => {
+    const books = await ctx.library.list()
+    // 封面是派生物（books/<id>/images/cover.*），不进库、随文件走
+    return books.map((book) => ({ ...book, coverUrl: ctx.images.coverUrl(book.id) }))
+  })
 
   handle(CH.bookGet, getArgsSchema, ({ bookId }): Promise<Book | null> => ctx.library.get(bookId))
 

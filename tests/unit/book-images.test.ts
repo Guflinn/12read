@@ -74,6 +74,21 @@ describe('BookImagesService.list', () => {
   })
 })
 
+describe('BookImagesService.coverUrl', () => {
+  it('有 images/cover.* 就给地址（几种常见后缀都认）', () => {
+    for (const name of ['cover.jpg', 'cover.jpeg', 'cover.png', 'cover.webp']) {
+      const root = makeRoot(false, undefined, { [name]: Buffer.from([1]) })
+      expect(new BookImagesService(root).coverUrl(BOOK)).toBe(IMAGE_SCHEME + '://' + BOOK + '/' + name)
+    }
+  })
+
+  it('没有封面（TXT 书、或书里没找到封面）给 null', () => {
+    expect(new BookImagesService(makeRoot(false)).coverUrl(BOOK)).toBeNull()
+    // 只有正文图、没有 cover.* 时也算没有封面
+    expect(new BookImagesService(makeRoot(false, undefined, { '0001.jpg': Buffer.from([1]) })).coverUrl(BOOK)).toBeNull()
+  })
+})
+
 describe('BookImagesService.resolve', () => {
   it('取到图片字节并给出 MIME', () => {
     const root = makeRoot(true, undefined, { '0001.png': Buffer.from([0x89, 0x50, 0x4e, 0x47]) })

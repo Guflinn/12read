@@ -235,6 +235,48 @@ describe('epub/opf.ts（metadata / manifest / spine）', () => {
     ])
   })
 
+  it('封面：EPUB 3 的 properties="cover-image" 优先', () => {
+    const book = parseOpf(
+      `<package><metadata/><manifest>
+         <item id="m" href="meta/cover.jpg" media-type="image/jpeg" properties="cover-image"/>
+         <item id="b" href="images/b.jpg" media-type="image/jpeg"/>
+       </manifest><spine/></package>`,
+      'OEBPS/content.opf'
+    )
+    expect(book.coverPath).toBe('OEBPS/meta/cover.jpg')
+  })
+
+  it('封面：EPUB 2 的 <meta name="cover" content="id"/>', () => {
+    const book = parseOpf(
+      `<package><metadata><meta name="cover" content="cov"/></metadata><manifest>
+         <item id="cov" href="Images/front.jpeg" media-type="image/jpeg"/>
+       </manifest><spine/></package>`,
+      'OEBPS/content.opf'
+    )
+    expect(book.coverPath).toBe('OEBPS/Images/front.jpeg')
+  })
+
+  it('封面：两条线索都没有时，退到名字里带 cover 的图片', () => {
+    const book = parseOpf(
+      `<package><metadata/><manifest>
+         <item id="a" href="images/00017.jpeg" media-type="image/jpeg"/>
+         <item id="b" href="images/the-cover-page.png" media-type="image/png"/>
+       </manifest><spine/></package>`,
+      'OEBPS/content.opf'
+    )
+    expect(book.coverPath).toBe('OEBPS/images/the-cover-page.png')
+  })
+
+  it('封面：都没有就给 null（书架继续用占位封面）', () => {
+    const book = parseOpf(
+      `<package><metadata/><manifest>
+         <item id="a" href="images/1.jpeg" media-type="image/jpeg"/>
+       </manifest><spine/></package>`,
+      'OEBPS/content.opf'
+    )
+    expect(book.coverPath).toBeNull()
+  })
+
   it('空 OPF / 没 metadata：返回空壳而不是抛错（上层再决定怎么兜底）', () => {
     const empty = parseOpf('<package/>', 'content.opf')
     expect(empty.title).toBeNull()

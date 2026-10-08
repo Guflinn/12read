@@ -12,6 +12,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { extname, join } from 'node:path'
 import type { BookImage } from '@shared/types'
+import { COVER_BASENAME } from './epub/import'
 import { assertInside, bookDir, imagesManifestPath } from './layout'
 
 /** 自定义协议名（CSP 的 img-src 里要放行它）。 */
@@ -56,6 +57,19 @@ export class BookImagesService {
       images.push({ offset, url: IMAGE_SCHEME + '://' + bookId + '/' + file })
     }
     return images.sort((left, right) => left.offset - right.offset)
+  }
+
+  /**
+   * 书架的封面地址（0.2.0）：书籍目录下 `images/cover.<ext>` 存在就给自定义协议地址，
+   * 没有（TXT、或导入时没找到封面）返回 null —— 界面继续用生成的占位封面。
+   */
+  coverUrl(bookId: string): string | null {
+    const dir = join(bookDir(this.root, bookId), 'images')
+    for (const ext of ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'avif', 'svg']) {
+      const file = COVER_BASENAME + '.' + ext
+      if (existsSync(join(dir, file))) return IMAGE_SCHEME + '://' + bookId + '/' + file
+    }
+    return null
   }
 
   /** 协议请求 → 文件字节；任何越界 / 不存在都返回 null（上层回 404）。 */

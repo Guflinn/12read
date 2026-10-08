@@ -34,6 +34,8 @@ export interface EpubImportResult {
 
 /** 认得的图片后缀；认不出的存成 .bin（浏览器靠内容判断，读不出来就不显示）。 */
 const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'avif'])
+/** 封面用的文件名（放在 images/ 里，与正文图片的顺序编号不冲突）。 */
+export const COVER_BASENAME = 'cover'
 
 /** 解析整本 EPUB。解析不了时抛 EpubError（中文文案，直接给用户看）。 */
 export function decodeEpub(bytes: Buffer): EpubImportResult {
@@ -69,6 +71,13 @@ export function decodeEpub(bytes: Buffer): EpubImportResult {
     images.push({ offset: image.offset, file, source: image.src })
   }
 
+  // 封面：单独存一份 images/cover.<ext>，书架卡片直接用它（正文里的占位不变）
+  const coverExt = coverExtension(opf.coverPath)
+  if (opf.coverPath !== null && coverExt !== null) {
+    const data = zip.read(opf.coverPath)
+    if (data !== null) blobs.set('cover.' + coverExt, data)
+  }
+
   return {
     text: content.text,
     chapters: content.chapters,
@@ -77,6 +86,13 @@ export function decodeEpub(bytes: Buffer): EpubImportResult {
     title: opf.title,
     author: opf.author
   }
+}
+
+/** 封面文件的后缀（认不出就给 null，宁可不放封面也别写个坏文件）。 */
+function coverExtension(path: string | null): string | null {
+  if (path === null) return null
+  const ext = extensionOf(path)
+  return ext === 'bin' ? null : ext
 }
 
 function extensionOf(path: string): string {

@@ -222,7 +222,8 @@ function makeContext(): {
     exportTo: vi.fn(async (): Promise<BackupResult> => BACKUP_RESULT)
   }
   const images = {
-    list: vi.fn((): BookImage[] => [{ offset: 3, url: 'reader-image://book/0001.png' }])
+    list: vi.fn((): BookImage[] => [{ offset: 3, url: 'reader-image://book/0001.png' }]),
+    coverUrl: vi.fn((): string | null => null)
   }
   const update = {
     check: vi.fn(async (): Promise<{ outcome: string; info: null }> => ({
@@ -376,7 +377,8 @@ describe('IPC 注册与转发', () => {
 
   it('book:list / book:get / book:chapters 转发查询', async () => {
     const { library } = setup()
-    expect(await call(CH.bookList)).toEqual([SHELF_BOOK])
+    // 书架列表会补上封面地址（0.2.0：EPUB 自带封面时给自定义协议地址）
+    expect(await call(CH.bookList)).toEqual([{ ...SHELF_BOOK, coverUrl: null }])
     expect(await call(CH.bookGet, { bookId: BOOK_ID })).toEqual(BOOK)
     const chapters = (await call(CH.bookChapters, { bookId: BOOK_ID })) as Chapter[]
     expect(chapters).toHaveLength(1)

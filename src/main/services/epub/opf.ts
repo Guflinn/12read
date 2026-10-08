@@ -10,7 +10,15 @@
  * - **manifest 里 idref 指向不存在的 id**：跳过那一条，不要整本失败
  */
 import { dirOf, normalizePath } from './errors'
-import { childrenNamed, firstChild, findDescendant, localName, parseXml, textOf } from './xml'
+import {
+  childrenNamed,
+  firstChild,
+  findDescendant,
+  localName,
+  parseXml,
+  textOf,
+  type XmlNode
+} from './xml'
 
 export interface OpfManifestItem {
   id: string
@@ -35,6 +43,12 @@ export interface OpfPackage {
   ncxPath: string | null
   /** OPF 所在目录，解析相对路径的基准。 */
   opfDir: string
+  /**
+   * 封面图的包内路径（0.2.0 起给书架用）。
+   * 依次找：EPUB 3 的 `properties="cover-image"` → EPUB 2 的 `<meta name="cover" content="id"/>`
+   * → 名字里带 cover 的图片。都没有就是 null（书架继续用生成的占位封面）。
+   */
+  coverPath: string | null
 }
 
 /** 解析 OPF 文本。`opfPath` 是它在包内的路径（用来算相对路径基准）。 */
@@ -51,7 +65,8 @@ export function parseOpf(source: string, opfPath: string): OpfPackage {
       spine: [],
       navPath: null,
       ncxPath: null,
-      opfDir
+      opfDir,
+      coverPath: null
     }
   }
 
@@ -87,7 +102,10 @@ export function parseOpf(source: string, opfPath: string): OpfPackage {
     ncxFromSpine ??
     [...items.values()].find((item) => item.mediaType === 'application/x-dtbncx+xml')
 
+  const coverPath = findCoverPath(metadata, items)
+
   return {
+    coverPath,
     title: metadataText(metadata, 'title'),
     author: metadataText(metadata, 'creator'),
     language: metadataText(metadata, 'language'),
@@ -97,6 +115,34 @@ export function parseOpf(source: string, opfPath: string): OpfPackage {
     ncxPath: ncxItem ? ncxItem.href : null,
     opfDir
   }
+}
+
+/**
+ * 找封面图。三条线索按可靠度排：
+ * ① EPUB 3 的 manifest `properties="cover-image"`
+ * ② EPUB 2 的 `<meta name="cover" content="<manifest id>"/>`
+ * ③ 名字里带 cover 的图片（`cover.jpg` / `images/cover.jpeg` 这种）
+ */
+function findCoverPath(
+  metadata: XmlNode | null,
+  items: Map<string, OpfManifestItem>
+): string | null {
+  const byProperty = [...items.values()].find((item) => item.properties.includes('cover-image'))
+  if (byProperty) return byProperty.href
+
+  if (metadata) {
+    const meta = childrenNamed(metadata, 'meta').find(
+      (node) => (node.attrs['name'] ?? '').toLowerCase() === 'cover'
+    )
+    const id = meta?.attrs['content'] ?? ''
+    const item = id === '' ? undefined : items.get(id)
+    if (item) return item.href
+  }
+
+  const byName = [...items.values()].find(
+    (item) => item.mediaType.startsWith('image/') && /(^|[/_-])cover([/_.-]|$)/i.test(item.href)
+  )
+  return byName ? byName.href : null
 }
 
 /** 取 metadata 里某个字段的文本（`dc:` 前缀与否都认，取第一个非空的）。 */

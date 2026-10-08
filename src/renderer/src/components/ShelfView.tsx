@@ -55,7 +55,12 @@ function BookCard({
       }}
     >
       <div className="cover" style={{ background: coverGradient(book.coverSeed) }}>
-        <span className="cover-char">{coverInitial(book.title)}</span>
+        {/* EPUB 自带封面就用它；没有（TXT 或书里没封面）就退回渐变底 + 书名首字 */}
+        {book.coverUrl ? (
+          <img className="cover-img" src={book.coverUrl} alt={book.title} loading="lazy" />
+        ) : (
+          <span className="cover-char">{coverInitial(book.title)}</span>
+        )}
         {/* 徽标：TXT 显示编码（有信息量），其它格式显示格式名（EPUB 没有「编码」这回事） */}
         <span className="cover-badge">
           {book.format === 'txt' ? book.encoding.toUpperCase() : book.format.toUpperCase()}
@@ -236,7 +241,7 @@ export function ShelfView({
       }
     }
     if (paths.length === 0) {
-      toast('没能拿到文件路径，请用「导入 TXT」按钮选择')
+      toast('没能拿到文件路径，请用「导入书籍」按钮选择')
       return
     }
     void importPaths(paths)
@@ -255,7 +260,7 @@ export function ShelfView({
           </div>
           <div className="shelf-actions">
             <button id="btn-import" className="btn primary" onClick={() => void pickAndImport()}>
-              ＋ 导入 TXT
+              ＋ 导入书籍
             </button>
             <button id="btn-stats" className="btn ghost" onClick={() => setStatsOpen(true)}>
               阅读统计

@@ -61,6 +61,11 @@ export interface Book {
 export interface ShelfBook extends Book {
   /** 0..100；从未读过是 0。 */
   percent: number
+  /**
+   * 书架封面地址（0.2.0）：EPUB 自带封面时给自定义协议地址，没有就是 null，
+   * 界面退回「渐变底 + 书名首字」的占位封面。
+   */
+  coverUrl?: string | null
 }
 
 /**

@@ -138,12 +138,11 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   ② 测试代码里的 `rmSync` 躲不掉（那是 Node 层），只能认，定期清；
   ③ 被删的都是**可再生的产物**（构建输出、测试临时库），源码 / 书 / release/ 里的安装包从不经过回收站。
   与用户提到回收站时，先**去 `C://$Recycle.Bin//<SID>//$I*` 里读原路径**再答话，别凭印象说「不是我」。
-- **打包输出目录：用项目外的临时目录**（2026-10-08 用户抱怨 release-out2…9 堆了一堆）：
-  堆积的原因是打包撞文件锁时我换了新目录躲，正确做法是
-  `cmd //c "rmdir /S /Q <目录>"` 先清（cmd 不被 safe-delete 截），
-  再 `electron-builder --win nsis -c.directories.output="C:/Users/Lin/AppData/Local/Temp/12read-release"`
-  —— **放项目外**，交付物只认 `release/`，临时目录随系统清理。影响：零。
-  ⚠️ 2026-10-08 遗留：`release-out2…9`（约 3.6GB）被系统文件锁占着（删/改名都拒绝，
+- **打包输出目录：统一用 `release/`（electron-builder.yml 的默认值，2026-10-08 用户定）**。
+  不要再搞 release-out2/3/… 的变体目录 —— 那是打包撞文件锁时「换个新目录躲」攒出来的（已废弃）。
+  规矩：打包前确认用户**关掉了正在跑的十二阅读**（免安装版就从 release/win-unpacked 跑的，
+  开着会让打包撞锁）；撞锁时先 `cmd //c "rmdir /S /Q <目录>"` 再重试，不要开新目录。
+  ⚠️ 2026-10-08 遗留：`release-out…out9`（约 3.6GB）被系统文件锁占着（删/改名都拒绝，
   进程清单里没有占用者 —— 杀软/索引器一类），**重启后手动删即可**，不影响任何功能。
   **免安装版的位置**：`release/win-unpacked/十二阅读.exe`（用户 2026-10-08 要求放工程空间里，
   临时目录会被系统清掉）—— 构建后从临时目录**复制**过去（别让 electron-builder 直接输出到那里，

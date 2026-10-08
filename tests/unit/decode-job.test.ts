@@ -15,6 +15,7 @@ import {
   chapterFileName
 } from '@main/services/layout'
 import { runDecodeJob, type DecodeJob, type DecodeJobResult } from '@main/workers/decode-job'
+import { createZip } from '@main/services/zip-writer'
 import {
   CHAPTERED_TEXT,
   SAMPLE_TEXT,
@@ -305,6 +306,37 @@ describe('runDecodeJob：EPUB（0.2.0 第 4/5 项）', () => {
     expect(manifest.images).toHaveLength(1)
     expect(manifest.images[0]?.file).toBe('0001.png')
     expect(result.charCount).toBeGreaterThan(0)
+  })
+
+  it('正文里没有插图、只有封面时，封面文件照样要落盘（回归）', async () => {
+    // 真书踩到过：writeImages 在「没有正文图」时提前返回，把封面一起跳过了
+    const source = join(root, 'cover-only.epub')
+    const entries = {
+      'mimetype': 'application/epub+zip',
+      'META-INF/container.xml':
+        '<container><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>',
+      'OEBPS/content.opf': `<package><metadata><meta name="cover" content="c"/></metadata><manifest>
+        <item id="c" href="Images/cover.jpg" media-type="image/jpeg"/>
+        <item id="t" href="t.xhtml" media-type="application/xhtml+xml"/>
+      </manifest><spine><itemref idref="t"/></spine></package>`,
+      'OEBPS/t.xhtml': '<html><body><p>第一章</p><p>正文里没有任何插图。</p></body></html>',
+      'OEBPS/Images/cover.jpg': Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3])
+    }
+    await writeFile(
+      source,
+      await createZip(
+        Object.entries(entries).map(([path, data]) => ({
+          path,
+          data: typeof data === 'string' ? Buffer.from(data, 'utf8') : data
+        }))
+      )
+    )
+    await runDecodeJob(
+      { taskId: 't-cover', sourcePath: source, destDir, contentMode: 'single', format: 'epub' },
+      () => undefined
+    )
+    const files = await readdir(join(destDir, IMAGES_DIR))
+    expect(files).toEqual(['cover.jpg'])
   })
 
   it('重新提取（redecode 语义）：编码参数对 EPUB 无效，但能再跑一次并覆盖旧产物', async () => {

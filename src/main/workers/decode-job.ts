@@ -222,18 +222,24 @@ async function writeImages(
 ): Promise<void> {
   const target = join(destDir, IMAGES_DIR)
   await rm(target, { recursive: true, force: true })
+
+  // 先把文件写下去（**封面也算**），再决定要不要写正文图的偏移清单：
+  // 有的书正文里一张图都没有、只有封面，早退会把封面一起跳过（真书实测踩到过）。
+  const files = [...blobs.keys()]
+  if (files.length > 0) {
+    await mkdir(target, { recursive: true })
+    await runPool(files.length, WRITE_CONCURRENCY, async (index) => {
+      const file = files[index]
+      const data = file === undefined ? undefined : blobs.get(file)
+      if (file === undefined || data === undefined) return
+      await writeFile(join(target, file), data)
+    })
+  }
+
   if (images.length === 0) {
     await rm(join(destDir, IMAGES_MANIFEST), { force: true })
     return
   }
-  await mkdir(target, { recursive: true })
-  const files = [...blobs.keys()]
-  await runPool(files.length, WRITE_CONCURRENCY, async (index) => {
-    const file = files[index]
-    const data = file === undefined ? undefined : blobs.get(file)
-    if (file === undefined || data === undefined) return
-    await writeFile(join(target, file), data)
-  })
   await writeFile(
     join(destDir, IMAGES_MANIFEST),
     JSON.stringify({ images: images.map((image) => ({ offset: image.offset, file: image.file })) }),

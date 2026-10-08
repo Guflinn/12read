@@ -34,15 +34,16 @@ pnpm build          # 产出 out/
 pnpm dist           # electron-vite build + electron-builder --dir（产出 release/）
 ```
 
-判据：`pnpm verify` 与 e2e 全绿才算可交付（AGENTS.md 第 2 条）。当前基线是 **56 个测试文件 / 644 个用例**（53 单测文件 / 613 用例 + 3 契约文件 / 31 用例），e2e **41 例**（12 个 spec）。
+判据：`pnpm verify` 与 e2e 全绿才算可交付（AGENTS.md 第 2 条）。当前基线是 **55 个测试文件 / 655 个用例**（52 单测文件 / 624 用例 + 3 契约文件 / 31 用例），e2e **41 例**（12 个 spec）。
 
 > ⚠️ **本机跑 `pnpm verify` 会大面积超时（环境性，不是回归）**：文件级并行下，DB / 临时文件密集的用例会成批报 `Test timed out in 5000ms`（annotations-repository、backup、importer、main-library、reading-repository、reading-stats-service）。2026-10-07 做过对照：**同一批文件在「带改动」与「干净代码」上跑，失败条数完全一致** → 磁盘 I/O 争用所致。绕法：`pnpm exec vitest run tests/unit --no-file-parallelism`（全量 43 文件 / 452 用例全绿，约 77s），契约测试 `pnpm exec vitest run tests/contract` 不受影响。
 
 ## 现在在哪（以 `git log` 为准）
 
 - 分支 `main`，工作区干净。**别在这里写死 HEAD**：这两段描述的是「完成本文件这次 commit 之前」的提交，改 HANDOFF 本身就会把 HEAD 往前挪一格，写死的哈希永远追不上。要看真实 HEAD，敲 `git log -1 --oneline`。
-- 版本号 **`0.1.4`**（package.json）。**2026-10-07 已发布并推送**：`origin/main` 与本地同步（核对用 `git rev-list --count origin/main..main`，应为 0），tag `v0.1.0`–`v0.1.4` 全部已在远端；**仓库 2026-10-05 起为 public**（https://github.com/Guflinn/12read ）。
-- **0.1.4 已发布上线（2026-10-07）**：GitHub Release「十二阅读 v0.1.4 内测版（Windows）」（Pre-release）已建 —— https://github.com/Guflinn/12read/releases/tag/v0.1.4 ，正文含新增 / 修复 / 数据与版本 / 安装说明 + SHA-256；附件 `twelve-read-setup-0.1.4.exe`（102,770,571 B）与 `.exe.sha256` 已上传，**匿名下载核对过**（sha256 附件内容与本地一致）。发版走 `release-build/upload-release-0.1.4.py`（无 gh CLI，走 REST API；代理端口自动探测）。
+- 版本号 **`0.2.0`**（package.json）。**2026-10-08 已发布并推送**：`origin/main` 与本地同步（核对用 `git rev-list --count origin/main..main`，应为 0），tag `v0.1.0`–`v0.2.0` 全部已在远端；仓库 public（https://github.com/Guflinn/12read ）。
+- **0.2.0 已发布上线（2026-10-08）**：GitHub Release「十二阅读 v0.2.0 内测版（Windows）」（Pre-release）已建 —— https://github.com/Guflinn/12read/releases/tag/v0.2.0 ，正文含新增 / 说明与取舍 / 数据与版本 / 安装说明 + SHA-256；附件 `twelve-read-setup-0.2.0.exe`（102,784,478 B）与 `.exe.sha256` 已上传，**匿名下载核对过**。发版走 `release-build/upload-release-0.2.0.py`（无 gh CLI，走 REST API；代理端口自动探测）。原计划的 0.1.5「检查更新」未单独发版，折入本版（CHANGELOG 有说明）。
+- 发版前验证（2026-10-08）：单测 52 文件 / 624 用例全绿（`vitest run tests/unit --no-file-parallelism` 绕开本机 I/O 超时）、契约 3 文件 / 31 用例全绿、e2e 41 例全绿（首次跑全挂 `Target crashed`，属沙箱环境问题，带 `TWELVE_READ_E2E_ELECTRON_ARGS` 重跑即过）。
 - **0.1.3 已发布上线（2026-10-05）**：GitHub Release「十二阅读 v0.1.3 内测版（Windows）」（Pre-release）已建，正文含全部新增 / 性能 / 修复说明 + 安装 SHA-256；附件 `twelve-read-setup-0.1.3.exe`（102,766,157 B）与 `.exe.sha256` 已上传，匿名可下载。**发版长期规矩（用户定）：每次 push 必须附带本次更新内容（Release notes）**；发 Release 走 GitHub REST API（本机无 gh CLI）。
 - **0.1.3 已按方案 A 收口（2026-10-05 用户拍板「并进 0.1.3」）**，本轮做完五件事：
   1. **重打包**：`release/` 下 0.1.3 全套产物已重新生成（安装包 / `.blockmap` / `.sha256` / `latest.yml` / `win-unpacked`）。**最近一次重打是修了「阅读统计排版重叠」之后**，新安装包 `twelve-read-setup-0.1.3.exe` = 102,766,157 B。**内容级验证过**：解 NSIS 内 `resources/app.asar`，确认渲染层含 `stats-bar-track`（排版修复）与 `已加书签` 文案、已无 `btn-split`。
@@ -54,7 +55,7 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 下一步（按顺序）
 
-1. **0.1.5 进行中：检查更新（只提示不下载）** —— 用户 2026-10-07 拍板。已完成：纯函数比版本 + 主进程 `UpdateService`（走 `net.fetch`，跟随系统代理）+ 通道 `update:check` / `update:open` + 书架左下角「检查更新」与「有新版本 · 去下载」+ 单测 14 例 / 契约 / ipc / e2e 3 例。做法与坑见 [docs/MVP.md](docs/MVP.md) 第 10 节「已排期：0.1.5」与 TECH 变更记录。**未做**：自动下载与静默安装（用户明确只要「提示」）。
+1. **（已完结 2026-10-08）0.1.5「检查更新」**：未单独发版，随 0.2.0 一并交付（用户拍板「0.2.0 做完就发」）。自动下载与静默安装仍不做（用户只要「提示」）。
 2. **0.1.4 已完成并发布（2026-10-06 / 10-07 用户拍板）**：
    - **A 窗口尺寸 / 位置记忆 —— 已完成**（2026-10-07，commit `b1ccf71`）：纯函数 `src/shared/core/window-bounds.ts` + `src/main/services/window-state.ts`（存 meta 表 `window_state` 键）+ 建窗前恢复 / 关窗时保存；单测 21 例、e2e 2 例。
    - **顺带修掉一个用户报的老 bug**（2026-10-07）：「回到上次位置」在快滑场景下回不去 —— 见下方「已知坑」里的 `BOOKMARK_DWELL_MS` 那条。
@@ -76,7 +77,7 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
      - 发版说明：`release-build/release-notes-0.1.4.md`（已填体积与校验和）。
    - 版本状态：**`package.json` 已标 `0.1.4`**（2026-10-07 用户定「提前标」，**与 0.1.3 那轮发版时才升的做法不同**）→ 界面上显示的就是 0.1.4；CHANGELOG 里仍是「未发布」段，**发版时不必再动 package.json**。注意：`release/` 里的安装包与 GitHub Release 仍是已发布的 0.1.3（冻结产物，别改）。
 3. **备份「还原」已砍（2026-10-07 用户决定，从计划删除）**：不做导入备份。0.1.3 已交付的「导出备份」保留现状，但**导出的包应用读不回来、价值有限** —— 以后用户若重提要重新立项，别自作主张开工，也别再拿它当卖点。
-4. **0.2.0 EPUB —— 第 1–8 项全部完成（2026-10-06 立项 / 10-07 做完）**，功能已完整、等用户验收。
+4. **（已完结 2026-10-08）0.2.0 EPUB —— 已完成并发布**：功能 + 用户四轮反馈全部收口，发布前全量验证通过（单测 624 + 契约 31 + e2e 41 全绿）。
    交付：`src/main/services/epub/`（zip-reader / xml / errors / ocf / opf / xhtml-text / toc /
    chapters / import）+ `services/book-images.ts`（自定义协议 `reader-image://`）+ decode-job 的
    格式分支 + `book:images` 通道 + 渲染层 `core/images.ts` 与 `&lt;img&gt;` 渲染 + EPUB 走「重新提取」。

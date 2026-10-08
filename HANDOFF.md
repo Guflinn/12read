@@ -41,7 +41,8 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 ## 现在在哪（以 `git log` 为准）
 
 - 分支 `main`，工作区干净。**别在这里写死 HEAD**：这两段描述的是「完成本文件这次 commit 之前」的提交，改 HANDOFF 本身就会把 HEAD 往前挪一格，写死的哈希永远追不上。要看真实 HEAD，敲 `git log -1 --oneline`。
-- 版本号 **`0.2.0`**（package.json）。**2026-10-08 已发布并推送**：`origin/main` 与本地同步（核对用 `git rev-list --count origin/main..main`，应为 0），tag `v0.1.0`–`v0.2.0` 全部已在远端；仓库 public（https://github.com/Guflinn/12read ）。
+- 版本号 **`0.2.1`**（package.json，2026-10-08 起提前标开发版）。**0.2.0 已于 2026-10-08 发布**：`origin/main` 同步到 tag `v0.2.0` 之后的提交，tag `v0.1.0`–`v0.2.0` 全部已在远端；仓库 public（https://github.com/Guflinn/12read ）。
+- **0.2.1 开发中（未发版、未推送）**：两侧切章箭头已完成（2026-10-08，commit `43cfb99`），验证全绿（单测 625 + 契约 31 + e2e 43）。要不要发版、以及攒多少再发，等用户拍板。
 - **0.2.0 已发布上线（2026-10-08）**：GitHub Release「十二阅读 v0.2.0 内测版（Windows）」（Pre-release）已建 —— https://github.com/Guflinn/12read/releases/tag/v0.2.0 ，正文含新增 / 说明与取舍 / 数据与版本 / 安装说明 + SHA-256；附件 `twelve-read-setup-0.2.0.exe`（102,784,478 B）与 `.exe.sha256` 已上传，**匿名下载核对过**。发版走 `release-build/upload-release-0.2.0.py`（无 gh CLI，走 REST API；代理端口自动探测）。原计划的 0.1.5「检查更新」未单独发版，折入本版（CHANGELOG 有说明）。
 - 发版前验证（2026-10-08）：单测 52 文件 / 624 用例全绿（`vitest run tests/unit --no-file-parallelism` 绕开本机 I/O 超时）、契约 3 文件 / 31 用例全绿、e2e 41 例全绿（首次跑全挂 `Target crashed`，属沙箱环境问题，带 `TWELVE_READ_E2E_ELECTRON_ARGS` 重跑即过）。
 - **0.1.3 已发布上线（2026-10-05）**：GitHub Release「十二阅读 v0.1.3 内测版（Windows）」（Pre-release）已建，正文含全部新增 / 性能 / 修复说明 + 安装 SHA-256；附件 `twelve-read-setup-0.1.3.exe`（102,766,157 B）与 `.exe.sha256` 已上传，匿名可下载。**发版长期规矩（用户定）：每次 push 必须附带本次更新内容（Release notes）**；发 Release 走 GitHub REST API（本机无 gh CLI）。
@@ -55,7 +56,7 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 下一步（按顺序）
 
-1. **（已完结 2026-10-08）0.1.5「检查更新」**：未单独发版，随 0.2.0 一并交付（用户拍板「0.2.0 做完就发」）。自动下载与静默安装仍不做（用户只要「提示」）。
+1. **0.2.1 已完成待发（2026-10-08）**：阅读器两侧切章箭头（用户报长章节切章不便，三形态 demo 后拍板方案 A）。功能、测试、文档（CHANGELOG 0.2.1 未发布段 / MVP 第 10 节 / TECH 变更记录）全部就绪，`origin/main..main` 有未推送提交 —— **推送与发版等用户点头**（长期规矩）。
 2. **0.1.4 已完成并发布（2026-10-06 / 10-07 用户拍板）**：
    - **A 窗口尺寸 / 位置记忆 —— 已完成**（2026-10-07，commit `b1ccf71`）：纯函数 `src/shared/core/window-bounds.ts` + `src/main/services/window-state.ts`（存 meta 表 `window_state` 键）+ 建窗前恢复 / 关窗时保存；单测 21 例、e2e 2 例。
    - **顺带修掉一个用户报的老 bug**（2026-10-07）：「回到上次位置」在快滑场景下回不去 —— 见下方「已知坑」里的 `BOOKMARK_DWELL_MS` 那条。

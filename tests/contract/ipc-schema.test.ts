@@ -59,6 +59,9 @@ describe('IPC 入参校验：合法用例', () => {
       true
     )
     expect(settingsSchema.safeParse({ fontSize: 40, lineHeight: 3, theme: 'day' }).success).toBe(true)
+    // 0.2.2：UI 字号上限提到 56，schema 上限 60
+    expect(settingsSchema.safeParse({ fontSize: 56, lineHeight: 1.9, theme: 'day' }).success).toBe(true)
+    expect(settingsSchema.safeParse({ fontSize: 61, lineHeight: 1.9, theme: 'day' }).success).toBe(false)
     expect(
       settingsSchema.safeParse({
         fontSize: 19,
@@ -69,6 +72,15 @@ describe('IPC 入参校验：合法用例', () => {
         pageWidth: 'full'
       }).success
     ).toBe(true)
+    // 0.2.2 新增特大栏宽；'huge' 仍然是非法 key（别把新档位命名成它）
+    expect(
+      settingsSchema.safeParse({ fontSize: 19, lineHeight: 1.9, theme: 'day', pageWidth: 'xlarge' })
+        .success
+    ).toBe(true)
+    expect(
+      settingsSchema.safeParse({ fontSize: 19, lineHeight: 1.9, theme: 'day', pageWidth: 'huge' })
+        .success
+    ).toBe(false)
   })
 
   it('重解码入参接受自动检测与每种手动编码', () => {

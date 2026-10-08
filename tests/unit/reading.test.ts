@@ -3,9 +3,12 @@ import type { Book, Chapter } from '@shared/types'
 import {
   FONT_SIZE_MAX,
   FONT_SIZE_MIN,
-  LINE_HEIGHTS,
+  LINE_HEIGHT_MAX,
+  LINE_HEIGHT_MIN,
+  LINE_HEIGHT_STEP,
   chapterLabel,
   clampFontSize,
+  clampLineHeight,
   coverGradient,
   coverInitial,
   describeBook,
@@ -51,16 +54,24 @@ function makeChapter(patch: Partial<Chapter> = {}): Chapter {
 }
 
 describe('字号', () => {
-  it('夹在 15..27 之间并取整', () => {
+  it('夹在 MIN..MAX 之间并取整', () => {
     expect(clampFontSize(10)).toBe(FONT_SIZE_MIN)
     expect(clampFontSize(99)).toBe(FONT_SIZE_MAX)
     expect(clampFontSize(19.6)).toBe(20)
     expect(clampFontSize(Number.NaN)).toBe(19)
   })
 
-  it('预设行距是有序的三个档位', () => {
-    expect(LINE_HEIGHTS).toHaveLength(3)
-    expect([...LINE_HEIGHTS].sort((a, b) => a - b)).toEqual(LINE_HEIGHTS)
+  it('行距夹在 MIN..MAX 并吸附到 0.05 档（0.2.2 步进微调）', () => {
+    expect(clampLineHeight(0.5)).toBe(LINE_HEIGHT_MIN)
+    expect(clampLineHeight(9)).toBe(LINE_HEIGHT_MAX)
+    // 旧的三档预设都落在 0.05 网格上，老设置原样保留
+    expect(clampLineHeight(1.6)).toBe(1.6)
+    expect(clampLineHeight(1.9)).toBe(1.9)
+    expect(clampLineHeight(2.25)).toBe(2.25)
+    // 步进加减后浮点误差被吸附掉
+    expect(clampLineHeight(1.9 + LINE_HEIGHT_STEP)).toBe(1.95)
+    expect(clampLineHeight(1.9500000000000002)).toBe(1.95)
+    expect(clampLineHeight(Number.NaN)).toBe(1.9)
   })
 })
 

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReaderApi } from '@shared/api'
 import { DEFAULT_SETTINGS, type ReaderSettings } from '@shared/types'
 import { setReaderApi } from '@/core/api'
+import { FONT_SIZE_MAX } from '@/core/reading'
 import { useSettingsStore } from '@/store/settings'
 
 function makeHarness(stored: ReaderSettings): { saveSettings: ReturnType<typeof vi.fn> } {
@@ -38,7 +39,7 @@ describe('settings store', () => {
     })
     await useSettingsStore.getState().load()
     const settings = useSettingsStore.getState().settings
-    expect(settings.fontSize).toBe(32)
+    expect(settings.fontSize).toBe(FONT_SIZE_MAX)
     expect(settings.theme).toBe('day')
     expect(settings.bold).toBe(true)
     expect(useSettingsStore.getState().ready).toBe(true)
@@ -76,11 +77,11 @@ describe('settings store', () => {
   it('apply 立刻生效并写回，字号被夹紧', async () => {
     const harness = makeHarness({ fontSize: 19, lineHeight: 1.9, theme: 'day', bold: false, fontFamily: 'song', pageWidth: 'medium', dailyGoalMinutes: 0 })
     useSettingsStore.getState().apply({ fontSize: 100 })
-    expect(useSettingsStore.getState().settings.fontSize).toBe(32)
+    expect(useSettingsStore.getState().settings.fontSize).toBe(FONT_SIZE_MAX)
 
     await vi.waitFor(() => expect(harness.saveSettings).toHaveBeenCalledTimes(1))
     expect(harness.saveSettings.mock.calls[0]?.[0]).toEqual({
-      fontSize: 32,
+      fontSize: FONT_SIZE_MAX,
       lineHeight: 1.9,
       theme: 'day',
       bold: false,

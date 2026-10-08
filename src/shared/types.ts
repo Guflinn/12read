@@ -332,7 +332,7 @@ export interface ImportOutcome {
 export type FontFamilyKey = 'song' | 'hei' | 'kai' | 'fang' | 'deng'
 
 /** 正文栏宽：一行放多少字（选项表见 renderer/src/core/typography.ts）。 */
-export type PageWidthKey = 'narrow' | 'medium' | 'wide' | 'full'
+export type PageWidthKey = 'narrow' | 'medium' | 'wide' | 'xlarge' | 'full'
 
 export interface ReaderSettings {
   fontSize: number

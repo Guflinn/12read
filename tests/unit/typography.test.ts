@@ -20,10 +20,17 @@ describe('排版选项表', () => {
     }
   })
 
-  it('四档栏宽里 40rem 是默认', () => {
-    expect(PAGE_WIDTHS.map((item) => item.value)).toEqual(['narrow', 'medium', 'wide', 'full'])
+  it('五档栏宽里 40rem 是默认（0.2.2 起含特大档）', () => {
+    expect(PAGE_WIDTHS.map((item) => item.value)).toEqual([
+      'narrow',
+      'medium',
+      'wide',
+      'xlarge',
+      'full'
+    ])
     expect(pageWidthOf('medium')).toBe(DEFAULT_PAGE_WIDTH)
     expect(pageWidthOf('narrow')).toBe('30rem')
+    expect(pageWidthOf('xlarge')).toBe('68rem')
     expect(pageWidthOf('full')).toBe('100%')
     expect(pageWidthOf('narrow')).not.toBe(pageWidthOf('wide'))
   })

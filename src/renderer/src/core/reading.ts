@@ -4,12 +4,31 @@ import type { Book, Chapter, ChapterKind } from '@shared/types'
 /** 阅读器的展示层纯函数：字数、百分比、封面、时间，全部可在 node 环境单测。 */
 
 export const FONT_SIZE_MIN = 15
-export const FONT_SIZE_MAX = 32
-export const LINE_HEIGHTS: readonly number[] = [1.6, 1.9, 2.25]
+/** 0.2.2：32 → 56。4K 高分屏下 32px 离远了还是嫌小（用户 2026-10-09）。 */
+export const FONT_SIZE_MAX = 56
+/**
+ * 行距范围与步进（0.2.2）：原来是 1.6 / 1.9 / 2.25 三档固定值，
+ * schema 本来就允许 1.2–3.0 的连续数字，只改 UI 不动存储，无迁移成本。
+ */
+export const LINE_HEIGHT_MIN = 1.2
+export const LINE_HEIGHT_MAX = 3
+export const LINE_HEIGHT_STEP = 0.05
 
 export function clampFontSize(size: number): number {
   if (!Number.isFinite(size)) return 19
   return Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, Math.round(size)))
+}
+
+/**
+ * 行距夹到 1.2..3.0，并吸附到 0.05 的档位上（两位小数）。
+ * 吸附是为了步进按钮反复加减时不让浮点误差攒出 1.9500000000000002 这种值；
+ * 旧的三档预设 1.6 / 1.9 / 2.25 都正好落在 0.05 网格上，老设置不受影响。
+ */
+export function clampLineHeight(value: number): number {
+  if (!Number.isFinite(value)) return 1.9
+  const clamped = Math.min(LINE_HEIGHT_MAX, Math.max(LINE_HEIGHT_MIN, value))
+  const stepped = Math.round(clamped / LINE_HEIGHT_STEP) * LINE_HEIGHT_STEP
+  return Number(stepped.toFixed(2))
 }
 
 /** 整体进度：冗余展示值，不参与定位（TECH.md 6.2）。 */

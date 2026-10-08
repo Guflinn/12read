@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { STAT_GOAL_MAX_MINUTES } from '@shared/core/stats'
 import { DEFAULT_SETTINGS, type ReaderSettings } from '@shared/types'
 import { readerApi } from '@/core/api'
-import { clampFontSize } from '@/core/reading'
+import { clampFontSize, clampLineHeight } from '@/core/reading'
 import { isFontFamilyKey, isPageWidthKey } from '@/core/typography'
 
 interface SettingsState {
@@ -15,7 +15,7 @@ interface SettingsState {
 function normalize(next: ReaderSettings): ReaderSettings {
   return {
     fontSize: clampFontSize(next.fontSize),
-    lineHeight: Number.isFinite(next.lineHeight) ? next.lineHeight : DEFAULT_SETTINGS.lineHeight,
+    lineHeight: clampLineHeight(next.lineHeight),
     theme: next.theme === 'night' ? 'night' : 'day',
     bold: next.bold === true,
     fontFamily: isFontFamilyKey(next.fontFamily) ? next.fontFamily : DEFAULT_SETTINGS.fontFamily,

@@ -117,13 +117,17 @@ test('导入 → 阅读 → 切章 → 改字号 → 重启后回到原处', asy
   await page.click('#toc-list li:nth-child(3)')
   await expect(page.locator('.chapter-title')).toHaveText('第三章 归途')
 
-  // 字号 +1、切夜间
+  // 字号 +1、行距 +1 档（0.2.2 起行距是 0.05 步进）、切夜间
   const fsBefore = await cssVar(page, '--fs')
   await page.click('#btn-settings')
   await expect(page.locator('#settings-sheet')).toHaveClass(/on/)
   await page.click('#fs-plus')
   const fsAfter = await cssVar(page, '--fs')
   expect(parseInt(fsAfter, 10)).toBe(parseInt(fsBefore, 10) + 1)
+  const lhBefore = parseFloat(await cssVar(page, '--lh'))
+  await page.click('#lh-plus')
+  const lhAfter = await cssVar(page, '--lh')
+  expect(parseFloat(lhAfter)).toBeCloseTo(lhBefore + 0.05, 5)
   await page.click('[data-theme-choice="night"]')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'night')
   await page.keyboard.press('Escape')
@@ -381,6 +385,11 @@ test('字体与栏宽：设置里换字体、换宽度，正文跟着变并且�
   await expect.poll(maxWidth).toBe('832px')
   await page.click('#btn-settings')
   await expect(page.locator('#width-wide')).toHaveClass(/on/)
+
+  // 特大档（0.2.2）：4K 全屏下「宽」两侧空白太多，68rem = 1088px
+  await page.click('#width-xlarge')
+  await expect(page.locator('#width-xlarge')).toHaveClass(/on/)
+  await expect.poll(maxWidth).toBe('1088px')
 })
 
 

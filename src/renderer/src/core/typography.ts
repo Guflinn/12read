@@ -24,6 +24,9 @@ export const PAGE_WIDTHS: ReadonlyArray<{ value: PageWidthKey; label: string; wi
   { value: 'narrow', label: '窄', width: '30rem' },
   { value: 'medium', label: '中', width: DEFAULT_PAGE_WIDTH },
   { value: 'wide', label: '宽', width: '52rem' },
+  // 0.2.2 新增「特大」：4K 全屏下「宽」（832px）两侧空白太多，68rem = 1088px 好得多。
+  // key 用 xlarge 而不是 huge —— 契约测试拿 'huge' 当非法值使，别撞车。
+  { value: 'xlarge', label: '特大', width: '68rem' },
   { value: 'full', label: '全宽', width: '100%' }
 ]
 

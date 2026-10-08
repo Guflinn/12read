@@ -1,4 +1,11 @@
-import { FONT_SIZE_MAX, FONT_SIZE_MIN, LINE_HEIGHTS } from '@/core/reading'
+import {
+  FONT_SIZE_MAX,
+  FONT_SIZE_MIN,
+  LINE_HEIGHT_MAX,
+  LINE_HEIGHT_MIN,
+  LINE_HEIGHT_STEP,
+  clampLineHeight
+} from '@/core/reading'
 import { FONT_FAMILIES, PAGE_WIDTHS } from '@/core/typography'
 import { useReaderStore } from '@/store/reader'
 import { useSettingsStore } from '@/store/settings'
@@ -9,12 +16,6 @@ const GOAL_CHOICES: ReadonlyArray<{ value: number; label: string }> = [
   { value: 15, label: '15 分' },
   { value: 30, label: '30 分' },
   { value: 60, label: '60 分' }
-]
-
-const LINE_HEIGHT_LABELS: ReadonlyArray<{ value: number; label: string }> = [
-  { value: 1.6, label: '紧凑' },
-  { value: 1.9, label: '标准' },
-  { value: 2.25, label: '宽松' }
 ]
 
 /** 设置面板：字号 / 行距 / 字重 / 字体 / 宽度 / 主题 / 每日目标。改字号只重排版，进度按字符偏移保持不动（TECH.md 6.4）。 */
@@ -60,16 +61,27 @@ export function SettingsSheet(): React.JSX.Element {
       <div className="sheet-row">
         <span className="label">行距</span>
         <div className="grow">
-          {LINE_HEIGHT_LABELS.map((item) => (
+          {/* 0.2.2：三档固定值改成步进微调（1.20–3.00，每步 0.05）。
+              clampLineHeight 负责夹范围 + 吸附 0.05 网格，浮点加减不会攒误差。 */}
+          <div className="stepper">
             <button
-              key={item.value}
-              className={Math.abs(settings.lineHeight - item.value) < 0.01 ? 'pill on' : 'pill'}
-              data-lh={item.value}
-              onClick={() => apply({ lineHeight: item.value })}
+              id="lh-minus"
+              aria-label="减小行距"
+              disabled={settings.lineHeight <= LINE_HEIGHT_MIN}
+              onClick={() => apply({ lineHeight: clampLineHeight(settings.lineHeight - LINE_HEIGHT_STEP) })}
             >
-              {item.label}
+              －
             </button>
-          ))}
+            <span id="lh-value">{settings.lineHeight.toFixed(2)}</span>
+            <button
+              id="lh-plus"
+              aria-label="增大行距"
+              disabled={settings.lineHeight >= LINE_HEIGHT_MAX}
+              onClick={() => apply({ lineHeight: clampLineHeight(settings.lineHeight + LINE_HEIGHT_STEP) })}
+            >
+              ＋
+            </button>
+          </div>
         </div>
       </div>
 
@@ -171,7 +183,7 @@ export function SettingsSheet(): React.JSX.Element {
         <br />
         <b>← →</b> 翻页 · <b>Ctrl + ← →</b> 切换章节 · <b>Esc</b> 关面板 / 返回书架
         <br />
-        行距可选：{LINE_HEIGHTS.join(' / ')}
+        行距可在 1.20 – 3.00 之间按 0.05 微调。
         <br />
         每日目标只管显示：达标后书架那行会写「已达标」，不做提醒、不弹窗。
       </div>

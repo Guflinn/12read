@@ -54,7 +54,7 @@ function BookCard({
         }
       }}
     >
-      <div className="cover" style={{ background: coverGradient(book.coverSeed) }}>
+      <div className={book.coverUrl ? 'cover has-img' : 'cover'} style={book.coverUrl ? undefined : { background: coverGradient(book.coverSeed) }}>
         {/* EPUB 自带封面就用它；没有（TXT 或书里没封面）就退回渐变底 + 书名首字 */}
         {book.coverUrl ? (
           <img className="cover-img" src={book.coverUrl} alt={book.title} loading="lazy" />

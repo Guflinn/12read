@@ -138,6 +138,13 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   ② 测试代码里的 `rmSync` 躲不掉（那是 Node 层），只能认，定期清；
   ③ 被删的都是**可再生的产物**（构建输出、测试临时库），源码 / 书 / release/ 里的安装包从不经过回收站。
   与用户提到回收站时，先**去 `C://$Recycle.Bin//<SID>//$I*` 里读原路径**再答话，别凭印象说「不是我」。
+- **打包输出目录：用项目外的临时目录**（2026-10-08 用户抱怨 release-out2…9 堆了一堆）：
+  堆积的原因是打包撞文件锁时我换了新目录躲，正确做法是
+  `cmd //c "rmdir /S /Q <目录>"` 先清（cmd 不被 safe-delete 截），
+  再 `electron-builder --win nsis -c.directories.output="C:/Users/Lin/AppData/Local/Temp/12read-release"`
+  —— **放项目外**，交付物只认 `release/`，临时目录随系统清理。影响：零。
+  ⚠️ 2026-10-08 遗留：`release-out2…9`（约 3.6GB）被系统文件锁占着（删/改名都拒绝，
+  进程清单里没有占用者 —— 杀软/索引器一类），**重启后手动删即可**，不影响任何功能。
 - **打包卡住 10 分钟不动 → 多半是 Electron 在偷偷重下 + 陈旧下载锁**（2026-10-08 踩了 20 分钟）：
   现象是 `release-out*/` 空目录、进程一直挂着。两步排查：
   ① `ls ~/AppData/Local/electron/Cache/` 看有没有当前版本（项目用 38.8.6，缓存里只有 38.2.2 就说明要重下

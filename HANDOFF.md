@@ -56,7 +56,7 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 下一步（按顺序）
 
-1. **0.2.1 已完成待发（2026-10-08）**：阅读器两侧切章箭头（用户报长章节切章不便，三形态 demo 后拍板方案 A）。功能、测试、文档（CHANGELOG 0.2.1 未发布段 / MVP 第 10 节 / TECH 变更记录）全部就绪，`origin/main..main` 有未推送提交 —— **推送与发版等用户点头**（长期规矩）。
+1. **0.2.1 已完成待发（2026-10-08/09）**：阅读器两侧切章箭头（用户报长章节切章不便，三形态 demo 后拍板方案 A）+ 第二轮反馈三条（箭头内收 24px 避滚动条 / 字号上限 32、默认 22 / Aa 面板点空白关闭）。功能、测试、文档（CHANGELOG 0.2.1 未发布段 / MVP 第 10 节 / TECH 变更记录）全部就绪，`origin/main..main` 有未推送提交 —— **推送与发版等用户点头**（长期规矩）。免安装版 `release/win-unpacked/` 已重建到本轮（2026-10-09 凌晨）。
 2. **0.1.4 已完成并发布（2026-10-06 / 10-07 用户拍板）**：
    - **A 窗口尺寸 / 位置记忆 —— 已完成**（2026-10-07，commit `b1ccf71`）：纯函数 `src/shared/core/window-bounds.ts` + `src/main/services/window-state.ts`（存 meta 表 `window_state` 键）+ 建窗前恢复 / 关窗时保存；单测 21 例、e2e 2 例。
    - **顺带修掉一个用户报的老 bug**（2026-10-07）：「回到上次位置」在快滑场景下回不去 —— 见下方「已知坑」里的 `BOOKMARK_DWELL_MS` 那条。

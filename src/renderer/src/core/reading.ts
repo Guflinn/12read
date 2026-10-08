@@ -4,7 +4,7 @@ import type { Book, Chapter, ChapterKind } from '@shared/types'
 /** 阅读器的展示层纯函数：字数、百分比、封面、时间，全部可在 node 环境单测。 */
 
 export const FONT_SIZE_MIN = 15
-export const FONT_SIZE_MAX = 27
+export const FONT_SIZE_MAX = 32
 export const LINE_HEIGHTS: readonly number[] = [1.6, 1.9, 2.25]
 
 export function clampFontSize(size: number): number {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReaderApi } from '@shared/api'
-import type { ReaderSettings } from '@shared/types'
+import { DEFAULT_SETTINGS, type ReaderSettings } from '@shared/types'
 import { setReaderApi } from '@/core/api'
 import { useSettingsStore } from '@/store/settings'
 
@@ -15,8 +15,9 @@ function makeHarness(stored: ReaderSettings): { saveSettings: ReturnType<typeof 
 }
 
 beforeEach(() => {
+  // 直接用真正的默认值，别在这里抄一份字面量 —— 默认一变（如 0.2.1 的 19→22）这里就会悄悄脱钩
   useSettingsStore.setState({
-    settings: { fontSize: 19, lineHeight: 1.9, theme: 'day', bold: false, fontFamily: 'song', pageWidth: 'medium', dailyGoalMinutes: 0 },
+    settings: { ...DEFAULT_SETTINGS },
     ready: false
   })
 })
@@ -37,7 +38,7 @@ describe('settings store', () => {
     })
     await useSettingsStore.getState().load()
     const settings = useSettingsStore.getState().settings
-    expect(settings.fontSize).toBe(27)
+    expect(settings.fontSize).toBe(32)
     expect(settings.theme).toBe('day')
     expect(settings.bold).toBe(true)
     expect(useSettingsStore.getState().ready).toBe(true)
@@ -69,17 +70,17 @@ describe('settings store', () => {
     setReaderApi(api)
     await useSettingsStore.getState().load()
     expect(useSettingsStore.getState().ready).toBe(true)
-    expect(useSettingsStore.getState().settings.fontSize).toBe(19)
+    expect(useSettingsStore.getState().settings.fontSize).toBe(22)
   })
 
   it('apply 立刻生效并写回，字号被夹紧', async () => {
     const harness = makeHarness({ fontSize: 19, lineHeight: 1.9, theme: 'day', bold: false, fontFamily: 'song', pageWidth: 'medium', dailyGoalMinutes: 0 })
     useSettingsStore.getState().apply({ fontSize: 100 })
-    expect(useSettingsStore.getState().settings.fontSize).toBe(27)
+    expect(useSettingsStore.getState().settings.fontSize).toBe(32)
 
     await vi.waitFor(() => expect(harness.saveSettings).toHaveBeenCalledTimes(1))
     expect(harness.saveSettings.mock.calls[0]?.[0]).toEqual({
-      fontSize: 27,
+      fontSize: 32,
       lineHeight: 1.9,
       theme: 'day',
       bold: false,

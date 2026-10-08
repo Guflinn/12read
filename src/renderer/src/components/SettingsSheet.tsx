@@ -1,4 +1,4 @@
-import { LINE_HEIGHTS } from '@/core/reading'
+import { FONT_SIZE_MAX, FONT_SIZE_MIN, LINE_HEIGHTS } from '@/core/reading'
 import { FONT_FAMILIES, PAGE_WIDTHS } from '@/core/typography'
 import { useReaderStore } from '@/store/reader'
 import { useSettingsStore } from '@/store/settings'
@@ -25,7 +25,13 @@ export function SettingsSheet(): React.JSX.Element {
   const setSheet = useReaderStore((s) => s.setSheet)
 
   return (
-    <div className={open ? 'sheet on' : 'sheet'} id="settings-sheet" aria-hidden={!open}>
+    <>
+      {/*
+        点面板外的空白处也能关（用户 2026-10-09：以前只能点「完成」或再点 Aa）。
+        与目录抽屉同款 scrim（z-index 30 < 面板的 40），开着才吃鼠标事件。
+      */}
+      <div className={open ? 'scrim on' : 'scrim'} onClick={() => setSheet(false)} />
+      <div className={open ? 'sheet on' : 'sheet'} id="settings-sheet" aria-hidden={!open}>
       <div className="sheet-row">
         <span className="label">字号</span>
         <div className="grow">
@@ -33,7 +39,7 @@ export function SettingsSheet(): React.JSX.Element {
             <button
               id="fs-minus"
               aria-label="减小字号"
-              disabled={settings.fontSize <= 15}
+              disabled={settings.fontSize <= FONT_SIZE_MIN}
               onClick={() => apply({ fontSize: settings.fontSize - 1 })}
             >
               A－
@@ -42,7 +48,7 @@ export function SettingsSheet(): React.JSX.Element {
             <button
               id="fs-plus"
               aria-label="增大字号"
-              disabled={settings.fontSize >= 27}
+              disabled={settings.fontSize >= FONT_SIZE_MAX}
               onClick={() => apply({ fontSize: settings.fontSize + 1 })}
             >
               A＋
@@ -174,6 +180,7 @@ export function SettingsSheet(): React.JSX.Element {
           完成
         </button>
       </div>
-    </div>
+      </div>
+    </>
   )
 }

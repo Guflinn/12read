@@ -349,7 +349,7 @@ export interface ReaderSettings {
 }
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
-  fontSize: 19,
+  fontSize: 22,
   lineHeight: 1.9,
   theme: 'day',
   bold: false,

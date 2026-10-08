@@ -42,23 +42,45 @@ export function groupChapters(chapters: readonly Chapter[]): TocGroup[] {
    * 目录上看起来就像凭空多出一遍册名（用户 2026-10-08 的反馈）。
    * 按名字归组后，错位的那条会回到它该在的那一册里。
    */
-  const byTitle = new Map<string | null, TocGroup>()
-
   chapters.forEach((chapter, index) => {
     const title = chapter.groupTitle ?? null
-    const existing = byTitle.get(title)
-    if (existing) {
-      existing.items.push({ chapter, index, section: false, subHeader: null })
+    const last = groups[groups.length - 1]
+    if (last && last.title === title) {
+      last.items.push({ chapter, index, section: false, subHeader: null })
       return
     }
-    const group: TocGroup = {
+    groups.push({
       title,
       headerJump: title === null ? null : index,
       items: [{ chapter, index, section: false, subHeader: null }]
-    }
-    byTitle.set(title, group)
-    groups.push(group)
+    })
   })
+
+  /*
+   * 兜底：把「挂错位置的小组」并回同名的那一册。
+   *
+   * 那本合集的「版权页」在 NCX 里属于《蛙》、正文位置却在全书末尾，于是相邻分组会切成
+   * 「我們的荊軻 → 蛙 → 我們的荊軻」两个同名组（用户看到「多了一个蛙」就是这个）。
+   * 只并**有名的小组**（≤2 条）：无分组的 null 组是正常情况（普通书前后几章都不属于任何一册），
+   * 合并它们会把顺序搞乱 —— 这条是被 EPUB 的 e2e 逮到的。
+   */
+  const named = new Map<string, TocGroup>()
+  const reunited: TocGroup[] = []
+  for (const group of groups) {
+    if (group.title === null) {
+      reunited.push(group)
+      continue
+    }
+    const existing = named.get(group.title)
+    if (existing !== undefined && group.items.length <= 2) {
+      existing.items.push(...group.items)
+      continue
+    }
+    if (existing === undefined) named.set(group.title, group)
+    reunited.push(group)
+  }
+  groups.length = 0
+  groups.push(...reunited)
 
   const norm = (value: string): string => value.replace(/[\s\u00a0\u3000]+/g, '')
 

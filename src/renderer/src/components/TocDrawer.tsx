@@ -85,17 +85,24 @@ export function TocDrawer(): React.JSX.Element {
             {open
               ? groupChapters(chapters).flatMap((group) => [
                   /* 合集类 EPUB：每卷前面加一行「册名」。普通书没有分组，这一行不会出现 */
-                  group.showHeader && group.title !== null ? (
-                    <li className="toc-group" key={'group-' + group.title + '-' + group.items[0]?.index} title={group.title}>
+                  group.title !== null ? (
+                    /* 合集里的「一册」：一级分类行，点它 = 从这本书的开头读起 */
+                    <li
+                      className="toc-group"
+                      key={'group-' + group.title + '-' + group.headerJump}
+                      title={'《' + group.title + '》'}
+                      onClick={() => {
+                        if (group.headerJump !== null) jump(group.headerJump, 0)
+                      }}
+                    >
                       {group.title}
                     </li>
                   ) : null,
-                  ...group.items.map(({ chapter, first }) => (
+                  ...group.items.map(({ chapter, section }) => (
                   <li
                     key={chapter.index}
                     className={
-                      (chapter.index === chapterIndex ? 'on' : '') +
-                      (first && group.title !== null ? ' toc-part' : '')
+                      (chapter.index === chapterIndex ? 'on' : '') + (section ? ' toc-section' : '')
                     }
                     ref={chapter.index === chapterIndex ? activeRef : null}
                     title={chapter.title}
@@ -103,7 +110,7 @@ export function TocDrawer(): React.JSX.Element {
                   >
                     <span className="toc-label">
                       <span className="toc-kind">{kindLabel(chapter.kind)}</span>
-                      {chapter.index + 1}. {chapter.title}
+                      {chapter.title}
                     </span>
                     <span className="toc-edit">
                       <button

@@ -3,6 +3,7 @@ import { SCHEMA_V1_SQL, SCHEMA_VERSION } from './schema-v1'
 import { SCHEMA_V2_SQL, SCHEMA_VERSION_2 } from './schema-v2'
 import { SCHEMA_V3_SQL, SCHEMA_VERSION_3 } from './schema-v3'
 import { SCHEMA_V4_SQL, SCHEMA_VERSION_4 } from './schema-v4'
+import { SCHEMA_V5_SQL, SCHEMA_VERSION_5 } from './schema-v5'
 
 /**
  * 顺序迁移（TECH.md 5.1）：
@@ -40,6 +41,12 @@ export const MIGRATIONS: Migration[] = [
     name: 'chapter_group',
     // 章节的分组（合集类 EPUB 的卷名，0.2.0）：纯加列
     up: (db) => db.exec(SCHEMA_V4_SQL)
+  },
+  {
+    version: SCHEMA_VERSION_5,
+    name: 'chapter_parent',
+    // 章节的父级（三级目录「册/章/节」里的章，0.2.0）：纯加列
+    up: (db) => db.exec(SCHEMA_V5_SQL)
   }
 ]
 

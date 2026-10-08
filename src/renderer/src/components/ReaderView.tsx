@@ -18,6 +18,12 @@ const DRIFT_TOLERANCE_PX = 4
 const AUTOLOAD_REMAINING_PX = 600
 /** 跳到某条搜索结果后，那一小段亮这么久（0.1.3 第 7 项）。 */
 const FLASH_MS = 1600
+/**
+ * 少于这么多字的章不显示「本章完」（0.2.0）。
+ * 合集里的封面页、册首页只有一两个字（或只有一张图），
+ * 打开就顶一句「本章完」很突兀（用户 2026-10-08 的反馈）。
+ */
+const CHAPTER_END_MIN_CHARS = 120
 
 /** 选中文字后浮出来的小工具条：要么划线，要么删掉点中的那条划线。 */
 type Toolbar =
@@ -477,9 +483,9 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
               >
                 继续加载本章剩余内容（{chapterText.length - visibleChars} 字）
               </button>
-            ) : (
+            ) : chapterText.length >= CHAPTER_END_MIN_CHARS ? (
               <div className="chapter-end">本章完</div>
-            )}
+            ) : null}
           </article>
         ) : null}
 

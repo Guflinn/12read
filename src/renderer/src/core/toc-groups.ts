@@ -11,20 +11,18 @@ export interface TocGroupItem {
   chapter: Chapter
   /** 它在整个章节表里的下标（渲染 key、跳转都用它）。 */
   index: number
-  /** 是不是本组的第一条 —— 界面用它画「册首」样式（哪怕不单独画组名也能看出书界）。 */
-  first: boolean
+  /** 是「节」：直接父级不是本册（三级目录最深那层），界面缩进显示。 */
+  section: boolean
 }
 
 export interface TocGroup {
   /** 卷 / 册名；没有分组时为 null。 */
   title: string | null
   /**
-   * 要不要单独画一行组标题。
-   * 组内第一项标题与组名相同时不画 —— 那一条本身就是这本书的扉页，
-   * 再画一行组名就成了「天堂蒜薹之歌 / 天堂蒜薹之歌」的重复；
-   * 这时靠 `first` 标记把那一行染成册首样式，书界照样看得出来。
+   * 点组标题那一行跳到哪儿（该册首页的章节下标）；没有分组时为 null。
+   * 组名与组内第一项同名时，那一项不再单独列出 —— 点组标题就是点它。
    */
-  showHeader: boolean
+  headerJump: number | null
   items: TocGroupItem[]
 }
 
@@ -35,16 +33,29 @@ export function groupChapters(chapters: readonly Chapter[]): TocGroup[] {
     const title = chapter.groupTitle ?? null
     const last = groups[groups.length - 1]
     if (last && last.title === title) {
-      last.items.push({ chapter, index, first: false })
+      last.items.push({ chapter, index, section: false })
       return
     }
-    groups.push({ title, showHeader: false, items: [{ chapter, index, first: false }] })
-  })
-  for (const group of groups) {
-    group.showHeader = group.title !== null && group.items[0]?.chapter.title !== group.title
-    group.items.forEach((item, index) => {
-      item.first = index === 0
+    groups.push({
+      title,
+      headerJump: title === null ? null : index,
+      items: [{ chapter, index, section: false }]
     })
+  })
+
+  for (const group of groups) {
+    for (const item of group.items) {
+      item.section =
+        group.title !== null &&
+        item.chapter.parentTitle != null &&
+        item.chapter.parentTitle !== group.title
+    }
+    // 组名与组内第一项同名（那一行就是这本书的扉页）：不再单独列它，
+    // 点组标题那一行就等于点它 —— 免得出现「天堂蒜薹之歌 / 天堂蒜薹之歌」两行。
+    const first = group.items[0]
+    if (group.title !== null && first !== undefined && first.chapter.title === group.title) {
+      group.items.shift()
+    }
   }
   return groups
 }

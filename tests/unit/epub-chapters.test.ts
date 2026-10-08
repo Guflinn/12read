@@ -248,7 +248,7 @@ describe('epub/chapters.ts：目录不可靠时靠标题救回来（真书上实
 })
 
 describe('epub/chapters.ts：目录层级与垃圾项过滤', () => {
-  it('只取到第 2 层：更深的页码项（一/二/三）被丢掉', () => {
+  it('取到第 3 层：小节（一 / 二 / 三）保留，并记住它属于哪一章', () => {
     const ncx = `<ncx><navMap>
       <navPoint><navLabel><text>第一部</text></navLabel><content src="a.xhtml"/>
         <navPoint><navLabel><text>第一章</text></navLabel><content src="a.xhtml"/>
@@ -268,10 +268,15 @@ describe('epub/chapters.ts：目录层级与垃圾项过滤', () => {
         ? ncx
         : '<p>第一部</p><p>第一章</p><p>一</p><p>正文</p>'
     )
-    expect(chapters.map((chapter) => chapter.title)).toEqual(['第一部', '第一章'])
+    // 用户 2026-10-08：那些「一 / 二 / 三」是**小节**，不是页码 —— 要留下并挂到章上
+    expect(chapters.map((chapter) => [chapter.title, chapter.parentTitle])).toEqual([
+      ['第一部', '第一部'],
+      ['第一章', '第一部'],
+      ['一', '第一章']
+    ])
   })
 
-  it('页码式标题即使在浅层也被过滤（「十二」这种不是章名）', () => {
+  it('更深一层（第 4 层）不取；纯数字标题也照常保留', () => {
     const files: Record<string, string> = {
       'OEBPS/nav.xhtml': `<nav epub:type="toc"><ol>
         <li><a href="a.xhtml">第一章</a></li>
@@ -288,7 +293,7 @@ describe('epub/chapters.ts：目录层级与垃圾项过滤', () => {
       'OEBPS/content.opf'
     )
     const { chapters } = buildEpubContent(opf, (href) => files[href] ?? null)
-    expect(chapters.map((chapter) => chapter.title)).toEqual(['第一章'])
+    expect(chapters.map((chapter) => chapter.title)).toEqual(['第一章', '12', '一、二'])
   })
 
   it('同一个落点的多条目录只留最后一条（更具体的那条）', () => {

@@ -84,6 +84,11 @@ export interface Chapter {
    * （可选是为了不打扰既有测试夹具；库里这列始终有值或 NULL。）
    */
   groupTitle?: string | null
+  /**
+   * 直接父级的标题（0.2.0）：合集三级目录里的中间那一级。
+   * 节这一行记的是它所属的「章」；册下面的章记的是册名（等于 groupTitle）。
+   */
+  parentTitle?: string | null
   /** 全文解码文本里的起始偏移。 */
   startOffset: CharOffset
   charLength: number

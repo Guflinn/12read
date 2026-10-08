@@ -4,6 +4,7 @@ import { SCHEMA_V1_SQL } from '@main/db/schema-v1'
 import { SCHEMA_V2_SQL, SCHEMA_VERSION_2 } from '@main/db/schema-v2'
 import { SCHEMA_V3_SQL, SCHEMA_VERSION_3 } from '@main/db/schema-v3'
 import { SCHEMA_V4_SQL, SCHEMA_VERSION_4 } from '@main/db/schema-v4'
+import { SCHEMA_V5_SQL, SCHEMA_VERSION_5 } from '@main/db/schema-v5'
 import { FakeSqlDatabase } from '../helpers/fake-db'
 
 const custom: Migration[] = [
@@ -18,8 +19,8 @@ describe('迁移', () => {
     expect(db.tables.has('meta')).toBe(true)
 
     const result = runMigrations(db)
-    expect(result).toEqual({ from: 0, to: 4, applied: [1, 2, 3, 4] })
-    expect(db.meta.get('schema_version')).toBe('4')
+    expect(result).toEqual({ from: 0, to: 5, applied: [1, 2, 3, 4, 5] })
+    expect(db.meta.get('schema_version')).toBe('5')
     expect(db.executed.some((sql) => sql.includes('CREATE TABLE IF NOT EXISTS book'))).toBe(true)
     expect(db.executed.some((sql) => sql.includes('CREATE TABLE IF NOT EXISTS bookmark'))).toBe(true)
   })
@@ -38,7 +39,7 @@ describe('迁移', () => {
     const before = db.executed.length
     const calls: number[] = []
     const result = runMigrations(db, { onBeforeMigrate: (from) => calls.push(from) })
-    expect(result).toEqual({ from: 4, to: 4, applied: [] })
+    expect(result).toEqual({ from: 5, to: 5, applied: [] })
     expect(calls).toEqual([])
     // 读版本号时会再执行一次 meta 建表（幂等），因此只断言没有新增迁移 SQL
     const appended = db.executed.slice(before)
@@ -78,8 +79,8 @@ describe('迁移', () => {
     const calls: number[] = []
     const result = runMigrations(db, { onBeforeMigrate: (from) => calls.push(from) })
     expect(calls).toEqual([1])
-    expect(result).toEqual({ from: 1, to: 4, applied: [2, 3, 4] })
-    expect(db.meta.get('schema_version')).toBe('4')
+    expect(result).toEqual({ from: 1, to: 5, applied: [2, 3, 4, 5] })
+    expect(db.meta.get('schema_version')).toBe('5')
     expect(db.executed.some((sql) => sql.includes('CREATE TABLE IF NOT EXISTS highlight'))).toBe(true)
     expect(db.executed.some((sql) => sql.includes('CREATE TABLE IF NOT EXISTS reading_span'))).toBe(
       true
@@ -92,36 +93,40 @@ describe('迁移', () => {
     const calls: number[] = []
     const result = runMigrations(db, { onBeforeMigrate: (from) => calls.push(from) })
     expect(calls).toEqual([2])
-    // 现在会一路迁到最新（v4）：v3 建水位线表，v4 加分组列
-    expect(result).toEqual({ from: 2, to: 4, applied: [3, 4] })
-    expect(db.meta.get('schema_version')).toBe('4')
+    // 现在会一路迁到最新（v5）：v3 建水位线表，v4 加分组列，v5 加父级列
+    expect(result).toEqual({ from: 2, to: 5, applied: [3, 4, 5] })
+    expect(db.meta.get('schema_version')).toBe('5')
     expect(db.executed.some((sql) => sql.includes('CREATE TABLE IF NOT EXISTS reading_span'))).toBe(
       true
     )
   })
 
-  it('v3 的库升到 v4 时会跑 chapter_group 这条迁移（0.2.0 合集分组）', () => {
+  it('v3 的库会依次跑 chapter_group 与 chapter_parent（0.2.0 的合集分组与父级）', () => {
     const db = new FakeSqlDatabase()
     db.meta.set('schema_version', '3')
     const calls: number[] = []
     const result = runMigrations(db, { onBeforeMigrate: (from) => calls.push(from) })
     expect(calls).toEqual([3])
-    expect(result).toEqual({ from: 3, to: 4, applied: [4] })
+    expect(result).toEqual({ from: 3, to: 5, applied: [4, 5] })
     expect(db.executed.some((sql) => sql.includes('ADD COLUMN group_title'))).toBe(true)
+    expect(db.executed.some((sql) => sql.includes('ADD COLUMN parent_title'))).toBe(true)
   })
 
-  it('内置迁移是 v1 + v2 + v3 + v4，SQL 覆盖关键约束', () => {
-    expect(MIGRATIONS.map((m) => m.version)).toEqual([1, 2, 3, 4])
+  it('内置迁移是 v1 … v5，SQL 覆盖关键约束', () => {
+    expect(MIGRATIONS.map((m) => m.version)).toEqual([1, 2, 3, 4, 5])
     expect(MIGRATIONS.map((m) => m.name)).toEqual([
       'init',
       'annotations',
       'reading_span',
-      'chapter_group'
+      'chapter_group',
+      'chapter_parent'
     ])
     expect(MIGRATIONS[1]?.version).toBe(SCHEMA_VERSION_2)
     expect(MIGRATIONS[2]?.version).toBe(SCHEMA_VERSION_3)
     expect(MIGRATIONS[3]?.version).toBe(SCHEMA_VERSION_4)
+    expect(MIGRATIONS[4]?.version).toBe(SCHEMA_VERSION_5)
     expect(SCHEMA_V4_SQL).toContain('ADD COLUMN group_title')
+    expect(SCHEMA_V5_SQL).toContain('ADD COLUMN parent_title')
     // 水位线表：主键 (书, 天, 章) —— 一天一章只有一行，书删了跟着走
     expect(SCHEMA_V3_SQL).toContain('CREATE TABLE IF NOT EXISTS reading_span')
     expect(SCHEMA_V3_SQL).toContain('PRIMARY KEY (book_id, day, chapter_index)')

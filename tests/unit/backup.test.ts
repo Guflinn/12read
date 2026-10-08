@@ -122,7 +122,7 @@ describe('backup: 打包内容', () => {
       BACKUP_MANIFEST_FILE
     ])
     expect(manifest.version).toBe('0.1.2')
-    expect(manifest.schemaVersion).toBe(4)
+    expect(manifest.schemaVersion).toBe(5)
     expect(manifest.exportedAt).toBe(new Date(stamp).toISOString())
     expect(manifest.counts).toEqual({
       books: 2,

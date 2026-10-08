@@ -30,6 +30,8 @@ export interface NewChapterRecord {
   title: string
   /** 卷 / 册名（合集类 EPUB 才有），普通书与 TXT 不传。 */
   groupTitle?: string | null
+  /** 直接父级（三级目录里的「章」），普通书与 TXT 不传。 */
+  parentTitle?: string | null
   startOffset: CharOffset
   charLength: number
   kind: ChapterKind
@@ -38,7 +40,8 @@ export interface NewChapterRecord {
 const BOOK_COLUMNS =
   'id, title, author, format, encoding, byte_size, char_count, chapter_count, content_mode, cover_seed, added_at, last_opened_at'
 
-const CHAPTER_COLUMNS = 'book_id, idx, title, start_offset, char_length, kind, group_title'
+const CHAPTER_COLUMNS =
+  'book_id, idx, title, start_offset, char_length, kind, group_title, parent_title'
 
 const PROGRESS_COLUMNS =
   'book_id, chapter_index, char_offset, anchor_before, anchor_after, percent, updated_at, device_id'
@@ -112,7 +115,7 @@ export class LibraryRepository {
   replaceChapters(bookId: string, chapters: NewChapterRecord[]): void {
     this.db.prepare('DELETE FROM chapter WHERE book_id = ?').run(bookId)
     const statement = this.db.prepare(
-      `INSERT INTO chapter (${CHAPTER_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO chapter (${CHAPTER_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     )
     chapters.forEach((chapter, index) => {
       statement.run(
@@ -122,7 +125,8 @@ export class LibraryRepository {
         chapter.startOffset,
         chapter.charLength,
         chapter.kind,
-        chapter.groupTitle ?? null
+        chapter.groupTitle ?? null,
+        chapter.parentTitle ?? null
       )
     })
     this.db.prepare('UPDATE book SET chapter_count = ? WHERE id = ?').run(chapters.length, bookId)

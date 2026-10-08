@@ -40,6 +40,8 @@ export interface DecodedChapter {
   title: string
   /** 卷 / 册名（合集类 EPUB 才有，0.2.0）。 */
   groupTitle?: string | null
+  /** 直接父级（三级目录里的「章」）。 */
+  parentTitle?: string | null
   startOffset: CharOffset
   charLength: number
   kind: ChapterKind
@@ -102,6 +104,7 @@ export async function runDecodeJob(job: DecodeJob, onProgress: ProgressReporter)
     chapters: payload.chapters.map((chapter) => ({
       title: chapter.title,
       groupTitle: chapter.groupTitle ?? null,
+      parentTitle: chapter.parentTitle ?? null,
       startOffset: chapter.startOffset as CharOffset,
       charLength: chapter.charLength,
       kind: chapter.kind
@@ -123,6 +126,7 @@ interface DecodedPayload {
   chapters: Array<{
     title: string
     groupTitle?: string | null
+    parentTitle?: string | null
     startOffset: number
     charLength: number
     kind: ChapterKind
@@ -150,6 +154,7 @@ function decodeTextPayload(bytes: Buffer, job: DecodeJob, onProgress: ProgressRe
     chapters: split.chapters.map((chapter) => ({
       title: chapter.title,
       groupTitle: null,
+      parentTitle: null,
       startOffset: chapter.startOffset,
       charLength: chapter.charLength,
       kind: chapter.kind

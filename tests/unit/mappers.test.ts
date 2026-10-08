@@ -105,12 +105,15 @@ describe('数据库行映射', () => {
       index: 2,
       title: '第二章 归途',
       groupTitle: null,
+      parentTitle: null,
       startOffset: 120,
       charLength: 40,
       kind: 'segment'
     })
-    // 合集类 EPUB：卷名跟着章一起读回来
+    // 合集类 EPUB：册名与父级（三级目录里的章）一起读回来
     expect(toChapter({ ...base, group_title: '红高粱家族' }).groupTitle).toBe('红高粱家族')
+    const section = toChapter({ ...base, group_title: '红高粱家族', parent_title: '第一章 红高粱' })
+    expect([section.groupTitle, section.parentTitle]).toEqual(['红高粱家族', '第一章 红高粱'])
   })
 
   it('进度行允许空引文与空设备号', () => {

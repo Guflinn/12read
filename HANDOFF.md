@@ -158,6 +158,10 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   推送/上传前先探一次：`"/c/Program Files/Git/cmd/git.exe" -c http.proxy=http://127.0.0.1:<端口> … ls-remote origin`。
   `release-build/upload-release-*.py` 已内置候选端口自动探测（可用 `TWELVE_READ_PROXY` 指定）。
   另外 `reg.exe` 在当前沙箱里被拦（读注册表拿系统代理这条路走不通），用 netstat 找端口即可。
+- **走代理上传 98MB 安装包会断流，直连反而又快又稳（2026-10-08 实测）**：urllib 走代理两次在写 body 时
+  `TimeoutError`，curl 走代理 7 分钟只传到 47MB 就被掐（`schannel: server closed abruptly`）；
+  **curl `--noproxy '*'` 直连 33 秒传完**（HTTP 201）。直连 `api.github.com` 本身是通的（探测 1s）。
+  下次传大附件先试直连；小附件 / API 调用走代理没问题。发版脚本仍是代理版，大附件手工用 curl 直连补传即可。
 - **Agent 的 shell 里 `git` 会解析到 PortableGit（`/mingw64/bin/git`），凭据操作会卡死**（2026-10-07 实测）：
   `which -a git` 第一项是 `/mingw64/bin/git`，它的 system 层 `credential.helper = helper-selector` 会弹 GUI 选择器，
   `git credential fill` 直接卡住 2 分钟被杀（`SIGTERM`）。**涉及凭据 / 推送时显式用官方 git**：

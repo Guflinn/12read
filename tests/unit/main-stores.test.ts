@@ -124,6 +124,7 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
     const stored = {
       fontSize: 21,
       lineHeight: 2.1,
+      letterSpacing: 0.01,
       theme: 'night' as const,
       bold: true,
       fontFamily: 'wenkai' as const,
@@ -134,10 +135,11 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
   })
 
   it('老版本存的设置没有 bold / 字体 / 栏宽：都补默认，其余照样保留', () => {
-    const meta = makeMetaHarness({ [KEY]: JSON.stringify({ fontSize: 21, lineHeight: 2.1, theme: 'night' }) })
+    const meta = makeMetaHarness({ [KEY]: JSON.stringify({ fontSize: 21, lineHeight: 2.1, letterSpacing: 0.01, theme: 'night' }) })
     expect(new SettingsStore(meta.repo).get()).toEqual({
       fontSize: 21,
       lineHeight: 2.1,
+      letterSpacing: 0.01,
       theme: 'night',
       bold: false,
       fontFamily: 'song',
@@ -160,6 +162,7 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
     const next = {
       fontSize: 20,
       lineHeight: 2,
+      letterSpacing: 0.02,
       theme: 'night' as const,
       bold: true,
       fontFamily: 'fang' as const,
@@ -175,6 +178,7 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
     const returned = new SettingsStore(meta.repo).set({
       fontSize: 5,
       lineHeight: 1,
+      letterSpacing: 0.01,
       theme: 'night',
       bold: true,
       fontFamily: 'hanserif',

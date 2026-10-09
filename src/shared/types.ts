@@ -347,6 +347,8 @@ export type PageWidthKey = 'narrow' | 'medium' | 'wide' | 'xlarge' | 'full'
 export interface ReaderSettings {
   fontSize: number
   lineHeight: number
+  /** 正文字间距（em，letter-spacing）：0 紧 – 0.3 松，默认 0.01（0.2.1 第六轮）。 */
+  letterSpacing: number
   theme: 'day' | 'night'
   /** 正文加粗：写给 --stroke（0.35px 细描边，不是合成粗体）。 */
   bold: boolean
@@ -361,6 +363,7 @@ export interface ReaderSettings {
 export const DEFAULT_SETTINGS: ReaderSettings = {
   fontSize: 22,
   lineHeight: 1.9,
+  letterSpacing: 0.01,
   theme: 'day',
   bold: false,
   fontFamily: 'song',

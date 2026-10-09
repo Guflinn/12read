@@ -117,7 +117,7 @@ test('导入 → 阅读 → 切章 → 改字号 → 重启后回到原处', asy
   await page.click('#toc-list li:nth-child(3)')
   await expect(page.locator('.chapter-title')).toHaveText('第三章 归途')
 
-  // 字号 +1、行距 +1 档（0.2.2 起行距是 0.05 步进）、切夜间
+  // 字号 +1、行距 +1 档（0.2.2 起行距是 0.05 步进）、字距 +1 档（0.2.1 第六轮）、切夜间
   const fsBefore = await cssVar(page, '--fs')
   await page.click('#btn-settings')
   await expect(page.locator('#settings-sheet')).toHaveClass(/on/)
@@ -128,6 +128,10 @@ test('导入 → 阅读 → 切章 → 改字号 → 重启后回到原处', asy
   await page.click('#lh-plus')
   const lhAfter = await cssVar(page, '--lh')
   expect(parseFloat(lhAfter)).toBeCloseTo(lhBefore + 0.05, 5)
+  const lsBefore = parseFloat(await cssVar(page, '--ls'))
+  await page.click('#ls-plus')
+  const lsAfter = await cssVar(page, '--ls')
+  expect(parseFloat(lsAfter)).toBeCloseTo(lsBefore + 0.01, 5)
   await page.click('[data-theme-choice="night"]')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'night')
   await page.keyboard.press('Escape')

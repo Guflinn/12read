@@ -62,6 +62,22 @@ describe('IPC 入参校验：合法用例', () => {
     // 0.2.2：UI 字号上限提到 56，schema 上限 60
     expect(settingsSchema.safeParse({ fontSize: 56, lineHeight: 1.9, theme: 'day' }).success).toBe(true)
     expect(settingsSchema.safeParse({ fontSize: 61, lineHeight: 1.9, theme: 'day' }).success).toBe(false)
+    // 0.2.1 第六轮字间距：0 与 0.3 是合法边界，0.5 拒绝；缺字段补默认 0.01
+    expect(
+      settingsSchema.safeParse({ fontSize: 19, lineHeight: 1.9, letterSpacing: 0, theme: 'day' })
+        .success
+    ).toBe(true)
+    expect(
+      settingsSchema.safeParse({ fontSize: 19, lineHeight: 1.9, letterSpacing: 0.3, theme: 'day' })
+        .success
+    ).toBe(true)
+    expect(
+      settingsSchema.safeParse({ fontSize: 19, lineHeight: 1.9, letterSpacing: 0.5, theme: 'day' })
+        .success
+    ).toBe(false)
+    expect(settingsSchema.parse({ fontSize: 19, lineHeight: 1.9, theme: 'day' }).letterSpacing).toBe(
+      0.01
+    )
     expect(
       settingsSchema.safeParse({
         fontSize: 19,

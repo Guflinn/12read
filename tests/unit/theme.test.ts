@@ -21,11 +21,11 @@ function fakeRoot(): FakeRoot {
 }
 
 describe('applyTheme', () => {
-  it('主题写到 <html> 而不是内层 .app，并同步 --fs / --lh / --stroke / --font-body / --page-w', () => {
+  it('主题写到 <html> 而不是内层 .app，并同步 --fs / --lh / --ls / --stroke / --font-body / --page-w', () => {
     const root = fakeRoot()
 
     applyTheme(
-      { fontSize: 22, lineHeight: 2.25, theme: 'night', bold: true, fontFamily: 'wenkai', pageWidth: 'wide', dailyGoalMinutes: 0 },
+      { fontSize: 22, lineHeight: 2.25, letterSpacing: 0.05, theme: 'night', bold: true, fontFamily: 'wenkai', pageWidth: 'wide', dailyGoalMinutes: 0 },
       root
     )
 
@@ -33,6 +33,7 @@ describe('applyTheme', () => {
     expect(root.dataset.theme).toBe('night')
     expect(root.style.props.get('--fs')).toBe('22px')
     expect(root.style.props.get('--lh')).toBe('2.25')
+    expect(root.style.props.get('--ls')).toBe('0.05em')
     // 加粗 = 0.35px 细描边（不是合成粗体 —— 那会把无粗体文件的字体挤成一团）
     expect(root.style.props.get('--stroke')).toBe('0.35px')
     expect(root.style.props.get('--font-body')).toContain('LXGW WenKai')

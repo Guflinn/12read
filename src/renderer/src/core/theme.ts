@@ -22,6 +22,7 @@ export function applyTheme(settings: ReaderSettings, root: ThemeRoot): void {
   if (root.dataset.theme !== settings.theme) root.dataset.theme = settings.theme
   root.style.setProperty('--fs', settings.fontSize + 'px')
   root.style.setProperty('--lh', String(settings.lineHeight))
+  root.style.setProperty('--ls', settings.letterSpacing + 'em')
   // 加粗不用 font-weight：打包的字体只有 Regular，合成粗体（600）会把笔画硬加粗一截，
   // 字挤成一团（用户 2026-10-09 实测）。改用 0.35px 细描边 —— 视觉增重但笔画均匀。
   root.style.setProperty('--stroke', settings.bold ? '0.35px' : '0px')

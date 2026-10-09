@@ -13,6 +13,13 @@ export const FONT_SIZE_MAX = 56
 export const LINE_HEIGHT_MIN = 1.2
 export const LINE_HEIGHT_MAX = 3
 export const LINE_HEIGHT_STEP = 0.05
+/**
+ * 字间距范围与步进（0.2.1 第六轮）：单位 em，写在 letter-spacing 上。
+ * 0.01 是历史样式的默认值；0 = 最紧（无字距），0.3 = 很松。
+ */
+export const LETTER_SPACING_MIN = 0
+export const LETTER_SPACING_MAX = 0.3
+export const LETTER_SPACING_STEP = 0.01
 
 export function clampFontSize(size: number): number {
   if (!Number.isFinite(size)) return 19
@@ -28,6 +35,14 @@ export function clampLineHeight(value: number): number {
   if (!Number.isFinite(value)) return 1.9
   const clamped = Math.min(LINE_HEIGHT_MAX, Math.max(LINE_HEIGHT_MIN, value))
   const stepped = Math.round(clamped / LINE_HEIGHT_STEP) * LINE_HEIGHT_STEP
+  return Number(stepped.toFixed(2))
+}
+
+/** 字间距夹到 0..0.3em 并吸附 0.01 网格（原理同 clampLineHeight，防步进浮点误差）。 */
+export function clampLetterSpacing(value: number): number {
+  if (!Number.isFinite(value)) return 0.01
+  const clamped = Math.min(LETTER_SPACING_MAX, Math.max(LETTER_SPACING_MIN, value))
+  const stepped = Math.round(clamped / LETTER_SPACING_STEP) * LETTER_SPACING_STEP
   return Number(stepped.toFixed(2))
 }
 

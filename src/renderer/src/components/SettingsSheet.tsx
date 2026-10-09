@@ -4,7 +4,11 @@ import {
   LINE_HEIGHT_MAX,
   LINE_HEIGHT_MIN,
   LINE_HEIGHT_STEP,
-  clampLineHeight
+  LETTER_SPACING_MAX,
+  LETTER_SPACING_MIN,
+  LETTER_SPACING_STEP,
+  clampLineHeight,
+  clampLetterSpacing
 } from '@/core/reading'
 import { FONT_FAMILIES, PAGE_WIDTHS } from '@/core/typography'
 import { useReaderStore } from '@/store/reader'
@@ -78,6 +82,37 @@ export function SettingsSheet(): React.JSX.Element {
               aria-label="增大行距"
               disabled={settings.lineHeight >= LINE_HEIGHT_MAX}
               onClick={() => apply({ lineHeight: clampLineHeight(settings.lineHeight + LINE_HEIGHT_STEP) })}
+            >
+              ＋
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="sheet-row">
+        <span className="label">字距</span>
+        <div className="grow">
+          {/* 0.2.1 第六轮：字间距步进微调（0–0.30em，每步 0.01）。
+              clampLetterSpacing 负责夹范围 + 吸附 0.01 网格。 */}
+          <div className="stepper">
+            <button
+              id="ls-minus"
+              aria-label="减小字间距"
+              disabled={settings.letterSpacing <= LETTER_SPACING_MIN}
+              onClick={() =>
+                apply({ letterSpacing: clampLetterSpacing(settings.letterSpacing - LETTER_SPACING_STEP) })
+              }
+            >
+              －
+            </button>
+            <span id="ls-value">{settings.letterSpacing.toFixed(2)}</span>
+            <button
+              id="ls-plus"
+              aria-label="增大字间距"
+              disabled={settings.letterSpacing >= LETTER_SPACING_MAX}
+              onClick={() =>
+                apply({ letterSpacing: clampLetterSpacing(settings.letterSpacing + LETTER_SPACING_STEP) })
+              }
             >
               ＋
             </button>
@@ -183,7 +218,7 @@ export function SettingsSheet(): React.JSX.Element {
         <br />
         <b>← →</b> 翻页 · <b>Ctrl + ← →</b> 切换章节 · <b>Esc</b> 关面板 / 返回书架
         <br />
-        行距可在 1.20 – 3.00 之间按 0.05 微调。
+        行距可在 1.20 – 3.00 之间按 0.05 微调；字距 0 – 0.30 按 0.01 微调，0.01 是默认观感。
         <br />
         每日目标只管显示：达标后书架那行会写「已达标」，不做提醒、不弹窗。
       </div>

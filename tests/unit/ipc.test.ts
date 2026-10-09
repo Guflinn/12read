@@ -135,6 +135,7 @@ const BACKUP_RESULT: BackupResult = {
 const SETTINGS: ReaderSettings = {
   fontSize: 19,
   lineHeight: 1.9,
+  letterSpacing: 0.01,
   theme: 'day',
   bold: false,
   fontFamily: 'hanserif',
@@ -644,6 +645,7 @@ describe('IPC 注册与转发', () => {
     const next = {
       fontSize: 22,
       lineHeight: 2.25,
+      letterSpacing: 0.01,
       theme: 'night' as const,
       bold: true,
       fontFamily: 'wenkai' as const,

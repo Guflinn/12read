@@ -129,6 +129,8 @@ export const settingsSchema = z.object({
   // 0.2.2：字号上限从 40 提到 60 —— UI 档位到 56，schema 留余量；旧设置 ≤40 都合法
   fontSize: z.number().int().min(12).max(60),
   lineHeight: z.number().min(1.2).max(3),
+  // 0.2.1 第六轮新增字间距：旧设置没有该字段，default(0.01) 补成历史样式的默认观感
+  letterSpacing: z.number().min(0).max(0.3).default(0.01),
   theme: z.enum(['day', 'night']),
   // 0.1.1 及更早存的设置里没有 bold：用 default 补上，别让整份设置回退成默认值
   bold: z.boolean().default(false),

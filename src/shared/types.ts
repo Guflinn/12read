@@ -329,16 +329,17 @@ export interface ImportOutcome {
 }
 
 /**
- * 正文字体。除等线外全部为打包的开源字体（OFL 许可、可自由分发）：
- *  - fang = 朱雀仿宋（TrionesType，纯矢量无点阵）
- *  - deng = 系统等线（Word 2016 起的默认中文，现代矢量）
- *  - wenkai = 霞鹜文楷（楷体风格，最柔和）
- *  - hanserif = 思源宋体的 Google 同源版 Noto Serif SC
- * 0.2.1 曾有的 song / hei / kai 三个系统字体选项已删除（中易宋体/楷体/仿宋
- * 大字号点阵马赛克），老设置里的旧值由 schema 归一化：song→hanserif、hei→deng、kai→wenkai。
+ * 正文字体（0.2.1 第五轮按用户审美定稿）：经典三件套回归 + 一款打包黑体替代苹方。
+ *  - song = 系统宋体（中易宋体，经典印刷感，默认 —— 用户点名要回经典的）
+ *  - fang = 系统仿宋（微软仿宋）
+ *  - kai = 系统楷体（经典楷体）
+ *  - sans = 打包思源黑体 Noto Sans SC（OFL）—— 用户想要的「苹方」是 macOS 独占无法打包，这是最接近的替代
+ *  - wenkai = 打包霞鹜文楷（保留）
+ *  - hanserif = 打包思源宋（保留）
+ * 0.2.1 曾删除过 song/hei/kai 又于第五轮恢复；hei/deng 由 schema transform 归一化到 sans。
  * 选项表见 renderer/src/core/typography.ts。
  */
-export type FontFamilyKey = 'fang' | 'deng' | 'wenkai' | 'hanserif'
+export type FontFamilyKey = 'song' | 'fang' | 'kai' | 'sans' | 'wenkai' | 'hanserif'
 
 /** 正文栏宽：一行放多少字（选项表见 renderer/src/core/typography.ts）。 */
 export type PageWidthKey = 'narrow' | 'medium' | 'wide' | 'xlarge' | 'full'
@@ -362,7 +363,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   lineHeight: 1.9,
   theme: 'day',
   bold: false,
-  fontFamily: 'hanserif',
+  fontFamily: 'song',
   pageWidth: 'medium',
   dailyGoalMinutes: 0
 }

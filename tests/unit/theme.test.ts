@@ -49,14 +49,14 @@ describe('applyTheme', () => {
     expect(root.dataset.theme).toBe('day')
   })
 
-  it('字体与栏宽跟着设置走，未知取值回退默认（默认栈是思源宋）', () => {
+  it('字体与栏宽跟着设置走，未知取值回退默认（默认栈是经典宋体）', () => {
     const root = fakeRoot()
     applyTheme({ ...DEFAULT_SETTINGS, fontFamily: 'fang' as const, pageWidth: 'narrow' as const, dailyGoalMinutes: 0 }, root)
-    expect(root.style.props.get('--font-body')).toContain('Zhuque Fangsong')
+    expect(root.style.props.get('--font-body')).toContain('FangSong')
     expect(root.style.props.get('--page-w')).toBe('30rem')
 
     applyTheme({ ...DEFAULT_SETTINGS, fontFamily: 'comic' as never, pageWidth: 'huge' as never, dailyGoalMinutes: 0 }, root)
-    expect(root.style.props.get('--font-body')).toContain('Noto Serif SC')
+    expect(root.style.props.get('--font-body')).toContain('SimSun')
     expect(root.style.props.get('--page-w')).toBe('40rem')
   })
 

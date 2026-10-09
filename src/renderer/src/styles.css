@@ -1,9 +1,15 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; }
-  /* ---------- 打包的开源正文字体（0.2.1） ----------
+  /* ---------- 打包的正文字体（0.2.1） ----------
      文件在 src/renderer/src/assets/fonts/，vite 构建时拷到 out/renderer/assets/。
      font-display: swap：字体没就绪先用回退栈渲染，不白屏。
-     三款都只有 Regular：加粗开关走 --stroke 细描边，不用合成粗体（见 applyTheme）。 */
+     打包的三款都只有 Regular：加粗开关走 --stroke 细描边，不用合成粗体（见 applyTheme）。
+     宋体/仿宋/楷体用系统自带（第五轮经典回归），不在此列。 */
+  @font-face {
+    font-family: "Noto Sans SC";
+    src: url("./assets/fonts/NotoSansSC-Regular.otf") format("opentype");
+    font-display: swap;
+  }
   @font-face {
     font-family: "LXGW WenKai";
     src: url("./assets/fonts/LXGWWenKai-Regular.ttf") format("truetype");
@@ -12,11 +18,6 @@
   @font-face {
     font-family: "Noto Serif SC";
     src: url("./assets/fonts/NotoSerifSC-Regular.otf") format("opentype");
-    font-display: swap;
-  }
-  @font-face {
-    font-family: "Zhuque Fangsong";
-    src: url("./assets/fonts/ZhuqueFangsong-Regular.ttf") format("truetype");
     font-display: swap;
   }
   :root {

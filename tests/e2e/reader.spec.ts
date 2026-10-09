@@ -359,8 +359,8 @@ test('字体与栏宽：设置里换字体、换宽度，正文跟着变并且�
   const maxWidth = (): Promise<string> =>
     page.locator('#reader-content').evaluate((el) => getComputedStyle(el).maxWidth)
 
-  // 默认：思源宋（打包字体）+ 40rem（16px 根字号下 = 640px）
-  expect(await fontFamily()).toContain('Noto Serif SC')
+  // 默认：经典宋体（中易宋体）+ 40rem（16px 根字号下 = 640px）
+  expect(await fontFamily()).toContain('SimSun')
   expect(await maxWidth()).toBe('640px')
 
   await page.click('#btn-settings')
@@ -392,7 +392,7 @@ test('字体与栏宽：设置里换字体、换宽度，正文跟着变并且�
   await expect(page.locator('#width-xlarge')).toHaveClass(/on/)
   await expect.poll(maxWidth).toBe('1088px')
 
-  // 打包字体（0.2.1 第三、四轮）：除了 fontFamily 栈切换，还要确认 @font-face 真加载成功
+  // 打包字体（0.2.1 第三、五轮）：除了 fontFamily 栈切换，还要确认 @font-face 真加载成功
   const fontLoaded = (face: string): Promise<boolean> =>
     page.evaluate((name) => document.fonts.check('22px "' + name + '"'), face)
   await page.click('#font-wenkai')
@@ -403,9 +403,9 @@ test('字体与栏宽：设置里换字体、换宽度，正文跟着变并且�
   await expect
     .poll(() => fontLoaded('Noto Serif SC'), { message: '思源宋字体文件应已加载' })
     .toBe(true)
-  await page.click('#font-fang')
+  await page.click('#font-sans')
   await expect
-    .poll(() => fontLoaded('Zhuque Fangsong'), { message: '朱雀仿宋字体文件应已加载' })
+    .poll(() => fontLoaded('Noto Sans SC'), { message: '思源黑体字体文件应已加载' })
     .toBe(true)
 })
 

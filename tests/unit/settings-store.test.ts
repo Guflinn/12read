@@ -58,7 +58,7 @@ describe('settings store', () => {
     await useSettingsStore.getState().load()
     const settings = useSettingsStore.getState().settings
     expect(settings.bold).toBe(false)
-    expect(settings.fontFamily).toBe('hanserif')
+    expect(settings.fontFamily).toBe('song')
     expect(settings.pageWidth).toBe('medium')
   })
 
@@ -85,7 +85,7 @@ describe('settings store', () => {
       lineHeight: 1.9,
       theme: 'day',
       bold: false,
-      fontFamily: 'hanserif',
+      fontFamily: 'song',
       pageWidth: 'medium', dailyGoalMinutes: 0
     })
   })
@@ -96,11 +96,11 @@ describe('settings store', () => {
     expect(useSettingsStore.getState().settings.fontFamily).toBe('wenkai')
     expect(useSettingsStore.getState().settings.pageWidth).toBe('wide')
 
-    useSettingsStore.getState().apply({ fontFamily: 'comic' as unknown as 'hanserif' })
-    expect(useSettingsStore.getState().settings.fontFamily).toBe('hanserif')
+    useSettingsStore.getState().apply({ fontFamily: 'comic' as unknown as 'song' })
+    expect(useSettingsStore.getState().settings.fontFamily).toBe('song')
 
     await vi.waitFor(() => expect(harness.saveSettings).toHaveBeenCalled())
-    expect(harness.saveSettings.mock.calls.at(-1)?.[0]).toMatchObject({ fontFamily: 'hanserif', pageWidth: 'wide', dailyGoalMinutes: 0 })
+    expect(harness.saveSettings.mock.calls.at(-1)?.[0]).toMatchObject({ fontFamily: 'song', pageWidth: 'wide', dailyGoalMinutes: 0 })
   })
 
   it('每日目标：合法值立刻生效，越界与非法值被夹紧；没设时是 0', async () => {

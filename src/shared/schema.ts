@@ -133,17 +133,15 @@ export const settingsSchema = z.object({
   // 0.1.1 及更早存的设置里没有 bold：用 default 补上，别让整份设置回退成默认值
   bold: z.boolean().default(false),
   // 0.1.2 及更早没有字体与栏宽，同样补默认值
-  // 0.2.1 第四轮：song / hei / kai 三个系统字体选项删除（大字号点阵马赛克），
-  // 但 enum 保留全部旧值 —— 老设置里的 'song' 若被拒，整份设置会回退默认，字号行距全丢；
-  // 用 transform 把旧值一次性归一化：song→hanserif（视觉上是更好的宋体）、hei→deng、kai→wenkai
+  // 0.2.1 字体几经轮换（第三轮加 wenkai/hanserif、第四轮删 song/hei/kai、第五轮经典回归），
+  // enum 必须保留历史上出现过的全部 key —— 老设置里的旧值若被拒，整份设置 parse 失败回退默认，
+  // 字号行距全丢。transform 把已删除的 key 归一化：hei→sans、deng→sans（黑体类归新黑体）。
   fontFamily: z
-    .enum(['song', 'hei', 'kai', 'fang', 'deng', 'wenkai', 'hanserif'])
-    .default('hanserif')
+    .enum(['song', 'hei', 'kai', 'fang', 'deng', 'wenkai', 'hanserif', 'sans'])
+    .default('song')
     .transform((value): FontFamilyKey => {
-      if (value === 'song') return 'hanserif'
-      if (value === 'hei') return 'deng'
-      if (value === 'kai') return 'wenkai'
-      return value
+      if (value === 'hei' || value === 'deng') return 'sans'
+      return value as FontFamilyKey
     }),
   // 0.2.2 新增 xlarge（特大，68rem）：4K 全屏下「宽」仍偏窄（用户 2026-10-09）
   pageWidth: z.enum(['narrow', 'medium', 'wide', 'xlarge', 'full']).default('medium'),

@@ -140,7 +140,7 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
       lineHeight: 2.1,
       theme: 'night',
       bold: false,
-      fontFamily: 'hanserif',
+      fontFamily: 'song',
       pageWidth: 'medium', dailyGoalMinutes: 0
     })
   })

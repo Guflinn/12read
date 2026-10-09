@@ -15,9 +15,10 @@ playwright-report/
 # electron-vite 构建时生成的临时配置文件（TS 配置的 JS 影子，跑完就该没）
 electron.vite.config.*.mjs
 
-# 备用打包输出目录（release/win-unpacked 被占用时用它绕开，见 HANDOFF 已知坑）
+# 备用打包输出目录（release/win-unpacked 被占用时用它绕开，见 HANDOFF 已知坑；
+# Defender 会锁住打出来的 app.asar 几十分钟删不掉，轮换目录名即可）
 release-out*/
-release-tmp/
+release-tmp*/
 
 # 用户提供的真实书样本（版权内容 + 大文件，只在本机做实测，绝不入库）
 # 通配两种目录名：2026-10-07 就是因为旧名 epub格式测试文件/ 没被盖住而误提交过一次

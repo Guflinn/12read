@@ -1,24 +1,24 @@
 import type { FontFamilyKey, PageWidthKey } from '@shared/types'
 
-export const DEFAULT_FONT_STACK = '"Songti SC", "SimSun", "Noto Serif CJK SC", serif'
+export const DEFAULT_FONT_STACK = '"Noto Serif SC", "Source Han Serif SC", "Noto Serif CJK SC", serif'
 export const DEFAULT_PAGE_WIDTH = '40rem'
 
 /**
- * 字体选项。前五项一律用系统自带的字体，不额外打包字体文件；
- * 0.2.1 起追加两款打包的开源字体（用户 4K 屏反馈 SimSun 大字号太锋利，2026-10-09 拍板）：
- *  - wenkai：霞鹜文楷（OFL），笔画圆润带轻手写感，屏幕阅读最柔和；
- *  - hanserif：思源宋体的 Google 同源版 Noto Serif SC SubsetOTF（OFL），现代印刷衬线。
- * 每项给一串回退栈：打包字体加载失败 / 未构建时回退到系统近似字体。
+ * 字体选项（0.2.1 第四轮收窄）。全部为矢量字体，无点阵马赛克：
+ *  - 仿宋 = 打包的朱雀仿宋（OFL，TrionesType，@font-face 见 styles.css），回退系统 FangSong；
+ *  - 等线 = 系统自带（Word 2016 起默认中文，现代矢量）；
+ *  - 文楷 = 打包的霞鹜文楷（楷体风格最柔和的选择 —— 开源界没有第二个高质量简体楷体）；
+ *  - 思源宋 = 打包的 Noto Serif SC，是默认字体。
+ * 0.2.1 早先的 song / hei / kai（中易宋体 / 雅黑 / 楷体 KaiTi）已删除：
+ * 中易宋体与 KaiTi 在大字号走内嵌点阵或老轮廓，又细又硬（用户 4K 屏实测）；
+ * 雅黑是 UI 字体不适合长文；旧值由 settingsSchema 的 transform 归一化。
  */
 export const FONT_FAMILIES: ReadonlyArray<{ value: FontFamilyKey; label: string; stack: string }> = [
-  { value: 'song', label: '宋体', stack: DEFAULT_FONT_STACK },
   {
-    value: 'hei',
-    label: '雅黑',
-    stack: '"Microsoft YaHei", "PingFang SC", "Source Han Sans SC", system-ui, sans-serif'
+    value: 'fang',
+    label: '仿宋',
+    stack: '"Zhuque Fangsong", "FangSong", "FangSong_GB2312", "STFangsong", serif'
   },
-  { value: 'kai', label: '楷体', stack: '"KaiTi", "Kaiti SC", "STKaiti", "Songti SC", serif' },
-  { value: 'fang', label: '仿宋', stack: '"FangSong", "FangSong_GB2312", "STFangsong", "Songti SC", serif' },
   { value: 'deng', label: '等线', stack: '"DengXian", "PingFang SC", "Microsoft YaHei", sans-serif' },
   { value: 'wenkai', label: '文楷', stack: '"LXGW WenKai", "Kaiti SC", "KaiTi", serif' },
   {

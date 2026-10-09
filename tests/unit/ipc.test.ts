@@ -137,7 +137,7 @@ const SETTINGS: ReaderSettings = {
   lineHeight: 1.9,
   theme: 'day',
   bold: false,
-  fontFamily: 'song',
+  fontFamily: 'hanserif',
   pageWidth: 'medium', dailyGoalMinutes: 0
 }
 
@@ -646,7 +646,7 @@ describe('IPC 注册与转发', () => {
       lineHeight: 2.25,
       theme: 'night' as const,
       bold: true,
-      fontFamily: 'kai' as const,
+      fontFamily: 'wenkai' as const,
       pageWidth: 'wide' as const, dailyGoalMinutes: 0
     }
     expect(await call(CH.settingsSave, next)).toEqual(next)

@@ -42,7 +42,7 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 - 分支 `main`，工作区干净。**别在这里写死 HEAD**：这两段描述的是「完成本文件这次 commit 之前」的提交，改 HANDOFF 本身就会把 HEAD 往前挪一格，写死的哈希永远追不上。要看真实 HEAD，敲 `git log -1 --oneline`。
 - 版本号 **`0.2.1`**（package.json，2026-10-08 起提前标开发版）。**0.2.0 已于 2026-10-08 发布**：`origin/main` 同步到 tag `v0.2.0` 之后的提交，tag `v0.1.0`–`v0.2.0` 全部已在远端；仓库 public（https://github.com/Guflinn/12read ）。
-- **0.2.1 开发中（未发版、未推送）**：两侧切章箭头已完成（2026-10-08，commit `43cfb99`）；2026-10-09 又完成第二轮反馈三条（箭头内收 / Aa 面板点空白关闭）、第三轮 4K 排版三条（**栏宽加「特大」68rem 档 / 字号上限 32→56 / 行距改 0.05 步进自由调**）以及**打包两款开源字体**（文楷 LXGW WenKai 25.6MB + 思源宋 Noto Serif SC 11.6MB，置于 `src/renderer/src/assets/fonts/`，突破「不打包字体」旧决策由用户拍板）。验证全绿（单测 + 契约 658 用例 + e2e 43 例，e2e 含 `document.fonts.check` 真加载断言）。要不要发版、以及攒多少再发，等用户拍板。
+- **0.2.1 开发中（未发版、未推送）**：两侧切章箭头 + 四轮试用反馈全部完成（2026-10-08/09）：二轮（箭头内收 / Aa 点空白关）+ 三轮 4K 排版（特大栏宽 / 字号 56 / 行距步进）+ 打包字体（文楷 25.6MB + 思源宋 11.6MB）+ 四轮字体收窄（**删 song/hei/kai、仿宋换朱雀仿宋 8.8MB、加粗改 0.35px 细描边**；schema transform 归一化旧值 song→hanserif / hei→deng / kai→wenkai，默认字体 hanserif）。验证全绿（单测+契约 659 + e2e 43）。要不要发版，等用户拍板。
 - **0.2.0 已发布上线（2026-10-08）**：GitHub Release「十二阅读 v0.2.0 内测版（Windows）」（Pre-release）已建 —— https://github.com/Guflinn/12read/releases/tag/v0.2.0 ，正文含新增 / 说明与取舍 / 数据与版本 / 安装说明 + SHA-256；附件 `twelve-read-setup-0.2.0.exe`（102,784,478 B）与 `.exe.sha256` 已上传，**匿名下载核对过**。发版走 `release-build/upload-release-0.2.0.py`（无 gh CLI，走 REST API；代理端口自动探测）。原计划的 0.1.5「检查更新」未单独发版，折入本版（CHANGELOG 有说明）。
 - 发版前验证（2026-10-08）：单测 52 文件 / 624 用例全绿（`vitest run tests/unit --no-file-parallelism` 绕开本机 I/O 超时）、契约 3 文件 / 31 用例全绿、e2e 41 例全绿（首次跑全挂 `Target crashed`，属沙箱环境问题，带 `TWELVE_READ_E2E_ELECTRON_ARGS` 重跑即过）。
 - **0.1.3 已发布上线（2026-10-05）**：GitHub Release「十二阅读 v0.1.3 内测版（Windows）」（Pre-release）已建，正文含全部新增 / 性能 / 修复说明 + 安装 SHA-256；附件 `twelve-read-setup-0.1.3.exe`（102,766,157 B）与 `.exe.sha256` 已上传，匿名可下载。**发版长期规矩（用户定）：每次 push 必须附带本次更新内容（Release notes）**；发 Release 走 GitHub REST API（本机无 gh CLI）。
@@ -56,7 +56,7 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 下一步（按顺序）
 
-1. **0.2.1 已完成待发（2026-10-08/09）**：阅读器两侧切章箭头（用户报长章节切章不便，三形态 demo 后拍板方案 A）+ 第二轮反馈三条（箭头内收 24px 避滚动条 / 字号上限 32、默认 22 / Aa 面板点空白关闭）+ 第三轮 4K 排版三条（栏宽加「特大」68rem 档 / 字号上限 32→56 / 行距改 1.20–3.00 按 0.05 步进；schema 字号上限提到 60、pageWidth 枚举加 `xlarge`，均向后兼容）+ 打包两款开源字体（`wenkai` / `hanserif` 两个 FontFamilyKey，@font-face 在 styles.css 顶部，**family 名与回退栈第一位是双头契约**，typography.test 锁着）。功能、测试、文档（CHANGELOG 0.2.1 未发布段 / MVP 第 10 节 / TECH 变更记录）全部就绪，`origin/main..main` 有未推送提交 —— **推送与发版等用户点头**（长期规矩）。免安装版与安装包均已重建到本轮（`release-tmp/`，因 `release/win-unpacked` 被 Defender 锁定改用临时输出目录）。
+1. **0.2.1 已完成待发（2026-10-08/09）**：阅读器两侧切章箭头 + 四轮试用反馈（详见 CHANGELOG 0.2.1 未发布段与 TECH 变更记录）。字体现为四款全矢量：仿宋（朱雀）/ 等线 / 文楷 / 思源宋（默认）；schema 保留旧 font-family key 做归一化，**别删掉 enum 里的 song/hei/kai**（会让老设置整份回退默认）。功能、测试、文档全部就绪，`origin/main..main` 有未推送提交 —— **推送与发版等用户点头**（长期规矩）。安装包已重建到本轮（`release-tmp2/`；Defender 会锁 asar，打包用 `-c.directories.output` 轮换临时目录，.gitignore 已通配 `release-tmp*/`）。
 2. **0.1.4 已完成并发布（2026-10-06 / 10-07 用户拍板）**：
    - **A 窗口尺寸 / 位置记忆 —— 已完成**（2026-10-07，commit `b1ccf71`）：纯函数 `src/shared/core/window-bounds.ts` + `src/main/services/window-state.ts`（存 meta 表 `window_state` 键）+ 建窗前恢复 / 关窗时保存；单测 21 例、e2e 2 例。
    - **顺带修掉一个用户报的老 bug**（2026-10-07）：「回到上次位置」在快滑场景下回不去 —— 见下方「已知坑」里的 `BOOKMARK_DWELL_MS` 那条。

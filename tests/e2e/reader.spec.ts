@@ -309,7 +309,7 @@ test('刚打开就快滑到底，点「上次位置」仍能回到打开时的�
   await expect.poll(() => topParagraphIndex(page)).toBeLessThanOrEqual(opened + 1)
 })
 
-test('字重开关：设置里点加粗，正文变粗并且重启后还记着', async () => {
+test('字重开关：设置里点加粗，正文细描边变重并且重启后还记着', async () => {
   const dataDir = makeTempDir('12read-bold-')
   const bookPath = writeNovelFile(makeTempDir('12read-bold-src-'), '字重书.txt', buildNovel())
 
@@ -318,28 +318,29 @@ test('字重开关：设置里点加粗，正文变粗并且重启后还记着',
   await page.click('.book-card')
   await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
 
-  const weight = (): Promise<string> =>
-    page.locator('#reader-content p').first().evaluate((el) => getComputedStyle(el).fontWeight)
-  expect(await weight()).toBe('400')
+  // 加粗 = 0.35px 细描边（--stroke），不再用合成粗体 font-weight: 600
+  const stroke = (): Promise<string> =>
+    page.locator('#reader-content p').first().evaluate((el) => getComputedStyle(el).webkitTextStrokeWidth)
+  expect(await stroke()).toBe('0px')
 
   await page.click('#btn-settings')
   await expect(page.locator('#settings-sheet')).toHaveClass(/on/)
   await page.click('#bold-on')
-  await expect.poll(weight).toBe('600')
+  await expect.poll(stroke).toBe('0.35px')
   await expect(page.locator('#bold-on')).toHaveClass(/on/)
   await page.click('#bold-off')
-  await expect.poll(weight).toBe('400')
+  await expect.poll(stroke).toBe('0px')
   await page.click('#bold-on')
-  await expect.poll(weight).toBe('600')
+  await expect.poll(stroke).toBe('0.35px')
   await page.keyboard.press('Escape')
-  expect(await cssVar(page, '--fw')).toBe('600')
+  expect(await cssVar(page, '--stroke')).toBe('0.35px')
 
   // 重启后还记着加粗
   await app!.close()
   app = null
   page = await openApp(dataDir)
   await page.click('.book-card')
-  await expect.poll(weight).toBe('600')
+  await expect.poll(stroke).toBe('0.35px')
   await page.click('#btn-settings')
   await expect(page.locator('#bold-on')).toHaveClass(/on/)
 })
@@ -358,22 +359,22 @@ test('字体与栏宽：设置里换字体、换宽度，正文跟着变并且�
   const maxWidth = (): Promise<string> =>
     page.locator('#reader-content').evaluate((el) => getComputedStyle(el).maxWidth)
 
-  // 默认：宋体 + 40rem（16px 根字号下 = 640px）
-  expect(await fontFamily()).toContain('Songti')
+  // 默认：思源宋（打包字体）+ 40rem（16px 根字号下 = 640px）
+  expect(await fontFamily()).toContain('Noto Serif SC')
   expect(await maxWidth()).toBe('640px')
 
   await page.click('#btn-settings')
   await expect(page.locator('#settings-sheet')).toHaveClass(/on/)
-  await page.click('#font-kai')
-  await expect(page.locator('#font-kai')).toHaveClass(/on/)
-  await expect.poll(fontFamily).toContain('KaiTi')
+  await page.click('#font-wenkai')
+  await expect(page.locator('#font-wenkai')).toHaveClass(/on/)
+  await expect.poll(fontFamily).toContain('LXGW WenKai')
 
   await page.click('#width-wide')
   await expect(page.locator('#width-wide')).toHaveClass(/on/)
   await expect.poll(maxWidth).toBe('832px')
 
   await page.keyboard.press('Escape')
-  expect(await cssVar(page, '--font-body')).toContain('KaiTi')
+  expect(await cssVar(page, '--font-body')).toContain('LXGW WenKai')
   expect(await cssVar(page, '--page-w')).toBe('52rem')
 
   // 重启后还记着字体与栏宽
@@ -381,7 +382,7 @@ test('字体与栏宽：设置里换字体、换宽度，正文跟着变并且�
   app = null
   page = await openApp(dataDir)
   await page.click('.book-card')
-  await expect.poll(fontFamily).toContain('KaiTi')
+  await expect.poll(fontFamily).toContain('LXGW WenKai')
   await expect.poll(maxWidth).toBe('832px')
   await page.click('#btn-settings')
   await expect(page.locator('#width-wide')).toHaveClass(/on/)
@@ -391,7 +392,7 @@ test('字体与栏宽：设置里换字体、换宽度，正文跟着变并且�
   await expect(page.locator('#width-xlarge')).toHaveClass(/on/)
   await expect.poll(maxWidth).toBe('1088px')
 
-  // 打包字体（0.2.1 第三轮）：除了 fontFamily 栈切换，还要确认 @font-face 真加载成功
+  // 打包字体（0.2.1 第三、四轮）：除了 fontFamily 栈切换，还要确认 @font-face 真加载成功
   const fontLoaded = (face: string): Promise<boolean> =>
     page.evaluate((name) => document.fonts.check('22px "' + name + '"'), face)
   await page.click('#font-wenkai')
@@ -401,6 +402,10 @@ test('字体与栏宽：设置里换字体、换宽度，正文跟着变并且�
   await page.click('#font-hanserif')
   await expect
     .poll(() => fontLoaded('Noto Serif SC'), { message: '思源宋字体文件应已加载' })
+    .toBe(true)
+  await page.click('#font-fang')
+  await expect
+    .poll(() => fontLoaded('Zhuque Fangsong'), { message: '朱雀仿宋字体文件应已加载' })
     .toBe(true)
 })
 

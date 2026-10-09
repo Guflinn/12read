@@ -3,7 +3,7 @@
   /* ---------- 打包的开源正文字体（0.2.1） ----------
      文件在 src/renderer/src/assets/fonts/，vite 构建时拷到 out/renderer/assets/。
      font-display: swap：字体没就绪先用回退栈渲染，不白屏。
-     两款都只有 Regular：加粗开关（--fw 600）走浏览器合成粗体。 */
+     三款都只有 Regular：加粗开关走 --stroke 细描边，不用合成粗体（见 applyTheme）。 */
   @font-face {
     font-family: "LXGW WenKai";
     src: url("./assets/fonts/LXGWWenKai-Regular.ttf") format("truetype");
@@ -12,6 +12,11 @@
   @font-face {
     font-family: "Noto Serif SC";
     src: url("./assets/fonts/NotoSerifSC-Regular.otf") format("opentype");
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "Zhuque Fangsong";
+    src: url("./assets/fonts/ZhuqueFangsong-Regular.ttf") format("truetype");
     font-display: swap;
   }
   :root {
@@ -26,7 +31,7 @@
     --shadow: 0 1px 2px rgba(60,50,40,.06), 0 8px 24px rgba(60,50,40,.06);
     --fs: 19px;
     --lh: 1.9;
-    --fw: 400;
+    --stroke: 0px;
   --font-body: "Songti SC", "SimSun", "Noto Serif CJK SC", serif;
   --page-w: 40rem;
   }
@@ -139,10 +144,11 @@
   .reader-scroll { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; scroll-behavior: auto; padding: 0 20px 60px; }
   .reader-content { max-width: var(--page-w); margin: 0 auto; padding-top: 46px;
     font-family: var(--font-body);
-    font-size: var(--fs); line-height: var(--lh); letter-spacing: .01em; }
+    font-size: var(--fs); line-height: var(--lh); letter-spacing: .01em;
+    -webkit-text-stroke: var(--stroke); }
   .chapter-title { font-size: calc(var(--fs) * 1.22); line-height: 1.5; margin: 0 0 calc(var(--fs) * 1.5);
     font-weight: 600; text-align: center; letter-spacing: .02em; }
-  .reader-content p { margin: 0 0 .85em; text-indent: 2em; text-align: justify; font-weight: var(--fw, 400); }
+  .reader-content p { margin: 0 0 .85em; text-indent: 2em; text-align: justify; }
   .chapter-end { text-align: center; color: var(--dim); font-size: .72em; margin: 2.4em 0 2em; letter-spacing: .3em; }
   .chapter-nav { max-width: var(--page-w); margin: 0 auto; display: flex; align-items: center; justify-content: space-between;
     gap: 12px; padding: 22px 0 30px; border-top: 1px solid var(--line); }

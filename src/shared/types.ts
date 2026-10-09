@@ -329,11 +329,16 @@ export interface ImportOutcome {
 }
 
 /**
- * 正文字体。前五项是系统自带；0.2.1 起新增两款打包的开源字体
- * （wenkai = 霞鹜文楷、hanserif = 思源宋体/Noto Serif SC），均为 OFL 许可、可自由分发。
+ * 正文字体。除等线外全部为打包的开源字体（OFL 许可、可自由分发）：
+ *  - fang = 朱雀仿宋（TrionesType，纯矢量无点阵）
+ *  - deng = 系统等线（Word 2016 起的默认中文，现代矢量）
+ *  - wenkai = 霞鹜文楷（楷体风格，最柔和）
+ *  - hanserif = 思源宋体的 Google 同源版 Noto Serif SC
+ * 0.2.1 曾有的 song / hei / kai 三个系统字体选项已删除（中易宋体/楷体/仿宋
+ * 大字号点阵马赛克），老设置里的旧值由 schema 归一化：song→hanserif、hei→deng、kai→wenkai。
  * 选项表见 renderer/src/core/typography.ts。
  */
-export type FontFamilyKey = 'song' | 'hei' | 'kai' | 'fang' | 'deng' | 'wenkai' | 'hanserif'
+export type FontFamilyKey = 'fang' | 'deng' | 'wenkai' | 'hanserif'
 
 /** 正文栏宽：一行放多少字（选项表见 renderer/src/core/typography.ts）。 */
 export type PageWidthKey = 'narrow' | 'medium' | 'wide' | 'xlarge' | 'full'
@@ -342,7 +347,7 @@ export interface ReaderSettings {
   fontSize: number
   lineHeight: number
   theme: 'day' | 'night'
-  /** 正文加粗：写给 --fw，.reader-content 读它。 */
+  /** 正文加粗：写给 --stroke（0.35px 细描边，不是合成粗体）。 */
   bold: boolean
   /** 正文字体，写给 --font-body。 */
   fontFamily: FontFamilyKey
@@ -357,7 +362,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   lineHeight: 1.9,
   theme: 'day',
   bold: false,
-  fontFamily: 'song',
+  fontFamily: 'hanserif',
   pageWidth: 'medium',
   dailyGoalMinutes: 0
 }

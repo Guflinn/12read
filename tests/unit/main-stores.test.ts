@@ -126,7 +126,7 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
       lineHeight: 2.1,
       theme: 'night' as const,
       bold: true,
-      fontFamily: 'kai' as const,
+      fontFamily: 'wenkai' as const,
       pageWidth: 'wide' as const, dailyGoalMinutes: 0
     }
     const meta = makeMetaHarness({ [KEY]: JSON.stringify(stored) })
@@ -140,7 +140,7 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
       lineHeight: 2.1,
       theme: 'night',
       bold: false,
-      fontFamily: 'song',
+      fontFamily: 'hanserif',
       pageWidth: 'medium', dailyGoalMinutes: 0
     })
   })
@@ -177,7 +177,7 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
       lineHeight: 1,
       theme: 'night',
       bold: true,
-      fontFamily: 'song',
+      fontFamily: 'hanserif',
       pageWidth: 'medium', dailyGoalMinutes: 0
     })
     expect(returned).toEqual(DEFAULT_SETTINGS)

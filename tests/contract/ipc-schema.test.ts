@@ -204,10 +204,30 @@ describe('IPC 入参校验：合法用例', () => {
     expect(statGetArgsSchema.safeParse({ days: 90 }).success).toBe(true)
   })
 
-  it('缺字体与栏宽时补默认值', () => {
+  it('缺字体与栏宽时补默认值（默认字体是思源宋）', () => {
     const parsed = settingsSchema.parse({ fontSize: 19, lineHeight: 1.9, theme: 'day' })
-    expect(parsed.fontFamily).toBe('song')
+    expect(parsed.fontFamily).toBe('hanserif')
     expect(parsed.pageWidth).toBe('medium')
+  })
+
+  it('老设置的 song / hei / kai 归一化成打包字体，其余原样保留（0.2.1 第四轮）', () => {
+    for (const [legacy, modern] of [
+      ['song', 'hanserif'],
+      ['hei', 'deng'],
+      ['kai', 'wenkai'],
+      ['fang', 'fang'],
+      ['deng', 'deng'],
+      ['wenkai', 'wenkai'],
+      ['hanserif', 'hanserif']
+    ] as const) {
+      const parsed = settingsSchema.parse({
+        fontSize: 19,
+        lineHeight: 1.9,
+        theme: 'day',
+        fontFamily: legacy
+      })
+      expect(parsed.fontFamily, `${legacy} 应映射为 ${modern}`).toBe(modern)
+    }
   })
 })
 

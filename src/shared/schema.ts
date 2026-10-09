@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { UUID_V4_RE } from '@shared/core/ids'
 import { MANUAL_ENCODINGS, SEARCH_SCOPES } from '@shared/types'
+import type { FontFamilyKey } from '@shared/types'
 import { SEARCH_MAX_QUERY_CHARS } from '@shared/core/search'
 import {
   STAT_GOAL_MAX_MINUTES,
@@ -132,10 +133,18 @@ export const settingsSchema = z.object({
   // 0.1.1 及更早存的设置里没有 bold：用 default 补上，别让整份设置回退成默认值
   bold: z.boolean().default(false),
   // 0.1.2 及更早没有字体与栏宽，同样补默认值
-  // 0.2.1 加 wenkai / hanserif 两款打包字体；旧设置里的五个老 key 原样合法，向后兼容
+  // 0.2.1 第四轮：song / hei / kai 三个系统字体选项删除（大字号点阵马赛克），
+  // 但 enum 保留全部旧值 —— 老设置里的 'song' 若被拒，整份设置会回退默认，字号行距全丢；
+  // 用 transform 把旧值一次性归一化：song→hanserif（视觉上是更好的宋体）、hei→deng、kai→wenkai
   fontFamily: z
     .enum(['song', 'hei', 'kai', 'fang', 'deng', 'wenkai', 'hanserif'])
-    .default('song'),
+    .default('hanserif')
+    .transform((value): FontFamilyKey => {
+      if (value === 'song') return 'hanserif'
+      if (value === 'hei') return 'deng'
+      if (value === 'kai') return 'wenkai'
+      return value
+    }),
   // 0.2.2 新增 xlarge（特大，68rem）：4K 全屏下「宽」仍偏窄（用户 2026-10-09）
   pageWidth: z.enum(['narrow', 'medium', 'wide', 'xlarge', 'full']).default('medium'),
   // 0.1.4 新增每日目标；旧设置里没有这个字段，default(0) 补成「没设目标」

@@ -41,7 +41,8 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 ## 现在在哪（以 `git log` 为准）
 
 - 分支 `main`，工作区干净。**别在这里写死 HEAD**：这两段描述的是「完成本文件这次 commit 之前」的提交，改 HANDOFF 本身就会把 HEAD 往前挪一格，写死的哈希永远追不上。要看真实 HEAD，敲 `git log -1 --oneline`。
-- 版本号 **`0.2.1`**（package.json，2026-10-08 起提前标开发版）。**0.2.0 已于 2026-10-08 发布**：`origin/main` 同步到 tag `v0.2.0` 之后的提交，tag `v0.1.0`–`v0.2.0` 全部已在远端；仓库 public（https://github.com/Guflinn/12read ）。
+- 版本号 **`0.2.1`**（package.json）。**0.2.1 已于 2026-10-10 发布**：GitHub Release「十二阅读 v0.2.1 内测版（Windows）」（Pre-release）—— https://github.com/Guflinn/12read/releases/tag/v0.2.1 ，正文含六轮反馈全部新增 / 调整 / 说明与安装说明 + SHA-256；附件 `twelve-read-setup-0.2.1.exe`（128,255,066 B）与 `.exe.sha256` 已上传并**匿名下载核对**（SHA-256 一致）。tag `v0.2.1`（附注，指向 `3ccd250`）已推远端 —— **git push tag 连续 schannel SSL 中断，改走 REST API `/git/tags` + `/git/refs` 建成**（教训：object 必须传 commit sha 而不是 tag 对象自身）。`origin/main` 已同步到 `3ccd250`。仓库 public。
+- 发版前验证（2026-10-10）：eslint + 三份 tsc 干净；单测+契约 55 文件 / 659 用例全绿（`--no-file-parallelism`）；e2e 43 例全绿（带 `TWELVE_READ_E2E_ELECTRON_ARGS`）。正式包用 `release-tmp5` 产物（定稿 commit 只动 e2e/CHANGELOG，不影响 asar 字节）。
 - **0.2.1 开发中（未发版、未推送）**：两侧切章箭头 + 六轮试用反馈全部完成（2026-10-08/09/10），详见 CHANGELOG 0.2.1 未发布段。字体现为六款：**宋体（经典，默认）/ 仿宋 / 楷体（经典三件套第五轮回归）+ 黑体（打包 Noto Sans SC，苹方替代）/ 文楷 / 思源宋（打包）**；朱雀仿宋已删。第六轮新增**字间距调节**（`letterSpacing` 0–0.3em 步进 0.01，default 0.01）。schema enum 保留历史全部 font-family key，hei/deng 归一化到 sans —— **别删历史 key、新设置字段一律 default 补**（老设置整份回退默认的坑，见 TECH 变更记录）。验证全绿（单测+契约 659 + e2e 43）。要不要发版，等用户拍板。
 - **0.2.0 已发布上线（2026-10-08）**：GitHub Release「十二阅读 v0.2.0 内测版（Windows）」（Pre-release）已建 —— https://github.com/Guflinn/12read/releases/tag/v0.2.0 ，正文含新增 / 说明与取舍 / 数据与版本 / 安装说明 + SHA-256；附件 `twelve-read-setup-0.2.0.exe`（102,784,478 B）与 `.exe.sha256` 已上传，**匿名下载核对过**。发版走 `release-build/upload-release-0.2.0.py`（无 gh CLI，走 REST API；代理端口自动探测）。原计划的 0.1.5「检查更新」未单独发版，折入本版（CHANGELOG 有说明）。
 - 发版前验证（2026-10-08）：单测 52 文件 / 624 用例全绿（`vitest run tests/unit --no-file-parallelism` 绕开本机 I/O 超时）、契约 3 文件 / 31 用例全绿、e2e 41 例全绿（首次跑全挂 `Target crashed`，属沙箱环境问题，带 `TWELVE_READ_E2E_ELECTRON_ARGS` 重跑即过）。
@@ -56,7 +57,7 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 下一步（按顺序）
 
-1. **0.2.1 已完成待发（2026-10-08/09/10）**：阅读器两侧切章箭头 + 五轮试用反馈（详见 CHANGELOG 0.2.1 未发布段与 TECH 变更记录）。字体现为六款（经典三件套回归，宋体默认；打包黑体/文楷/思源宋）。功能、测试、文档全部就绪，`origin/main..main` 有未推送提交 —— **推送与发版等用户点头**（长期规矩）。安装包已重建到本轮（`release-tmp3/` 及更新；Defender 会锁 asar，打包用 `-c.directories.output` 轮换临时目录，.gitignore 已通配 `release-tmp*/`）。
+1. **0.2.1 已发布（2026-10-10，六轮反馈全落地）**：两侧切章箭头 + 排版全面可调（字号上限 56 / 行距 0.05 步进 / 字距 0.01 步进 / 特大栏宽）+ 字体六款（经典三件套回归、宋体默认；打包黑体/文楷/思源宋）+ 加粗细描边 + Aa 点空白关闭。**Release 与 tag 已上线、origin/main 已同步**，发布流程（notes / 上传 / 匿名核对）见「现在在哪」。收尾杂活：`release-tmp*` 临时目录与 `release/` 里旧版 0.1.x 产物要不要清，等用户发话。
 2. **0.1.4 已完成并发布（2026-10-06 / 10-07 用户拍板）**：
    - **A 窗口尺寸 / 位置记忆 —— 已完成**（2026-10-07，commit `b1ccf71`）：纯函数 `src/shared/core/window-bounds.ts` + `src/main/services/window-state.ts`（存 meta 表 `window_state` 键）+ 建窗前恢复 / 关窗时保存；单测 21 例、e2e 2 例。
    - **顺带修掉一个用户报的老 bug**（2026-10-07）：「回到上次位置」在快滑场景下回不去 —— 见下方「已知坑」里的 `BOOKMARK_DWELL_MS` 那条。

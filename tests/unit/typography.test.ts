@@ -11,13 +11,26 @@ import {
 } from '@/core/typography'
 
 describe('排版选项表', () => {
-  it('五种字体都带回退栈，宋体是默认', () => {
-    expect(FONT_FAMILIES.map((item) => item.value)).toEqual(['song', 'hei', 'kai', 'fang', 'deng'])
+  it('七种字体都带回退栈，宋体是默认（0.2.1 起含两款打包开源字体）', () => {
+    expect(FONT_FAMILIES.map((item) => item.value)).toEqual([
+      'song',
+      'hei',
+      'kai',
+      'fang',
+      'deng',
+      'wenkai',
+      'hanserif'
+    ])
     expect(FONT_FAMILIES[0]?.stack).toBe(DEFAULT_FONT_STACK)
     for (const item of FONT_FAMILIES) {
       expect(item.stack.length).toBeGreaterThan(0)
       expect(item.label.length).toBeGreaterThan(0)
     }
+    // 打包字体的回退栈第一位必须与 styles.css 的 @font-face family 名一致，否则加载不到
+    expect(FONT_FAMILIES.find((item) => item.value === 'wenkai')?.stack).toContain('LXGW WenKai')
+    expect(FONT_FAMILIES.find((item) => item.value === 'hanserif')?.stack).toContain(
+      'Noto Serif SC'
+    )
   })
 
   it('五档栏宽里 40rem 是默认（0.2.2 起含特大档）', () => {

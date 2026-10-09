@@ -1,5 +1,19 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; }
+  /* ---------- 打包的开源正文字体（0.2.1） ----------
+     文件在 src/renderer/src/assets/fonts/，vite 构建时拷到 out/renderer/assets/。
+     font-display: swap：字体没就绪先用回退栈渲染，不白屏。
+     两款都只有 Regular：加粗开关（--fw 600）走浏览器合成粗体。 */
+  @font-face {
+    font-family: "LXGW WenKai";
+    src: url("./assets/fonts/LXGWWenKai-Regular.ttf") format("truetype");
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "Noto Serif SC";
+    src: url("./assets/fonts/NotoSerifSC-Regular.otf") format("opentype");
+    font-display: swap;
+  }
   :root {
     color-scheme: light;
     --bg: #f6f3ed;

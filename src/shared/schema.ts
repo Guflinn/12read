@@ -132,7 +132,10 @@ export const settingsSchema = z.object({
   // 0.1.1 及更早存的设置里没有 bold：用 default 补上，别让整份设置回退成默认值
   bold: z.boolean().default(false),
   // 0.1.2 及更早没有字体与栏宽，同样补默认值
-  fontFamily: z.enum(['song', 'hei', 'kai', 'fang', 'deng']).default('song'),
+  // 0.2.1 加 wenkai / hanserif 两款打包字体；旧设置里的五个老 key 原样合法，向后兼容
+  fontFamily: z
+    .enum(['song', 'hei', 'kai', 'fang', 'deng', 'wenkai', 'hanserif'])
+    .default('song'),
   // 0.2.2 新增 xlarge（特大，68rem）：4K 全屏下「宽」仍偏窄（用户 2026-10-09）
   pageWidth: z.enum(['narrow', 'medium', 'wide', 'xlarge', 'full']).default('medium'),
   // 0.1.4 新增每日目标；旧设置里没有这个字段，default(0) 补成「没设目标」

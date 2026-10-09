@@ -328,8 +328,12 @@ export interface ImportOutcome {
   warnings: ImportWarning[]
 }
 
-/** 正文字体：只用系统自带字体，不额外打包字体文件（选项表见 renderer/src/core/typography.ts）。 */
-export type FontFamilyKey = 'song' | 'hei' | 'kai' | 'fang' | 'deng'
+/**
+ * 正文字体。前五项是系统自带；0.2.1 起新增两款打包的开源字体
+ * （wenkai = 霞鹜文楷、hanserif = 思源宋体/Noto Serif SC），均为 OFL 许可、可自由分发。
+ * 选项表见 renderer/src/core/typography.ts。
+ */
+export type FontFamilyKey = 'song' | 'hei' | 'kai' | 'fang' | 'deng' | 'wenkai' | 'hanserif'
 
 /** 正文栏宽：一行放多少字（选项表见 renderer/src/core/typography.ts）。 */
 export type PageWidthKey = 'narrow' | 'medium' | 'wide' | 'xlarge' | 'full'

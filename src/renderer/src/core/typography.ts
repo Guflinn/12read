@@ -4,8 +4,11 @@ export const DEFAULT_FONT_STACK = '"Songti SC", "SimSun", "Noto Serif CJK SC", s
 export const DEFAULT_PAGE_WIDTH = '40rem'
 
 /**
- * 字体选项：一律用系统自带的字体，不额外打包字体文件。
- * 每项给一串回退栈，Windows / macOS 上都挑得到。
+ * 字体选项。前五项一律用系统自带的字体，不额外打包字体文件；
+ * 0.2.1 起追加两款打包的开源字体（用户 4K 屏反馈 SimSun 大字号太锋利，2026-10-09 拍板）：
+ *  - wenkai：霞鹜文楷（OFL），笔画圆润带轻手写感，屏幕阅读最柔和；
+ *  - hanserif：思源宋体的 Google 同源版 Noto Serif SC SubsetOTF（OFL），现代印刷衬线。
+ * 每项给一串回退栈：打包字体加载失败 / 未构建时回退到系统近似字体。
  */
 export const FONT_FAMILIES: ReadonlyArray<{ value: FontFamilyKey; label: string; stack: string }> = [
   { value: 'song', label: '宋体', stack: DEFAULT_FONT_STACK },
@@ -16,7 +19,13 @@ export const FONT_FAMILIES: ReadonlyArray<{ value: FontFamilyKey; label: string;
   },
   { value: 'kai', label: '楷体', stack: '"KaiTi", "Kaiti SC", "STKaiti", "Songti SC", serif' },
   { value: 'fang', label: '仿宋', stack: '"FangSong", "FangSong_GB2312", "STFangsong", "Songti SC", serif' },
-  { value: 'deng', label: '等线', stack: '"DengXian", "PingFang SC", "Microsoft YaHei", sans-serif' }
+  { value: 'deng', label: '等线', stack: '"DengXian", "PingFang SC", "Microsoft YaHei", sans-serif' },
+  { value: 'wenkai', label: '文楷', stack: '"LXGW WenKai", "Kaiti SC", "KaiTi", serif' },
+  {
+    value: 'hanserif',
+    label: '思源宋',
+    stack: '"Noto Serif SC", "Source Han Serif SC", "Noto Serif CJK SC", serif'
+  }
 ]
 
 /** 正文栏宽：一行放多少字。全宽在大屏上一行会很长，但用户选了就按他的来。 */

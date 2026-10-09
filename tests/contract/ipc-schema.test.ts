@@ -241,6 +241,19 @@ describe('IPC 入参校验：非法用例', () => {
       settingsSchema.safeParse({ fontSize: 19, lineHeight: 1.9, theme: 'day', fontFamily: 'comic' })
         .success
     ).toBe(false)
+    // 0.2.1 新增打包字体 wenkai / hanserif 是合法 key
+    expect(
+      settingsSchema.safeParse({ fontSize: 19, lineHeight: 1.9, theme: 'day', fontFamily: 'wenkai' })
+        .success
+    ).toBe(true)
+    expect(
+      settingsSchema.safeParse({
+        fontSize: 19,
+        lineHeight: 1.9,
+        theme: 'day',
+        fontFamily: 'hanserif'
+      }).success
+    ).toBe(true)
     expect(
       settingsSchema.safeParse({ fontSize: 19, lineHeight: 1.9, theme: 'day', pageWidth: 'huge' })
         .success

@@ -390,6 +390,18 @@ test('字体与栏宽：设置里换字体、换宽度，正文跟着变并且�
   await page.click('#width-xlarge')
   await expect(page.locator('#width-xlarge')).toHaveClass(/on/)
   await expect.poll(maxWidth).toBe('1088px')
+
+  // 打包字体（0.2.1 第三轮）：除了 fontFamily 栈切换，还要确认 @font-face 真加载成功
+  const fontLoaded = (face: string): Promise<boolean> =>
+    page.evaluate((name) => document.fonts.check('22px "' + name + '"'), face)
+  await page.click('#font-wenkai')
+  await expect
+    .poll(() => fontLoaded('LXGW WenKai'), { message: '文楷字体文件应已加载' })
+    .toBe(true)
+  await page.click('#font-hanserif')
+  await expect
+    .poll(() => fontLoaded('Noto Serif SC'), { message: '思源宋字体文件应已加载' })
+    .toBe(true)
 })
 
 

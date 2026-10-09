@@ -143,10 +143,12 @@ test('导入 → 阅读 → 切章 → 改字号 → 重启后回到原处', asy
   await page.click('#btn-settings')
   await expect(page.locator('#settings-sheet')).not.toHaveClass(/on/)
 
-  // 点面板外的空白处也能关（0.2.1 用户反馈）：点屏幕上方远离面板的位置
+  // 点面板外的空白处也能关（0.2.1 用户反馈）：点面板左侧的空白
+  // （字距行加入后面板变高，原 y:120 已落进面板内；改点 x:30 水平方向远离
+  // 居中的面板 —— max-width 640 在 1000px 视口下左缘 ~180，x:30 必在面板外）
   await page.click('#btn-settings')
   await expect(page.locator('#settings-sheet')).toHaveClass(/on/)
-  await page.locator('.scrim.on').click({ position: { x: 300, y: 120 } })
+  await page.locator('.scrim.on').click({ position: { x: 30, y: 300 } })
   await expect(page.locator('#settings-sheet')).not.toHaveClass(/on/)
 
   // 滚一段，等 500ms 节流落盘

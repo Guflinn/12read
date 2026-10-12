@@ -1,4 +1,4 @@
-import type { ReaderSettings } from '@shared/types'
+import type { BoldLevel, ReaderSettings } from '@shared/types'
 import { fontStackOf, fontWeightOf, pageWidthOf } from '@/core/typography'
 
 /**
@@ -19,37 +19,35 @@ export interface ThemeRoot {
  * 也仍是深色 —— 深色顶栏上压着深色文字，看起来就是「花屏」。
  */
 /**
- * 「加粗」的伪粗体（0.3.0 第二版，替换原来的 0.35px 描边）。
+ * 「加粗」的伪粗体（0.3.0 定稿：关 / 轻 / 中 三档，用户拍板）。
  *
- * 为什么不用 `-webkit-text-stroke`：描边是**从字形轮廓居中向外加一圈半透明带**
- * （0.35px 在 150% 缩放下只有 0.525 设备像素、覆盖率约 26%）。宋体的横画只有 1 个设备
- * 像素出头，这一圈落在它两侧就是两条"淡边"，把原本一行的实墨摊成两三行浅墨 —— 用户
- * 2026-10-13 报的「加粗就发虚」就是它（实测细横墨量集中度 0.716 → 0.508）。
+ * 为什么只有两档有效的加粗（用户问过好几次，这里一次说清）：
+ *   字体没有粗体文件时只能做伪粗体，而伪粗体要让边缘是**实**的，副本就必须错开**整数个屏幕像素**
+ *   （小数偏移 = 副本自己的边缘半透明 = 又会发虚，那正是 0.35px 描边方案的老毛病）。
+ *   宋体的横画只有约 1.1 个屏幕像素宽，所以最小的一步就是 +30% 落墨，再上一步 +98% —— 中间没有档位。
+ *   实测（宋体 35px、150% 缩放，细横"墨量集中度"越大越锐利）：
+ *     不加粗 0.716 / 轻档 0.666 / 中档 0.335 / 描边 0.508（虚）/ 合成粗体 0.457（更虚）。
+ *   也试过 SVG feMorphology（形态学膨胀）：radius 0.15/0.25 完全无效、0.35 起直接跳到 +112% ——
+ *   同样是整像素量化，给不了"轻档"。
  *
- * 现在的做法：用 **text-shadow 画若干份「完整的字形副本」**。副本是不透明的，
- * 与原字形取并集后边缘仍是各自锐利的边缘，叠出来是**实墨**，不会发灰。
- * 关键是**偏移取整数个设备像素**（1/dpr 个 CSS 像素）：
- *   - 整数偏移 → 副本与原字形错开整整一格，笔画在偏移方向上恰好增宽 1 设备像素，边缘锐利；
- *   - 小数偏移 → 副本自己的边缘就是半透明的，等于又回到描边的老毛病。
- * 四个方向各一份 = 均匀加粗（横竖都加），实测墨量约为不加粗的 2 倍，而细横依然不发灰。
- *
- * 代价：一段文字要绘制 5 次。实测打开章节/切章会略慢一点，滚动不受影响（滚动是图层位移）。
+ * 做法：`text-shadow` 画若干份**完整的字形副本**（不透明），与原字形取并集 —— 边缘仍是各自锐利的边缘。
+ *   - 轻（1）：横向错开 1 个屏幕像素 → 只加竖画，横画保持纤细锐利（+30% 落墨，接近老描边的力度）
+ *   - 中（2）：四方向各 1 个屏幕像素 → 横竖都加（+98%，接近"真粗体"的分量，但明显更黑）
  */
-export function boldShadow(enabled: boolean, devicePixelRatio: number): string {
-  if (!enabled) return 'none'
+export function boldShadow(level: BoldLevel, devicePixelRatio: number): string {
+  if (level <= 0) return 'none'
   const offset = (1 / Math.max(1, devicePixelRatio)).toFixed(4) + 'px'
-  return [
-    offset + ' 0 0 currentColor',
-    '-' + offset + ' 0 0 currentColor',
-    '0 ' + offset + ' 0 currentColor',
-    '0 -' + offset + ' 0 currentColor'
-  ].join(', ')
+  const right = offset + ' 0 0 currentColor'
+  if (level === 1) return right
+  return [right, '-' + offset + ' 0 0 currentColor', '0 ' + offset + ' 0 currentColor', '0 -' + offset + ' 0 currentColor'].join(
+    ', '
+  )
 }
 
 export function applyTheme(
   settings: ReaderSettings,
   root: ThemeRoot,
-  /** 设备像素比：加粗阴影的偏移要按它取整到整数设备像素（见 boldShadow）。 */
+  /** 设备像素比：加粗阴影的偏移要按它取整到整数屏幕像素（见 boldShadow）。 */
   devicePixelRatio = 1
 ): void {
   if (root.dataset.theme !== settings.theme) root.dataset.theme = settings.theme

@@ -137,7 +137,7 @@ const SETTINGS: ReaderSettings = {
   lineHeight: 1.9,
   letterSpacing: 0.01,
   theme: 'day',
-  bold: false,
+  bold: 0,
   fontFamily: 'hanserif',
   pageWidth: 'medium', dailyGoalMinutes: 0
 }
@@ -647,7 +647,7 @@ describe('IPC 注册与转发', () => {
       lineHeight: 2.25,
       letterSpacing: 0.01,
       theme: 'night' as const,
-      bold: true,
+      bold: 1,
       fontFamily: 'wenkai' as const,
       pageWidth: 'wide' as const, dailyGoalMinutes: 0
     }

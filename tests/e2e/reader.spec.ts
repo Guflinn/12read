@@ -315,7 +315,7 @@ test('刚打开就快滑到底，点「上次位置」仍能回到打开时的�
   await expect.poll(() => topParagraphIndex(page)).toBeLessThanOrEqual(opened + 1)
 })
 
-test('字重开关：设置里点加粗，正文字形变重（像素级字形副本）并且重启后还记着', async () => {
+test('加粗档位：设置里切「轻 / 中」，正文字形变重（整屏幕像素的字形副本）并且重启后还记着', async () => {
   const dataDir = makeTempDir('12read-bold-')
   const bookPath = writeNovelFile(makeTempDir('12read-bold-src-'), '字重书.txt', buildNovel())
 
@@ -324,46 +324,59 @@ test('字重开关：设置里点加粗，正文字形变重（像素级字形�
   await page.click('.book-card')
   await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
 
-  // 加粗 = 四方向「整设备像素」的字形副本（--bold-shadow）。
-  // 曾经用 0.35px 描边，但描边是半透明环，会把宋体 1 像素宽的细横摊成灰边 —— 用户
-  // 2026-10-13 报的「加粗就发虚」就是它（实测细横集中度 0.716 → 0.508）。
+  // 加粗是三档（0.3.0 用户拍板）：关 / 轻（只加竖画）/ 中（横竖都加）。
+  // 实现是「整屏幕像素的字形副本」（--bold-shadow），不是描边 —— 描边是半透明环，会把宋体
+  // 1 像素宽的细横摊成灰边（用户 2026-10-13 报的「加粗就发虚」）。
   const shadow = (): Promise<string> =>
     page.locator('#reader-content p').first().evaluate((el) => getComputedStyle(el).textShadow)
   /** 计算值里 currentColor 会被解析成实际颜色，所以只判断"有没有阴影"。 */
   const shadowOn = async (): Promise<boolean> => (await shadow()) !== 'none'
+  const offsetsOf = (): Promise<number[]> =>
+    page.evaluate(() => {
+      const raw = getComputedStyle(document.documentElement).getPropertyValue('--bold-shadow')
+      return [...raw.matchAll(/(\d+(?:\.\d+)?)px/g)].map((m) => Number(m[1]))
+    })
   expect(await shadow()).toBe('none')
 
   await page.click('#btn-settings')
   await expect(page.locator('#settings-sheet')).toHaveClass(/on/)
-  await page.click('#bold-on')
+  await expect(page.locator('#bold-0')).toHaveClass(/on/)
+
+  // 轻（1）：只横向一份 → 竖画加粗、横画不动
+  await page.click('#bold-1')
   await expect.poll(shadowOn).toBe(true)
-  await expect(page.locator('#bold-on')).toHaveClass(/on/)
-  // 偏移必须是整数个设备像素，否则副本边缘半透明 → 又回到发虚
-  const offsets = await page.evaluate(() => {
-    const raw = getComputedStyle(document.documentElement).getPropertyValue('--bold-shadow')
-    return { raw, dpr: window.devicePixelRatio }
-  })
-  const numbers = [...offsets.raw.matchAll(/(\d+(?:\.\d+)?)px/g)].map((m) => Number(m[1]))
-  expect(numbers).toHaveLength(4)
-  for (const offset of numbers) {
-    expect(Math.abs(offset * offsets.dpr - 1)).toBeLessThan(0.02)
+  await expect(page.locator('#bold-1')).toHaveClass(/on/)
+  await expect(page.locator('#bold-0')).not.toHaveClass(/on/)
+  expect(await offsetsOf()).toHaveLength(1)
+
+  // 中（2）：四方向各一份
+  await page.click('#bold-2')
+  await expect(page.locator('#bold-2')).toHaveClass(/on/)
+  await expect.poll(offsetsOf).toHaveLength(4)
+
+  // 每个偏移都必须落在整数屏幕像素上，否则副本边缘半透明 → 又回到发虚
+  const dpr = await page.evaluate(() => window.devicePixelRatio)
+  for (const offset of await offsetsOf()) {
+    expect(Math.abs(offset * dpr - 1)).toBeLessThan(0.02)
   }
-  await page.click('#bold-off')
-  await expect.poll(shadow).toBe('none')
-  await page.click('#bold-on')
-  await expect.poll(shadowOn).toBe(true)
-  await page.keyboard.press('Escape')
   // 自定义属性保留原样写法（currentColor 随主题变），计算值才会被解析成具体颜色
   expect(await cssVar(page, '--bold-shadow')).toContain('currentColor')
 
-  // 重启后还记着加粗
+  // 再切回「关」
+  await page.click('#bold-0')
+  await expect.poll(shadow).toBe('none')
+  await page.click('#bold-1')
+  await expect.poll(shadowOn).toBe(true)
+  await page.keyboard.press('Escape')
+
+  // 重启后还记着档位
   await app!.close()
   app = null
   page = await openApp(dataDir)
   await page.click('.book-card')
   await expect.poll(shadowOn).toBe(true)
   await page.click('#btn-settings')
-  await expect(page.locator('#bold-on')).toHaveClass(/on/)
+  await expect(page.locator('#bold-1')).toHaveClass(/on/)
 })
 
 test('字体与栏宽：设置里换字体、换宽度，正文跟着变并且重启后还记着', async () => {

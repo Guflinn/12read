@@ -25,7 +25,7 @@ describe('applyTheme', () => {
     const root = fakeRoot()
 
     applyTheme(
-      { fontSize: 22, lineHeight: 2.25, letterSpacing: 0.05, theme: 'night', bold: true, fontFamily: 'wenkai', pageWidth: 'wide', dailyGoalMinutes: 0 },
+      { fontSize: 22, lineHeight: 2.25, letterSpacing: 0.05, theme: 'night', bold: 1, fontFamily: 'wenkai', pageWidth: 'wide', dailyGoalMinutes: 0 },
       root
     )
 
@@ -40,34 +40,41 @@ describe('applyTheme', () => {
     expect(root.style.props.get('--page-w')).toBe('52rem')
   })
 
-  it('加粗阴影的偏移必须是整数个设备像素（小数偏移 = 副本边缘半透明 = 又会发虚）', () => {
+  it('加粗阴影的偏移必须是整数个屏幕像素（小数偏移 = 副本边缘半透明 = 又会发虚）', () => {
     const root = fakeRoot()
-    const expectNumericOffsets = (shadow: string, dpr: number): void => {
-      const offsets = [...shadow.matchAll(/(\d+(?:\.\d+)?)px/g)].map((m) => Number(m[1]))
-      // 四个方向各一份
-      expect(offsets).toHaveLength(4)
-      for (const offset of offsets) {
-        // 偏移 × DPR 必须约等于 1（= 整数 1 个设备像素）
-        expect(Math.abs(offset * dpr - 1)).toBeLessThan(0.01)
+    const shadowOf = (): string => root.style.props.get('--bold-shadow') ?? ''
+    const offsetsOf = (): number[] =>
+      [...shadowOf().matchAll(/(\d+(?:\.\d+)?)px/g)].map((m) => Number(m[1]))
+
+    // 轻（1）= 只横向一份：竖画加粗、横画不动
+    applyTheme({ ...DEFAULT_SETTINGS, bold: 1 }, root, 1.5)
+    expect(offsetsOf()).toHaveLength(1)
+    // 中（2）= 四方向各一份
+    applyTheme({ ...DEFAULT_SETTINGS, bold: 2 }, root, 1.5)
+    expect(shadowOf().split(',')).toHaveLength(4)
+
+    // 三种缩放 × 两个档位：偏移都必须落在整数屏幕像素上（偏移 × DPR ≈ 1）
+    for (const dpr of [1, 1.5, 2]) {
+      for (const level of [1, 2] as const) {
+        applyTheme({ ...DEFAULT_SETTINGS, bold: level }, root, dpr)
+        const offsets = offsetsOf()
+        expect(offsets).toHaveLength(level === 1 ? 1 : 4)
+        for (const offset of offsets) expect(Math.abs(offset * dpr - 1)).toBeLessThan(0.01)
       }
     }
-    applyTheme({ ...DEFAULT_SETTINGS, bold: true }, root, 1.5)
-    const shadow = root.style.props.get('--bold-shadow') ?? ''
-    expect(shadow.split(',')).toHaveLength(4)
-    expectNumericOffsets(shadow, 1.5)
-    // 100% 缩放（DPR 1）时偏移正好是 1px；200% 时是 0.5px
-    applyTheme({ ...DEFAULT_SETTINGS, bold: true }, root, 1)
-    expectNumericOffsets(root.style.props.get('--bold-shadow') ?? '', 1)
-    applyTheme({ ...DEFAULT_SETTINGS, bold: true }, root, 2)
-    expectNumericOffsets(root.style.props.get('--bold-shadow') ?? '', 2)
+    // 100% 缩放时偏移正好 1px，200% 时是 0.5px
+    applyTheme({ ...DEFAULT_SETTINGS, bold: 1 }, root, 1)
+    expect(shadowOf()).toContain('1.0000px 0 0')
+    applyTheme({ ...DEFAULT_SETTINGS, bold: 1 }, root, 2)
+    expect(shadowOf()).toContain('0.5000px 0 0')
   })
 
-  it('不加粗时 --bold-shadow 回 none，切换加粗不影响主题属性', () => {
+  it('不加粗（档位 0）时 --bold-shadow 回 none，切换档位不影响主题属性', () => {
     const root = fakeRoot()
-    applyTheme({ ...DEFAULT_SETTINGS, bold: true }, root)
+    applyTheme({ ...DEFAULT_SETTINGS, bold: 1 }, root)
     expect(root.style.props.get('--bold-shadow')).not.toBe('none')
 
-    applyTheme({ ...DEFAULT_SETTINGS, bold: false }, root)
+    applyTheme({ ...DEFAULT_SETTINGS, bold: 0 }, root)
     expect(root.style.props.get('--bold-shadow')).toBe('none')
     expect(root.dataset.theme).toBe('day')
   })

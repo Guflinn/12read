@@ -126,7 +126,7 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
       lineHeight: 2.1,
       letterSpacing: 0.01,
       theme: 'night' as const,
-      bold: true,
+      bold: 1 as const,
       fontFamily: 'wenkai' as const,
       pageWidth: 'wide' as const, dailyGoalMinutes: 0
     }
@@ -141,7 +141,7 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
       lineHeight: 2.1,
       letterSpacing: 0.01,
       theme: 'night',
-      bold: false,
+      bold: 0,
       fontFamily: 'song',
       pageWidth: 'medium', dailyGoalMinutes: 0
     })
@@ -164,7 +164,7 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
       lineHeight: 2,
       letterSpacing: 0.02,
       theme: 'night' as const,
-      bold: true,
+      bold: 1 as const,
       fontFamily: 'fang' as const,
       pageWidth: 'narrow' as const, dailyGoalMinutes: 0
     }
@@ -180,7 +180,7 @@ describe('SettingsStore（main 侧 meta 持久化）', () => {
       lineHeight: 1,
       letterSpacing: 0.01,
       theme: 'night',
-      bold: true,
+      bold: 1,
       fontFamily: 'hanserif',
       pageWidth: 'medium', dailyGoalMinutes: 0
     })

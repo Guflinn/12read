@@ -99,6 +99,27 @@ describe('IPC 入参校验：合法用例', () => {
     ).toBe(false)
   })
 
+  it('加粗是 0/1/2 三档，并且继续接受老设置里的布尔（true → 1 轻、false → 0 关）', () => {
+    const parse = (bold: unknown): number | undefined =>
+      settingsSchema.parse({ fontSize: 19, lineHeight: 1.9, theme: 'day', bold }).bold
+
+    // 档位本身
+    expect(parse(0)).toBe(0)
+    expect(parse(1)).toBe(1)
+    expect(parse(2)).toBe(2)
+    // 老数据迁移：0.1.1 起存的就是布尔
+    expect(parse(true)).toBe(1)
+    expect(parse(false)).toBe(0)
+    // 缺字段走默认（关）
+    expect(settingsSchema.parse({ fontSize: 19, lineHeight: 1.9, theme: 'day' }).bold).toBe(0)
+    // 越界与非法值一律拒（3 档之外没有有效值 —— 像素栅格上也没有）
+    for (const bad of [3, -1, 1.5, 'bold']) {
+      expect(
+        settingsSchema.safeParse({ fontSize: 19, lineHeight: 1.9, theme: 'day', bold: bad }).success
+      ).toBe(false)
+    }
+  })
+
   it('重解码入参接受自动检测与每种手动编码', () => {
     for (const encoding of ['auto', 'utf-8', 'gb18030', 'big5', 'utf-16le', 'utf-16be']) {
       expect(redecodeArgsSchema.safeParse({ bookId: VALID_ID, encoding }).success).toBe(true)

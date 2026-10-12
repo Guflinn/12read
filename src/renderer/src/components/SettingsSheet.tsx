@@ -1,3 +1,4 @@
+import type { BoldLevel } from '@shared/types'
 import {
   FONT_SIZE_MAX,
   FONT_SIZE_MIN,
@@ -20,6 +21,17 @@ const GOAL_CHOICES: ReadonlyArray<{ value: number; label: string }> = [
   { value: 15, label: '15 分' },
   { value: 30, label: '30 分' },
   { value: 60, label: '60 分' }
+]
+
+/**
+ * 加粗档位（0.3.0）。只有两档有效值，不是偷懒 —— 字体没有粗体文件时只能用伪粗体，
+ * 而"实的"伪粗体每步最少 1 个屏幕像素：宋体横画只有约 1.1 像素宽，所以「轻」已经是 +30% 落墨。
+ * 想更重的只能走「中」（+98%，横竖都加）。原理解释见 renderer/src/core/theme.ts 的 boldShadow。
+ */
+const BOLD_CHOICES: ReadonlyArray<{ value: BoldLevel; label: string; hint: string }> = [
+  { value: 0, label: '关', hint: '不加粗' },
+  { value: 1, label: '轻', hint: '只加粗竖画，横画保持纤细；落墨约为不加粗的 1.3 倍' },
+  { value: 2, label: '中', hint: '横竖一起加粗，落墨约为不加粗的 2 倍（更黑更壮）' }
 ]
 
 /** 设置面板：字号 / 行距 / 字重 / 字体 / 宽度 / 主题 / 每日目标。改字号只重排版，进度按字符偏移保持不动（TECH.md 6.4）。 */
@@ -121,24 +133,22 @@ export function SettingsSheet(): React.JSX.Element {
       </div>
 
       <div className="sheet-row">
-        <span className="label">字重</span>
+        <span className="label" title="宋体这类字体没有粗体文件，加粗是用「整屏幕像素的字形副本」模拟的">
+          加粗
+        </span>
         <div className="grow">
-          <button
-            className={settings.bold ? 'pill' : 'pill on'}
-            id="bold-off"
-            data-bold-choice="off"
-            onClick={() => apply({ bold: false })}
-          >
-            常规
-          </button>
-          <button
-            className={settings.bold ? 'pill on' : 'pill'}
-            id="bold-on"
-            data-bold-choice="on"
-            onClick={() => apply({ bold: true })}
-          >
-            加粗
-          </button>
+          {BOLD_CHOICES.map((choice) => (
+            <button
+              key={choice.value}
+              className={settings.bold === choice.value ? 'pill on' : 'pill'}
+              id={'bold-' + choice.value}
+              data-bold-choice={choice.value}
+              title={choice.hint}
+              onClick={() => apply({ bold: choice.value })}
+            >
+              {choice.label}
+            </button>
+          ))}
         </div>
       </div>
 

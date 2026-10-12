@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { UUID_V4_RE } from '@shared/core/ids'
 import { MANUAL_ENCODINGS, SEARCH_SCOPES } from '@shared/types'
-import type { FontFamilyKey } from '@shared/types'
+import type { BoldLevel, FontFamilyKey } from '@shared/types'
 import { SEARCH_MAX_QUERY_CHARS } from '@shared/core/search'
 import {
   STAT_GOAL_MAX_MINUTES,
@@ -132,8 +132,13 @@ export const settingsSchema = z.object({
   // 0.2.1 第六轮新增字间距：旧设置没有该字段，default(0.01) 补成历史样式的默认观感
   letterSpacing: z.number().min(0).max(0.3).default(0.01),
   theme: z.enum(['day', 'night']),
-  // 0.1.1 及更早存的设置里没有 bold：用 default 补上，别让整份设置回退成默认值
-  bold: z.boolean().default(false),
+  // 加粗档位（0.3.0）：0 关 / 1 轻（只加竖画）/ 2 中（横竖都加）。
+  // 历史上这里是布尔（0.1.1 起存的就是 true/false）：**继续接受并迁移**，
+  // true → 1（轻，力度与老实现相当）、false → 0 —— 老设置不会丢，也不会整份回退默认。
+  bold: z
+    .union([z.boolean(), z.number().int().min(0).max(2)])
+    .default(false)
+    .transform((value): BoldLevel => (typeof value === 'boolean' ? (value ? 1 : 0) : (value as BoldLevel))),
   // 0.1.2 及更早没有字体与栏宽，同样补默认值
   // 0.2.1 字体几经轮换（第三轮加 wenkai/hanserif、第四轮删 song/hei/kai、第五轮经典回归），
   // enum 必须保留历史上出现过的全部 key —— 老设置里的旧值若被拒，整份设置 parse 失败回退默认，

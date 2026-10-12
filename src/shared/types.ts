@@ -346,14 +346,25 @@ export type FontFamilyKey = 'song' | 'fang' | 'kai' | 'sans' | 'wenkai' | 'hanse
 /** 正文栏宽：一行放多少字（选项表见 renderer/src/core/typography.ts）。 */
 export type PageWidthKey = 'narrow' | 'medium' | 'wide' | 'xlarge' | 'full'
 
+/**
+ * 加粗档位（0.3.0）：0 = 关，1 = 轻（只加竖画），2 = 中（横竖都加）。
+ *
+ * 为什么只有两档有效的「加粗」：字体没有粗体文件时只能用伪粗体，而伪粗体要让边缘是"实"的，
+ * 副本就必须错开**整数个屏幕像素**；宋体的横画只有约 1.1 个屏幕像素宽，所以最小的一步
+ * （只加竖画）就是 +30% 落墨，再上一步（横竖都加）就是 +98% —— 中间没有档位。
+ * 亚像素的"半档"一定让边缘半透明，那就是「发虚」。详见 renderer/src/core/theme.ts 的 boldShadow。
+ * 历史上这里是布尔（0.1.1 起），schema 里 boolean 仍然接受并迁移（true → 1、false → 0）。
+ */
+export type BoldLevel = 0 | 1 | 2
+
 export interface ReaderSettings {
   fontSize: number
   lineHeight: number
   /** 正文字间距（em，letter-spacing）：0 紧 – 0.3 松，默认 0.01（0.2.1 第六轮）。 */
   letterSpacing: number
   theme: 'day' | 'night'
-  /** 正文加粗：写给 --stroke（0.35px 细描边，不是合成粗体）。 */
-  bold: boolean
+  /** 加粗档位（0.3.0，历史上是布尔）：见 BoldLevel。 */
+  bold: BoldLevel
   /** 正文字体，写给 --font-body。 */
   fontFamily: FontFamilyKey
   /** 正文栏宽，写给 --page-w。 */
@@ -367,7 +378,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   lineHeight: 1.9,
   letterSpacing: 0.01,
   theme: 'day',
-  bold: false,
+  bold: 0,
   fontFamily: 'song',
   pageWidth: 'medium',
   dailyGoalMinutes: 0

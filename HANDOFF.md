@@ -44,7 +44,7 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 - 版本号 **`0.2.1`**（package.json）。**0.2.1 已于 2026-10-10 发布**：GitHub Release「十二阅读 v0.2.1 内测版（Windows）」（Pre-release）—— https://github.com/Guflinn/12read/releases/tag/v0.2.1 ，正文含六轮反馈全部新增 / 调整 / 说明与安装说明 + SHA-256；附件 `twelve-read-setup-0.2.1.exe`（128,255,066 B）与 `.exe.sha256` 已上传并**匿名下载核对**（SHA-256 一致）。tag `v0.2.1`（附注，指向 `3ccd250`）已推远端 —— **git push tag 连续 schannel SSL 中断，改走 REST API `/git/tags` + `/git/refs` 建成**（教训：object 必须传 commit sha 而不是 tag 对象自身）。`origin/main` 已同步到 `3ccd250`。仓库 public。
 - 发版前验证（2026-10-10）：eslint + 三份 tsc 干净；单测+契约 55 文件 / 659 用例全绿（`--no-file-parallelism`）；e2e 43 例全绿（带 `TWELVE_READ_E2E_ELECTRON_ARGS`）。正式包用 `release-tmp5` 产物（定稿 commit 只动 e2e/CHANGELOG，不影响 asar 字节）。
 - **0.2.1 开发中（未发版、未推送）**：两侧切章箭头 + 六轮试用反馈全部完成（2026-10-08/09/10），详见 CHANGELOG 0.2.1 未发布段。字体现为六款：**宋体（经典，默认）/ 仿宋 / 楷体（经典三件套第五轮回归）+ 黑体（打包 Noto Sans SC，苹方替代）/ 文楷 / 思源宋（打包）**；朱雀仿宋已删。第六轮新增**字间距调节**（`letterSpacing` 0–0.3em 步进 0.01，default 0.01）。schema enum 保留历史全部 font-family key，hei/deng 归一化到 sans —— **别删历史 key、新设置字段一律 default 补**（老设置整份回退默认的坑，见 TECH 变更记录）。验证全绿（单测+契约 659 + e2e 43）。要不要发版，等用户拍板。
-- **0.2.0 已发布上线（2026-10-08）**：GitHub Release「十二阅读 v0.2.0 内测版（Windows）」（Pre-release）已建 —— https://github.com/Guflinn/12read/releases/tag/v0.2.0 ，正文含新增 / 说明与取舍 / 数据与版本 / 安装说明 + SHA-256；附件 `twelve-read-setup-0.2.0.exe`（102,784,478 B）与 `.exe.sha256` 已上传，**匿名下载核对过**。发版走 `release-build/upload-release-0.2.0.py`（无 gh CLI，走 REST API；代理端口自动探测）。原计划的 0.1.5「检查更新」未单独发版，折入本版（CHANGELOG 有说明）。
+- **0.2.0 已发布上线（2026-10-08）**：GitHub Release「十二阅读 v0.2.0 内测版（Windows）」（Pre-release）已建 —— https://github.com/Guflinn/12read/releases/tag/v0.2.0 ，正文含新增 / 说明与取舍 / 数据与版本 / 安装说明 + SHA-256；附件 `twelve-read-setup-0.2.0.exe`（102,784,478 B）与 `.exe.sha256` 已上传，**匿名下载核对过**。发版走 `tools/release/upload-release-0.2.0.py`（无 gh CLI，走 REST API；代理端口自动探测；2026-10-13 从 `release-build/` 挪来）。原计划的 0.1.5「检查更新」未单独发版，折入本版（CHANGELOG 有说明）。
 - 发版前验证（2026-10-08）：单测 52 文件 / 624 用例全绿（`vitest run tests/unit --no-file-parallelism` 绕开本机 I/O 超时）、契约 3 文件 / 31 用例全绿、e2e 41 例全绿（首次跑全挂 `Target crashed`，属沙箱环境问题，带 `TWELVE_READ_E2E_ELECTRON_ARGS` 重跑即过）。
 - **0.1.3 已发布上线（2026-10-05）**：GitHub Release「十二阅读 v0.1.3 内测版（Windows）」（Pre-release）已建，正文含全部新增 / 性能 / 修复说明 + 安装 SHA-256；附件 `twelve-read-setup-0.1.3.exe`（102,766,157 B）与 `.exe.sha256` 已上传，匿名可下载。**发版长期规矩（用户定）：每次 push 必须附带本次更新内容（Release notes）**；发 Release 走 GitHub REST API（本机无 gh CLI）。
 - **0.1.3 已按方案 A 收口（2026-10-05 用户拍板「并进 0.1.3」）**，本轮做完五件事：
@@ -54,10 +54,11 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   4. **修掉一个用户报的体验缺陷**：加书签后原本静默无反馈（用户连点好几下都不确定记上没有），现在点一下即弹「已加书签」——`ReaderView.tsx` 走 toast，`reader-store.addBookmark()` 返回值从 `Promise<void>` 改为 `Promise<boolean>`（成功 true / 失败 false），测试同步补齐。
   5. **修掉用户报的阅读统计排版重叠**：14 根柱子下「月-日」轴标签横排互相压字（每列仅 20px、标签要 ~30px），改为月/日上下两行；柱子画布与标签分块固定高度；三张指标卡等高、说明文字贴底对齐。纯函数 `dayParts` 提到 `@shared/core/stats` 并补单测；e2e 新增「轴标签不压隔壁」的排版回归断言。
 - 0.1.3 的十项已全部交付并验证：书架版本号、正文字体与阅读宽度、左右翻动翻页、换编码重解码、手动改分章（改名 / 合并）、书签与划线（schema v2 迁移）、章节内 + 全书搜索、阅读统计、导出备份、大书性能专项。逐项 commit 见 [docs/MVP.md](docs/MVP.md) 的「已发布：0.1.3」表格。
+- **2026-10-13 仓库精简**（用户要求「删没用的、重复的，删前说明用途」）：清了约 **1.4 GB** 构建 / 打包产物 —— `release-tmp5/`（519 MB）、`release/win-unpacked.tmp/`（325 MB）、`out/`（45 MB）、`release/win-unpacked/` 与 `release-build/win-unpacked/`、`release/build-debug`、`release-build/__pycache__/`、electron-vite 配置影子文件 `electron.vite.config.<时间戳>.mjs`、`test-results/.last-run.json`（全部可自动重建，且都在 `.gitignore` 里）。`release/` 里 0.1.0~0.2.0 的 6 个安装包也删了（**GitHub Release 7 个版本全有 exe+sha256 存档**，本地只留 0.2.1 全套）。`demo/` 的 4 张原型截图 + `check.mjs` 零引用已删，`demo/index.html` 保留（README 第 7 行引用着）。**发版工具从 `release-build/` 挪到 `tools/release/`**（4 份 release-notes + 3 个 upload 脚本 + `screens/` 11 张截图），脚本内 `NOTES` 路径已同步改好并通过 `py_compile`。**例外**：5 个 `.asar`（`release-tmp5/`、`release/win-unpacked.tmp/`、`release/win-unpacked/`、`release-build/win-unpacked/` 里各若干）被系统进程锁着删不掉 —— 与 0.1.3 那次「app.asar 被占用」同源，待解锁后清；这四个目录目前只剩这几个 asar，其余内容已清空。
 
 ## 下一步（按顺序）
 
-1. **0.2.1 已发布（2026-10-10，六轮反馈全落地）**：两侧切章箭头 + 排版全面可调（字号上限 56 / 行距 0.05 步进 / 字距 0.01 步进 / 特大栏宽）+ 字体六款（经典三件套回归、宋体默认；打包黑体/文楷/思源宋）+ 加粗细描边 + Aa 点空白关闭。**Release 与 tag 已上线、origin/main 已同步**，发布流程（notes / 上传 / 匿名核对）见「现在在哪」。收尾杂活：`release-tmp*` 临时目录与 `release/` 里旧版 0.1.x 产物要不要清，等用户发话。
+1. **0.2.1 已发布（2026-10-10，六轮反馈全落地）**：两侧切章箭头 + 排版全面可调（字号上限 56 / 行距 0.05 步进 / 字距 0.01 步进 / 特大栏宽）+ 字体六款（经典三件套回归、宋体默认；打包黑体/文楷/思源宋）+ 加粗细描边 + Aa 点空白关闭。**Release 与 tag 已上线、origin/main 已同步**，发布流程（notes / 上传 / 匿名核对）见「现在在哪」。原待办的「清临时目录与旧版产物」**已于 2026-10-13 执行完毕**（见「现在在哪」末条），此项无待办。
 2. **0.1.4 已完成并发布（2026-10-06 / 10-07 用户拍板）**：
    - **A 窗口尺寸 / 位置记忆 —— 已完成**（2026-10-07，commit `b1ccf71`）：纯函数 `src/shared/core/window-bounds.ts` + `src/main/services/window-state.ts`（存 meta 表 `window_state` 键）+ 建窗前恢复 / 关窗时保存；单测 21 例、e2e 2 例。
    - **顺带修掉一个用户报的老 bug**（2026-10-07）：「回到上次位置」在快滑场景下回不去 —— 见下方「已知坑」里的 `BOOKMARK_DWELL_MS` 那条。
@@ -76,7 +77,7 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
      - **2026-10-07 已全部发完**：main（17 个 commit）与 tag `v0.1.4` 已推；Release 已建并上传附件；
        `origin/main..main` = 0。**发版用的代理端口是 7890，不是 4592**（2026-10-07 实测换过；
        上传脚本会自动探测，见下方已知坑）。
-     - 发版说明：`release-build/release-notes-0.1.4.md`（已填体积与校验和）。
+     - 发版说明：`tools/release/release-notes-0.1.4.md`（已填体积与校验和；2026-10-13 从 `release-build/` 挪来）。
    - 版本状态：**`package.json` 已标 `0.1.4`**（2026-10-07 用户定「提前标」，**与 0.1.3 那轮发版时才升的做法不同**）→ 界面上显示的就是 0.1.4；CHANGELOG 里仍是「未发布」段，**发版时不必再动 package.json**。注意：`release/` 里的安装包与 GitHub Release 仍是已发布的 0.1.3（冻结产物，别改）。
 3. **备份「还原」已砍（2026-10-07 用户决定，从计划删除）**：不做导入备份。0.1.3 已交付的「导出备份」保留现状，但**导出的包应用读不回来、价值有限** —— 以后用户若重提要重新立项，别自作主张开工，也别再拿它当卖点。
 4. **（已完结 2026-10-08）0.2.0 EPUB —— 已完成并发布**：功能 + 用户四轮反馈全部收口，发布前全量验证通过（单测 624 + 契约 31 + e2e 41 全绿）。
@@ -158,7 +159,7 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
      注意它是**目录**不是文件）—— 清掉再跑；锁清掉后 Electron 已下好，40 秒就能出包。
 - **代理端口会变**：2026-10-07 实测**从 `4592` 换成了 `7890`**（`netstat -ano | grep LISTENING` 里能看到）。
   推送/上传前先探一次：`"/c/Program Files/Git/cmd/git.exe" -c http.proxy=http://127.0.0.1:<端口> … ls-remote origin`。
-  `release-build/upload-release-*.py` 已内置候选端口自动探测（可用 `TWELVE_READ_PROXY` 指定）。
+  `tools/release/upload-release-*.py` 已内置候选端口自动探测（可用 `TWELVE_READ_PROXY` 指定）。
   另外 `reg.exe` 在当前沙箱里被拦（读注册表拿系统代理这条路走不通），用 netstat 找端口即可。
 - **走代理上传 98MB 安装包会断流，直连反而又快又稳（2026-10-08 实测）**：urllib 走代理两次在写 body 时
   `TimeoutError`，curl 走代理 7 分钟只传到 47MB 就被掐（`schannel: server closed abruptly`）；
@@ -169,7 +170,7 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   `git credential fill` 直接卡住 2 分钟被杀（`SIGTERM`）。**涉及凭据 / 推送时显式用官方 git**：
   `"/c/Program Files/Git/cmd/git.exe" credential fill`（或 `~/.local/bin/git`），
   官方 git 能取到 `username=Guflinn` + token。普通 commit / log 用哪个 git 都行。
-  `release-build/upload-release-0.1.4.py` 已按这个思路优先用官方 git 取 token。
+  `tools/release/upload-release-0.1.4.py` 已按这个思路优先用官方 git 取 token。
 - **提交前用 `git status --short` 过一眼，按路径 `git add`，别图省事 `git add -A`**：2026-10-07 就因此误提交过 `electron.vite.config.<时间戳>.mjs`（electron-vite 把 TS 配置转成 JS 的影子文件，跑构建就会生成一个）。该模式已补进 `.gitignore`，但同类「构建顺手产物」以后还会有。
 
 ## 两个 Agent 同时干活（同一台机器）

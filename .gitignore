@@ -1,12 +1,14 @@
 node_modules/
 out/
 dist/
-release/
+/release/
 release-build/
 coverage/
 test-results/
 playwright-report/
 *.log
+__pycache__/
+*.pyc
 .DS_Store
 .vite/
 *.local
@@ -23,3 +25,7 @@ release-tmp*/
 # 用户提供的真实书样本（版权内容 + 大文件，只在本机做实测，绝不入库）
 # 通配两种目录名：2026-10-07 就是因为旧名 epub格式测试文件/ 没被盖住而误提交过一次
 *格式测试文件/
+
+# 发版说明图（tools/release/screens/，3.4MB PNG）：本地留档、按需上传到 Release，
+# 体量大且随时可重截，不进仓库
+tools/release/screens/

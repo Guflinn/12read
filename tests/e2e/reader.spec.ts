@@ -315,7 +315,7 @@ test('刚打开就快滑到底，点「上次位置」仍能回到打开时的�
   await expect.poll(() => topParagraphIndex(page)).toBeLessThanOrEqual(opened + 1)
 })
 
-test('字重开关：设置里点加粗，正文细描边变重并且重启后还记着', async () => {
+test('字重开关：设置里点加粗，正文字形变重（像素级字形副本）并且重启后还记着', async () => {
   const dataDir = makeTempDir('12read-bold-')
   const bookPath = writeNovelFile(makeTempDir('12read-bold-src-'), '字重书.txt', buildNovel())
 
@@ -324,29 +324,44 @@ test('字重开关：设置里点加粗，正文细描边变重并且重启后�
   await page.click('.book-card')
   await expect(page.locator('.chapter-title')).toHaveText('第一章 起点')
 
-  // 加粗 = 0.35px 细描边（--stroke），不再用合成粗体 font-weight: 600
-  const stroke = (): Promise<string> =>
-    page.locator('#reader-content p').first().evaluate((el) => getComputedStyle(el).webkitTextStrokeWidth)
-  expect(await stroke()).toBe('0px')
+  // 加粗 = 四方向「整设备像素」的字形副本（--bold-shadow）。
+  // 曾经用 0.35px 描边，但描边是半透明环，会把宋体 1 像素宽的细横摊成灰边 —— 用户
+  // 2026-10-13 报的「加粗就发虚」就是它（实测细横集中度 0.716 → 0.508）。
+  const shadow = (): Promise<string> =>
+    page.locator('#reader-content p').first().evaluate((el) => getComputedStyle(el).textShadow)
+  /** 计算值里 currentColor 会被解析成实际颜色，所以只判断"有没有阴影"。 */
+  const shadowOn = async (): Promise<boolean> => (await shadow()) !== 'none'
+  expect(await shadow()).toBe('none')
 
   await page.click('#btn-settings')
   await expect(page.locator('#settings-sheet')).toHaveClass(/on/)
   await page.click('#bold-on')
-  await expect.poll(stroke).toBe('0.35px')
+  await expect.poll(shadowOn).toBe(true)
   await expect(page.locator('#bold-on')).toHaveClass(/on/)
+  // 偏移必须是整数个设备像素，否则副本边缘半透明 → 又回到发虚
+  const offsets = await page.evaluate(() => {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--bold-shadow')
+    return { raw, dpr: window.devicePixelRatio }
+  })
+  const numbers = [...offsets.raw.matchAll(/(\d+(?:\.\d+)?)px/g)].map((m) => Number(m[1]))
+  expect(numbers).toHaveLength(4)
+  for (const offset of numbers) {
+    expect(Math.abs(offset * offsets.dpr - 1)).toBeLessThan(0.02)
+  }
   await page.click('#bold-off')
-  await expect.poll(stroke).toBe('0px')
+  await expect.poll(shadow).toBe('none')
   await page.click('#bold-on')
-  await expect.poll(stroke).toBe('0.35px')
+  await expect.poll(shadowOn).toBe(true)
   await page.keyboard.press('Escape')
-  expect(await cssVar(page, '--stroke')).toBe('0.35px')
+  // 自定义属性保留原样写法（currentColor 随主题变），计算值才会被解析成具体颜色
+  expect(await cssVar(page, '--bold-shadow')).toContain('currentColor')
 
   // 重启后还记着加粗
   await app!.close()
   app = null
   page = await openApp(dataDir)
   await page.click('.book-card')
-  await expect.poll(stroke).toBe('0.35px')
+  await expect.poll(shadowOn).toBe(true)
   await page.click('#btn-settings')
   await expect(page.locator('#bold-on')).toHaveClass(/on/)
 })

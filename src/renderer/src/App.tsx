@@ -106,7 +106,18 @@ export default function App(): React.JSX.Element {
 
   // 主题与 --fs/--lh 都落在 <html> 上，body 的底色与继承文字色才能一起跟着夜间走
   useLayoutEffect(() => {
-    applyTheme(settings, document.documentElement)
+    applyTheme(settings, document.documentElement, window.devicePixelRatio)
+  }, [settings])
+
+  // 窗口被拖到另一块缩放的屏幕上时 devicePixelRatio 会变，加粗阴影的偏移要跟着重算
+  // （偏移必须保持"整数个设备像素"，否则副本边缘半透明 → 又变成描边那种发虚）
+  useLayoutEffect(() => {
+    const query = window.matchMedia('(resolution: ' + window.devicePixelRatio + 'dppx)')
+    const onScaleChange = (): void => {
+      applyTheme(settings, document.documentElement, window.devicePixelRatio)
+    }
+    query.addEventListener('change', onScaleChange)
+    return () => query.removeEventListener('change', onScaleChange)
   }, [settings])
 
   if (!ready) {

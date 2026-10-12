@@ -21,7 +21,7 @@ function fakeRoot(): FakeRoot {
 }
 
 describe('applyTheme', () => {
-  it('主题写到 <html> 而不是内层 .app，并同步 --fs / --lh / --ls / --stroke / --font-body / --page-w', () => {
+  it('主题写到 <html> 而不是内层 .app，并同步 --fs / --lh / --ls / --weight / --bold-shadow / --font-body / --page-w', () => {
     const root = fakeRoot()
 
     applyTheme(
@@ -34,19 +34,41 @@ describe('applyTheme', () => {
     expect(root.style.props.get('--fs')).toBe('22px')
     expect(root.style.props.get('--lh')).toBe('2.25')
     expect(root.style.props.get('--ls')).toBe('0.05em')
-    // 加粗 = 0.35px 细描边（不是合成粗体 —— 那会把无粗体文件的字体挤成一团）
-    expect(root.style.props.get('--stroke')).toBe('0.35px')
+    // 加粗 = 四方向「整设备像素」的字形副本（不是描边：描边是半透明环，会让宋体的细横发虚）
+    expect(root.style.props.get('--bold-shadow')).toContain('currentColor')
     expect(root.style.props.get('--font-body')).toContain('LXGW WenKai')
     expect(root.style.props.get('--page-w')).toBe('52rem')
   })
 
-  it('不加粗时 --stroke 回 0px，切换加粗不影响主题属性', () => {
+  it('加粗阴影的偏移必须是整数个设备像素（小数偏移 = 副本边缘半透明 = 又会发虚）', () => {
+    const root = fakeRoot()
+    const expectNumericOffsets = (shadow: string, dpr: number): void => {
+      const offsets = [...shadow.matchAll(/(\d+(?:\.\d+)?)px/g)].map((m) => Number(m[1]))
+      // 四个方向各一份
+      expect(offsets).toHaveLength(4)
+      for (const offset of offsets) {
+        // 偏移 × DPR 必须约等于 1（= 整数 1 个设备像素）
+        expect(Math.abs(offset * dpr - 1)).toBeLessThan(0.01)
+      }
+    }
+    applyTheme({ ...DEFAULT_SETTINGS, bold: true }, root, 1.5)
+    const shadow = root.style.props.get('--bold-shadow') ?? ''
+    expect(shadow.split(',')).toHaveLength(4)
+    expectNumericOffsets(shadow, 1.5)
+    // 100% 缩放（DPR 1）时偏移正好是 1px；200% 时是 0.5px
+    applyTheme({ ...DEFAULT_SETTINGS, bold: true }, root, 1)
+    expectNumericOffsets(root.style.props.get('--bold-shadow') ?? '', 1)
+    applyTheme({ ...DEFAULT_SETTINGS, bold: true }, root, 2)
+    expectNumericOffsets(root.style.props.get('--bold-shadow') ?? '', 2)
+  })
+
+  it('不加粗时 --bold-shadow 回 none，切换加粗不影响主题属性', () => {
     const root = fakeRoot()
     applyTheme({ ...DEFAULT_SETTINGS, bold: true }, root)
-    expect(root.style.props.get('--stroke')).toBe('0.35px')
+    expect(root.style.props.get('--bold-shadow')).not.toBe('none')
 
     applyTheme({ ...DEFAULT_SETTINGS, bold: false }, root)
-    expect(root.style.props.get('--stroke')).toBe('0px')
+    expect(root.style.props.get('--bold-shadow')).toBe('none')
     expect(root.dataset.theme).toBe('day')
   })
 

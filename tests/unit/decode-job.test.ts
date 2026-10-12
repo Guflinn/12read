@@ -25,6 +25,7 @@ import {
   bytesUtf8,
   bytesUtf8Bom
 } from '../fixtures/texts'
+import { FAKE_JPEG, createMobi, hasControlChars } from '../fixtures/mobi'
 
 /**
  * decode-job 是 worker 里的执行体，测试直接调用它就能完整覆盖
@@ -369,6 +370,87 @@ describe('runDecodeJob：EPUB（0.2.0 第 4/5 项）', () => {
         () => undefined
       )
     ).rejects.toThrow(/找不到结尾记录/)
+    expect(existsSync(destDir)).toBe(false)
+  })
+})
+
+describe('runDecodeJob：MOBI（0.3.0）', () => {
+  const MOBI_HTML =
+    '<html><body><div align="center"><img recindex="00001"/></div>' +
+    '<mbp:pagebreak/><div><h3>第一章 起风</h3><p>风从山口进来，吹动了窗上的旧报纸。</p></div>' +
+    '<mbp:pagebreak/><div><h3>第二章 落雨</h3><p>雨落在瓦上，声音密得像有人在低声说话。</p></div>' +
+    '</body></html>'
+
+  async function seedMobi(options: Parameters<typeof createMobi>[0] = {}): Promise<string> {
+    const file = join(root, 'book.mobi')
+    await writeFile(file, createMobi({ html: MOBI_HTML, ...options }))
+    return file
+  }
+
+  it('整本模式：书名作者来自 EXTH，按翻页标记切章，封面与内联图都落盘', async () => {
+    const file = await seedMobi()
+    const result = await runDecodeJob(
+      { taskId: 'm1', sourcePath: file, destDir, contentMode: 'single', format: 'mobi' },
+      () => undefined
+    )
+
+    expect(result.format).toBe('mobi')
+    expect(result.title).toBe('测试小书')
+    expect(result.author).toBe('测试作者')
+    expect(result.encoding).toBe('utf-8')
+    expect(result.usedFallback).toBe(false)
+    expect(result.chapters.map((chapter) => chapter.title)).toEqual(['封面', '第一章 起风', '第二章 落雨'])
+
+    const text = await readFile(join(destDir, CONTENT_FILE), 'utf8')
+    expect(text.length).toBe(result.charCount)
+    expect(text).toContain('风从山口进来')
+    // 原始字节留着，便于以后用新提取器重新提取
+    expect(existsSync(join(destDir, SOURCE_FILE))).toBe(true)
+
+    const imageFiles = (await readdir(join(destDir, IMAGES_DIR))).sort()
+    expect(imageFiles).toEqual(['0001.jpg', 'cover.jpg'])
+    const manifest = JSON.parse(await readFile(join(destDir, IMAGES_MANIFEST), 'utf8')) as {
+      images: Array<{ offset: number; file: string }>
+    }
+    expect(manifest.images.map((image) => image.file)).toEqual(['0001.jpg'])
+    expect(FAKE_JPEG.equals(await readFile(join(destDir, IMAGES_DIR, '0001.jpg')))).toBe(true)
+  })
+
+  it('切片模式：按章写 chapters/NNNN.txt', async () => {
+    const file = await seedMobi()
+    const result = await runDecodeJob(
+      { taskId: 'm2', sourcePath: file, destDir, contentMode: 'sliced', format: 'mobi' },
+      () => undefined
+    )
+
+    const files = (await readdir(join(destDir, CHAPTERS_DIR))).sort()
+    expect(files).toEqual([chapterFileName(0), chapterFileName(1), chapterFileName(2)])
+    const second = await readFile(join(destDir, CHAPTERS_DIR, chapterFileName(1)), 'utf8')
+    expect(second).toContain('第一章 起风')
+    expect(result.charCount).toBeGreaterThan(0)
+  })
+
+  it('每块带附加数据的书（真书形态）照样一个字不差', async () => {
+    const file = await seedMobi({ recordSize: 64, trailingBytes: 40, extraDataFlags: 0x02 })
+    const result = await runDecodeJob(
+      { taskId: 'm3', sourcePath: file, destDir, contentMode: 'single', format: 'mobi' },
+      () => undefined
+    )
+    const text = await readFile(join(destDir, CONTENT_FILE), 'utf8')
+    expect(text).toContain('雨落在瓦上')
+    expect(hasControlChars(text)).toBe(false)
+    expect(result.chapters).toHaveLength(3)
+  })
+
+  it('坏 MOBI 给中文错误，且什么都不落盘', async () => {
+    const bad = join(root, 'broken.mobi')
+    await writeFile(bad, Buffer.alloc(4096, 0x41))
+    await expect(
+      runDecodeJob(
+        { taskId: 'm4', sourcePath: bad, destDir, contentMode: 'single', format: 'mobi' },
+        () => undefined
+      )
+    ).rejects.toThrow(/MOBI/)
     expect(existsSync(destDir)).toBe(false)
   })
 })

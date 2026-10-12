@@ -299,7 +299,7 @@ export function ShelfView({
             importFiles(event.dataTransfer.files)
           }}
         >
-          把 .txt / .epub 拖到这里，或点击此处导入（支持多选）
+          把 .txt / .epub / .mobi 拖到这里，或点击此处导入（支持多选）
         </div>
 
         <ImportStatus />
@@ -438,9 +438,10 @@ export function ShelfView({
       ) : null}
 
       {recoding ? (
-        recoding.format === 'epub' ? (
-          /* EPUB 没有「编码」这回事（规范即 UTF-8/UTF-16）：这里的语义是「用最新提取器重新提取」
-             —— 提取逻辑修好后，旧书能吃到修复，而不用重新导入（0.2.0 第 6 项）。 */
+        recoding.format !== 'txt' ? (
+          /* EPUB / MOBI 没有「编码」这回事（正文编码写在文件里）：这里的语义是
+             「用最新提取器重新提取」—— 提取逻辑修好后，旧书能吃到修复，不用重新导入
+             （0.2.0 第 6 项，0.3.0 起 MOBI 也走这条）。 */
           <Modal
             title="重新提取"
             confirmLabel="开始重新提取"
@@ -452,10 +453,14 @@ export function ShelfView({
             }}
           >
             <p className="modal-text">
-              《{recoding.title}》会拿保留着的原始 EPUB 文件<strong>重新提取一遍正文与章节</strong>
+              《{recoding.title}》会拿保留着的原始文件<strong>重新提取一遍正文与章节</strong>
               —— 提取逻辑修好之后，旧书靠这一步就能吃到修复，不用重新导入。
             </p>
-            <p className="modal-note">EPUB 按规范就是 UTF-8/UTF-16，没有编码可选。</p>
+            <p className="modal-note">
+              {recoding.format === 'epub'
+                ? 'EPUB 按规范就是 UTF-8 / UTF-16，没有编码可选。'
+                : 'MOBI 的正文编码写在文件头里，没有编码可选。'}
+            </p>
             <p className="modal-note">重新提取会把这本书的阅读进度清零（字符位置可能全变）。</p>
           </Modal>
         ) : (
@@ -498,7 +503,7 @@ export function ShelfView({
         <Modal title="这个版本做什么" confirmLabel="知道了" cancelLabel="关闭" onCancel={() => setScopeOpen(false)} onConfirm={() => setScopeOpen(false)}>
           <p className="scope-h">现在能用</p>
           <ul className="scope-list">
-            <li>导入本地 .txt / .epub：拖入或选择文件；TXT 自动识别 UTF-8 / GBK / UTF-16 编码</li>
+            <li>导入本地 .txt / .epub / .mobi：拖入或选择文件；TXT 自动识别 UTF-8 / GBK / UTF-16 编码</li>
             <li>自动分章：识别「第 N 章」这类标题，识别不到就按字数分段</li>
             <li>
               阅读：← / → 翻一屏（Ctrl + ← → 切章）、目录跳转、字号 / 行距 / 字重 / 字体 / 宽度 / 日夜间
@@ -507,6 +512,9 @@ export function ShelfView({
             <li>进度：关掉再打开，回到上次读到的那个字；顶栏「上次位置」来回对照</li>
             <li>乱码书重新解码：在书封面上点「编码」，挑 UTF-8 / GBK / BIG5 / UTF-16 重解一遍，不用重新导入</li>
             <li>EPUB：导入后按自带目录切章，正文里的插图会内联显示；书封面上点「提取」可用最新逻辑重新提取</li>
+            <li>
+              MOBI：导入后按书里的翻页标记切章，书名 / 作者 / 封面直接读文件自带的；同样支持「提取」重跑一遍
+            </li>
             <li>手动改分章：目录里给每一节改名，或把它并进上一节</li>
             <li>书签与划线：顶栏 🔖 记位置，选中一段字划线；目录抽屉里分「书签 / 划线」两页</li>
             <li>搜索：Ctrl + F 在章节内或全书找词，结果上是章名与上下文</li>
@@ -517,7 +525,8 @@ export function ShelfView({
           <ul className="scope-list">
             <li>备份还原（现在只能导出，还不能从备份还原回来）</li>
             <li>笔记（划线只能记原文，还不能在旁边写字）</li>
-            <li>EPUB / PDF / MOBI（数据结构已为 EPUB 预留）</li>
+            <li>PDF（有文字层的那种）与 Markdown</li>
+            <li>带 DRM 的书、KF8（.azw3）与 Huff/CDic 压缩的 MOBI</li>
             <li>账号、云同步、在线书城、TTS 朗读</li>
           </ul>
         </Modal>

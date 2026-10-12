@@ -123,9 +123,10 @@ export function registerIpc(ctx: IpcContext): void {
       title: '选择要导入的书',
       properties: ['openFile', 'multiSelections'],
       filters: [
-        { name: '支持的格式', extensions: ['txt', 'epub'] },
+        { name: '支持的格式', extensions: ['txt', 'epub', 'mobi'] },
         { name: '纯文本', extensions: ['txt'] },
-        { name: 'EPUB 电子书', extensions: ['epub'] }
+        { name: 'EPUB 电子书', extensions: ['epub'] },
+        { name: 'MOBI 电子书', extensions: ['mobi'] }
       ]
     })
     return result.canceled ? [] : result.filePaths

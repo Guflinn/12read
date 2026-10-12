@@ -12,6 +12,7 @@ import type {
 } from '@shared/types'
 import { decodeBytes, decodeBytesWith } from '../services/decode'
 import { decodeEpub } from '../services/epub/import'
+import { decodeMobi } from '../services/mobi/import'
 import {
   CHAPTERS_DIR,
   CONTENT_FILE,
@@ -84,10 +85,13 @@ export async function runDecodeJob(job: DecodeJob, onProgress: ProgressReporter)
 
   // 先解码、后落盘：解析失败（坏文件、二进制、加密）时目录都不会建出来 ——
   // 「失败就什么都不留下」比「失败后再清理」更稳（导入链路还有一层兜底 rm）。
+  const format = job.format ?? 'txt'
   const payload =
-    (job.format ?? 'txt') === 'epub'
+    format === 'epub'
       ? decodeEpubPayload(bytes, onProgress)
-      : decodeTextPayload(bytes, job, onProgress)
+      : format === 'mobi'
+        ? decodeMobiPayload(bytes, onProgress)
+        : decodeTextPayload(bytes, job, onProgress)
 
   onProgress('splitting', 0.45)
   await mkdir(job.destDir, { recursive: true })
@@ -188,8 +192,28 @@ function decodeEpubPayload(bytes: Buffer, onProgress: ProgressReporter): Decoded
   }
 }
 
-/** 正文落盘：整本一个 content.txt，或按章切到 chapters/NNNN.txt（TXT / EPUB 共用）。 */
-async function writePayload(
+/** MOBI（0.3.0）：PalmDB → PalmDOC 解压 → HTML 分节 → 正文 + 章节 + 图片清单。 */
+function decodeMobiPayload(bytes: Buffer, onProgress: ProgressReporter): DecodedPayload {
+  onProgress('detecting', 0.1)
+  const book = decodeMobi(bytes)
+  onProgress('decoding', 0.3)
+  return {
+    format: 'mobi',
+    // 正文按 MOBI 头里的 textEncoding 解（UTF-8 或 cp1252），认不出的登记成 unknown
+    encoding: book.encoding,
+    text: book.text,
+    chapters: book.chapters,
+    usedFallback: false,
+    markerHits: 0,
+    suspicious: false,
+    title: book.title,
+    author: book.author,
+    images: book.images,
+    blobs: book.blobs
+  }
+}
+
+/** 正文落盘：整本一个 content.txt，或按章切到 chapters/NNNN.txt（TXT / EPUB 共用）。 */async function writePayload(
   destDir: string,
   contentMode: ContentMode,
   text: string,

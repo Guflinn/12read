@@ -10,6 +10,7 @@ import { ImportError } from '@main/services/import-error'
 import { ImportService } from '@main/services/importer'
 import { bookDir, booksRoot, contentPath, sourcePath } from '@main/services/layout'
 import { SAMPLE_TEXT, bytesBinaryWithNul, bytesGbk, bytesUtf8 } from '../fixtures/texts'
+import { createMobi } from '../fixtures/mobi'
 
 /**
  * 只把 stat 包一层，用来伪造超大文件；其余文件操作全走真实实现，
@@ -239,6 +240,27 @@ describe('ImportService.importFile 内联分支（worker 文件缺失）', () =>
     expect(calls[0].record.contentMode).toBe('sliced')
     expect(book.contentMode).toBe('sliced')
     expect(existsSync(join(bookDir(root, book.id), 'chapters'))).toBe(true)
+  })
+
+  it('按扩展名分派：.mobi 走 MOBI 提取器（书名作者来自 EXTH，封面一起落盘）', async () => {
+    const mobiFile = join(root, '一本不相干的文件名.mobi')
+    await writeFile(mobiFile, createMobi())
+    const { repo, calls } = makeRepo()
+    const service = new ImportService({ root, repo })
+
+    const book = await service.importFile(mobiFile, 'task-mobi')
+
+    expect(calls[0].record.format).toBe('mobi')
+    expect(calls[0].record.title).toBe('测试小书')
+    expect(calls[0].record.author).toBe('测试作者')
+    expect(calls[0].record.encoding).toBe('utf-8')
+    expect(calls[0].chapters.map((chapter) => chapter.title)).toEqual([
+      '封面',
+      '第一章 起风',
+      '第二章 落雨'
+    ])
+    expect(existsSync(join(bookDir(root, book.id), 'content.txt'))).toBe(true)
+    expect(existsSync(join(bookDir(root, book.id), 'images', 'cover.jpg'))).toBe(true)
   })
 })
 

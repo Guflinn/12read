@@ -22,10 +22,11 @@ export interface ImportServiceOptions {
   workerPath?: string
 }
 
-/** 按扩展名分派提取器（0.2.0）：认得的走各自的分支，其它一律按 TXT 处理。 */
+/** 按扩展名分派提取器（0.2.0 起）：认得的走各自的分支，其它一律按 TXT 处理。 */
 function formatOf(filePath: string): BookFormat {
   const ext = extname(filePath).toLowerCase()
   if (ext === '.epub') return 'epub'
+  if (ext === '.mobi') return 'mobi'
   return 'txt'
 }
 

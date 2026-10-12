@@ -36,7 +36,8 @@ PROXY_CANDIDATES = [
     'http://127.0.0.1:4592',
 ]
 PROXY = ''  # 由 pick_proxy() 填；'' = 直连
-ROOT = pathlib.Path(__file__).resolve().parent.parent
+# tools/release/xxx.py → parents[2] 才是仓库根（脚本从 release-build/ 搬过来后少算了一层）
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 NOTES = ROOT / 'tools' / 'release' / 'release-notes-0.3.0.md'
 ASSETS = [
     ROOT / 'release' / 'twelve-read-setup-0.3.0.exe',
@@ -65,6 +66,12 @@ def git(*args: str) -> str:
 
 
 def token() -> str:
+    """优先吃环境变量里的个人令牌（本机已设 GITHUB_TOKEN）；没有再退回凭据管理器。"""
+    for key in ('GITHUB_TOKEN', 'GH_TOKEN'):
+        value = os.environ.get(key)
+        if value:
+            print('令牌来源：环境变量 ' + key)
+            return value
     for git_exe in GIT_CANDIDATES:
         try:
             proc = subprocess.run(
@@ -78,8 +85,9 @@ def token() -> str:
             continue
         for line in proc.stdout.splitlines():
             if line.startswith('password='):
+                print('令牌来源：git credential fill')
                 return line.split('=', 1)[1]
-    sys.exit('取不到 GitHub token（试过 ' + ', '.join(GIT_CANDIDATES) + '）')
+    sys.exit('取不到 GitHub token（环境变量 GITHUB_TOKEN 未设，git credential fill 也没拿到）')
 
 
 def pick_proxy(tok: str) -> str:

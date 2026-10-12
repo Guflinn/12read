@@ -31,7 +31,8 @@ PROXY_CANDIDATES = [
     'http://127.0.0.1:4592',
 ]
 PROXY = ''  # 由 pick_proxy() 填；'' = 直连
-ROOT = pathlib.Path(__file__).resolve().parent.parent
+# tools/release/xxx.py → parents[2] 才是仓库根（脚本从 release-build/ 搬过来后少算了一层）
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 NOTES = ROOT / 'tools' / 'release' / 'release-notes-0.2.1.md'
 ASSETS = [
     ROOT / 'release' / 'twelve-read-setup-0.2.1.exe',

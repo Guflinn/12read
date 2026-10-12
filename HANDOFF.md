@@ -158,11 +158,14 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   进程清单里没有占用者 —— 杀软/索引器一类），**重启后手动删即可**，不影响任何功能。
   **免安装版的位置**（用户 2026-10-08 要求放工程空间里，临时目录会被系统清掉）—— 构建后从临时目录
   **复制**过去（别让 electron-builder 直接输出到那里，否则用户开着程序时文件被锁，下次打包又会撞锁）：
-  - **当前（0.3.0，含 MOBI + 中宋）**：`release/win-unpacked-0.3.0-new/十二阅读.exe`。
-  - `release/win-unpacked-0.2.1/十二阅读.exe` 是已发布的 0.2.1（**不含 MOBI**），留着。
-  - ⚠️ **`release/win-unpacked-0.3.0/` 是个「壳」**：里面有且只有一个被系统进程锁死的
-    `resources/app.asar`（用户开着旧版时打包，删/改名都被拒；进程清单里没有占用者 —— 杀软/索引器一类）。
-    新的 0.3.0 因此暂用 `-new` 后缀。**重启后**把 `release\win-unpacked-0.3.0` 删掉、再把 `-new` 改回正名即可。
+  - **当前（0.3.0，含 MOBI + 中宋 + 加粗修复）**：`release-tmp9/win-unpacked/十二阅读.exe`
+    （正式名被占着，见下；`release-tmp9/` 在 .gitignore 里）。
+  - `release/win-unpacked-0.2.1/` 是已发布的 0.2.1（**不含 MOBI**），留着。
+  - ⚠️ **`release/win-unpacked-0.3.0/` 与 `release/win-unpacked-0.3.0-new/` 目前都被系统进程锁着**
+    （用户正开着 `-new` 那份；`-0.3.0` 只剩一个锁死的 `resources/app.asar`，删/改名都被拒；
+    进程清单里可能看不到占用者 —— 杀软/索引器一类）。**重启后**把它们删掉，再把
+    `release-tmp9/win-unpacked` 挪成 `release/win-unpacked-0.3.0` 即可。`win-unpacked/` 与
+    `win-unpacked.tmp/` 两个老壳同理。
   ⚠️ **这是用户的免安装版，不是「解包残留」，清理仓库时别删**。2026-10-13 精简时把它误判成残留，
   且当时 `release/win-unpacked/` 里只剩一个被锁的 `resources/app.asar`（0.2.1 打包那轮就已不完整）
   → 一度没有可运行的免安装版。**补救不用重新构建**，直接从已发布的 NSIS 安装包里两步解出来

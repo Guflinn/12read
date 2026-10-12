@@ -34,14 +34,15 @@ pnpm build          # 产出 out/
 pnpm dist           # electron-vite build + electron-builder --dir（产出 release/）
 ```
 
-判据：`pnpm verify` 与 e2e 全绿才算可交付（AGENTS.md 第 2 条）。当前基线是 **55 个测试文件 / 655 个用例**（52 单测文件 / 624 用例 + 3 契约文件 / 31 用例），e2e **41 例**（12 个 spec）。
+判据：`pnpm verify` 与 e2e 全绿才算可交付（AGENTS.md 第 2 条）。当前基线是 **59 个测试文件 / 709 个用例**（56 单测文件 / 677 用例 + 3 契约文件 / 32 用例），e2e **45 例**（13 个 spec）。
 
 > ⚠️ **本机跑 `pnpm verify` 会大面积超时（环境性，不是回归）**：文件级并行下，DB / 临时文件密集的用例会成批报 `Test timed out in 5000ms`（annotations-repository、backup、importer、main-library、reading-repository、reading-stats-service）。2026-10-07 做过对照：**同一批文件在「带改动」与「干净代码」上跑，失败条数完全一致** → 磁盘 I/O 争用所致。绕法：`pnpm exec vitest run tests/unit --no-file-parallelism`（全量 43 文件 / 452 用例全绿，约 77s），契约测试 `pnpm exec vitest run tests/contract` 不受影响。
 
 ## 现在在哪（以 `git log` 为准）
 
 - 分支 `main`，工作区干净。**别在这里写死 HEAD**：这两段描述的是「完成本文件这次 commit 之前」的提交，改 HANDOFF 本身就会把 HEAD 往前挪一格，写死的哈希永远追不上。要看真实 HEAD，敲 `git log -1 --oneline`。
-- 版本号 **`0.2.1`**（package.json）。**0.2.1 已于 2026-10-10 发布**：GitHub Release「十二阅读 v0.2.1 内测版（Windows）」（Pre-release）—— https://github.com/Guflinn/12read/releases/tag/v0.2.1 ，正文含六轮反馈全部新增 / 调整 / 说明与安装说明 + SHA-256；附件 `twelve-read-setup-0.2.1.exe`（128,255,066 B）与 `.exe.sha256` 已上传并**匿名下载核对**（SHA-256 一致）。tag `v0.2.1`（附注，指向 `3ccd250`）已推远端 —— **git push tag 连续 schannel SSL 中断，改走 REST API `/git/tags` + `/git/refs` 建成**（教训：object 必须传 commit sha 而不是 tag 对象自身）。`origin/main` 已同步到 `3ccd250`。仓库 public。
+- 版本号 **`0.3.0`**（package.json，2026-10-13 按「提前标成开发中的版本」的惯例升）。**0.3.0 = MOBI 支持，已完成、未发版、未推送**：新增 `src/main/services/mobi/`（palmdb / palmdoc / header / html / import 五层）＋ `importer.formatOf` 认 `.mobi` ＋ `decode-job` 的 `decodeMobiPayload` 分支 ＋ IPC 文件对话框放行 `mobi` ＋ 书架「重新提取」弹窗放宽到「非 TXT 通用」。书名作者读 EXTH、封面与正文插图（`recindex`）落盘并显示，章节按 `<mbp:pagebreak/>` 切。**只做 MOBI6/KF7 + 无压缩/PalmDOC + 无 DRM**；KF8（`.azw3`）、Huff/CDic、DRM 一律给中文说明与转换建议（见 CHANGELOG 0.3.0 与 TECH 变更记录 2026-10-13）。验证（2026-10-13）：eslint + 三份 tsc 干净；单测 56 文件 / 677 例全绿（`--no-file-parallelism`）、契约 3 文件 / 32 例全绿、e2e **45 例**（13 spec，带 `TWELVE_READ_E2E_ELECTRON_ARGS`）全绿。真书《白夜行》实测提取 40ms / 30.7 万字 / 16 节 / 封面 + 1 张内联图。**要不要发版，等用户拍板。**
+- 版本号 **`0.2.1`**（**已发布版本**，GitHub Release 与 GitHub 上的 tag 都是它）。**0.2.1 已于 2026-10-10 发布**：GitHub Release「十二阅读 v0.2.1 内测版（Windows）」（Pre-release）—— https://github.com/Guflinn/12read/releases/tag/v0.2.1 ，正文含六轮反馈全部新增 / 调整 / 说明与安装说明 + SHA-256；附件 `twelve-read-setup-0.2.1.exe`（128,255,066 B）与 `.exe.sha256` 已上传并**匿名下载核对**（SHA-256 一致）。tag `v0.2.1`（附注，指向 `3ccd250`）已推远端 —— **git push tag 连续 schannel SSL 中断，改走 REST API `/git/tags` + `/git/refs` 建成**（教训：object 必须传 commit sha 而不是 tag 对象自身）。`origin/main` 已同步到 `3ccd250`。仓库 public。
 - 发版前验证（2026-10-10）：eslint + 三份 tsc 干净；单测+契约 55 文件 / 659 用例全绿（`--no-file-parallelism`）；e2e 43 例全绿（带 `TWELVE_READ_E2E_ELECTRON_ARGS`）。正式包用 `release-tmp5` 产物（定稿 commit 只动 e2e/CHANGELOG，不影响 asar 字节）。
 - **0.2.1 开发中（未发版、未推送）**：两侧切章箭头 + 六轮试用反馈全部完成（2026-10-08/09/10），详见 CHANGELOG 0.2.1 未发布段。字体现为六款：**宋体（经典，默认）/ 仿宋 / 楷体（经典三件套第五轮回归）+ 黑体（打包 Noto Sans SC，苹方替代）/ 文楷 / 思源宋（打包）**；朱雀仿宋已删。第六轮新增**字间距调节**（`letterSpacing` 0–0.3em 步进 0.01，default 0.01）。schema enum 保留历史全部 font-family key，hei/deng 归一化到 sans —— **别删历史 key、新设置字段一律 default 补**（老设置整份回退默认的坑，见 TECH 变更记录）。验证全绿（单测+契约 659 + e2e 43）。要不要发版，等用户拍板。
 - **0.2.0 已发布上线（2026-10-08）**：GitHub Release「十二阅读 v0.2.0 内测版（Windows）」（Pre-release）已建 —— https://github.com/Guflinn/12read/releases/tag/v0.2.0 ，正文含新增 / 说明与取舍 / 数据与版本 / 安装说明 + SHA-256；附件 `twelve-read-setup-0.2.0.exe`（102,784,478 B）与 `.exe.sha256` 已上传，**匿名下载核对过**。发版走 `tools/release/upload-release-0.2.0.py`（无 gh CLI，走 REST API；代理端口自动探测；2026-10-13 从 `release-build/` 挪来）。原计划的 0.1.5「检查更新」未单独发版，折入本版（CHANGELOG 有说明）。
@@ -58,7 +59,10 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 下一步（按顺序）
 
-1. **0.2.1 已发布（2026-10-10，六轮反馈全落地）**：两侧切章箭头 + 排版全面可调（字号上限 56 / 行距 0.05 步进 / 字距 0.01 步进 / 特大栏宽）+ 字体六款（经典三件套回归、宋体默认；打包黑体/文楷/思源宋）+ 加粗细描边 + Aa 点空白关闭。**Release 与 tag 已上线、origin/main 已同步**，发布流程（notes / 上传 / 匿名核对）见「现在在哪」。原待办的「清临时目录与旧版产物」**已于 2026-10-13 执行完毕**（见「现在在哪」末条），此项无待办。
+1. **0.3.0 MOBI 已完成，待用户拍板要不要发版**（2026-10-13）：功能、测试、文档（CHANGELOG / MVP / TECH / 本文件）都已同步，`package.json` 已是 `0.3.0`，工作区干净。**发版动作与 0.2.1 那轮相同**（`tools/release/` 下的 notes + upload 脚本，端口自动探测；大附件优先直连）。用户明确「发版才动版本号」以外的口径，所以**不推送、不打 tag**。
+   - 如实记录的**未验证项**：只有一本真书（《白夜行》，MOBI6 + PalmDOC + extraDataFlags 0x0B）跑过全链路；**Huff/CDic 压缩与 KF8 的书没有样本**，代码里是明确拒绝而不是支持。若以后用户拿到这类书打不开，第一反应应是「确认一下压缩方式 / file version」，而不是怀疑链路。
+   - 可能的下一个格式：**Markdown**（几乎零成本，走 TXT 管线）→ PDF（只做文字层）。用户的原则仍是「一个一个来」。
+2. **0.2.1 已发布（2026-10-10，六轮反馈全落地）**：两侧切章箭头 + 排版全面可调（字号上限 56 / 行距 0.05 步进 / 字距 0.01 步进 / 特大栏宽）+ 字体六款（经典三件套回归、宋体默认；打包黑体/文楷/思源宋）+ 加粗细描边 + Aa 点空白关闭。**Release 与 tag 已上线、origin/main 已同步**，发布流程（notes / 上传 / 匿名核对）见「现在在哪」。原待办的「清临时目录与旧版产物」**已于 2026-10-13 执行完毕**（见「现在在哪」末条），此项无待办。
 2. **0.1.4 已完成并发布（2026-10-06 / 10-07 用户拍板）**：
    - **A 窗口尺寸 / 位置记忆 —— 已完成**（2026-10-07，commit `b1ccf71`）：纯函数 `src/shared/core/window-bounds.ts` + `src/main/services/window-state.ts`（存 meta 表 `window_state` 键）+ 建窗前恢复 / 关窗时保存；单测 21 例、e2e 2 例。
    - **顺带修掉一个用户报的老 bug**（2026-10-07）：「回到上次位置」在快滑场景下回不去 —— 见下方「已知坑」里的 `BOOKMARK_DWELL_MS` 那条。
@@ -90,8 +94,10 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
    「一个文件真拆成多本书」的做法**仍未立项**（用户当时选了加分组）。
    **e2e 夹具 `tests/fixtures/mini.epub` 是自有内容的迷你 EPUB 3**（可给别的工具打开，无版权问题）。
    **真实书样本在 `格式测试文件/`（已 gitignore，绝不入库）**：古龙《多情剑客无情剑》(EPUB2 老式标记，
-   9 文件 90 章)、莫言《作品全集》(EPUB2 干净形态，820 文件，458 万字)、白夜行 (MOBI/KF6/PalmDOC)、
-   一本 36MB PDF（**扫描件，无文字层**）。实测数据与坑见 TECH 变更记录 2026-10-07 两条。
+   9 文件 90 章)、莫言《作品全集》(EPUB2 干净形态，820 文件，458 万字)、   白夜行 (MOBI/KF6/PalmDOC，**已用来验证 0.3.0 的 MOBI 链路**：MOBI6 + PalmDOC +
+   extraDataFlags 0x0B + 封面在 `firstImageIndex` 起第一条图片记录)、一本 36MB PDF（**扫描件，无文字层**）。
+   **MOBI 的测试夹具不落库** —— `tests/fixtures/mobi.ts` 运行时用 `createMobi()` 现造（PalmDOC 压缩 + EXTH + 封面），
+   e2e 也是运行时生成 .mobi 写进临时目录；**别往仓库里塞任何 .mobi**（版权 + 体积）。实测数据与坑见 TECH 变更记录 2026-10-07 两条。
 5. **0.2.0 的更细计划**：范围 / 两项已定决策（ZIP 手写 lenient reader、插图 U+FFFC 占位内联渲染）/ 不做清单 / 实施顺序 / 性能预算，见 [docs/MVP.md](docs/MVP.md) 第 10 节「已立项：0.2.0」。另有「格式路线图」（MOBI 0.3.0 首选、Markdown、文字层 PDF）同节。
 5. **候选池（不排期）**：主题跟随系统 / 摘录导出（书签+划线）/ 目录筛选框 / 每本书的阅读时长 —— 见 MVP.md 第 10 节「候选池」。
 6. **若在受限环境跑 e2e**：先设 `TWELVE_READ_E2E_ELECTRON_ARGS="--no-sandbox --disable-gpu"`（原因见「已知坑」）。

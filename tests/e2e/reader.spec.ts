@@ -413,6 +413,39 @@ test('字体与栏宽：设置里换字体、换宽度，正文跟着变并且�
   await expect
     .poll(() => fontLoaded('Noto Sans SC'), { message: '思源黑体字体文件应已加载' })
     .toBe(true)
+
+  // 中宋（0.3.0）：华文中宋是**系统字体**（Windows 自带）、单字重、没有细体，
+  // 所以这一档是「系统字体优先」：装了就直接用，一个字节都不打包（也没有商业字体授权问题）。
+  await page.click('#font-zhongsong')
+  await expect(page.locator('#font-zhongsong')).toHaveClass(/on/)
+  await expect.poll(() => cssVar(page, '--font-body')).toContain('STZhongsong')
+  // 系统字体没有多字重，字重回落到默认 400
+  await expect.poll(() => cssVar(page, '--weight')).toBe('400')
+
+  // 思源宋自 0.3.0 起换成**可变字体**（wght 200–900）：现在只用到 400，但字重轴是真的能用的
+  // ——量**墨量**而不是宽度：汉字一字一 em 定宽，400 和 500 的排版宽度几乎一样（实测差 0.03px）。
+  await page.click('#font-hanserif')
+  await expect.poll(() => cssVar(page, '--font-body')).toContain('Noto Serif SC')
+  const inkAt = (weight: number): Promise<number> =>
+    page.evaluate((w) => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 240
+      canvas.height = 70
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return 0
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, 240, 70)
+      ctx.fillStyle = '#000000'
+      ctx.font = w + ' 44px "Noto Serif SC"'
+      ctx.fillText('本清张', 10, 52)
+      const data = ctx.getImageData(0, 0, 240, 70).data
+      let ink = 0
+      for (let i = 0; i < data.length; i += 4) ink += 255 - (data[i] ?? 0)
+      return ink
+    }, weight)
+  const thinInk = await inkAt(400)
+  const heavyInk = await inkAt(500)
+  expect(heavyInk).toBeGreaterThan(thinInk * 1.03)
 })
 
 

@@ -278,7 +278,7 @@ describe('IPC 入参校验：非法用例', () => {
       settingsSchema.safeParse({ fontSize: 19, lineHeight: 1.9, theme: 'day', fontFamily: 'comic' })
         .success
     ).toBe(false)
-    // 0.2.1 新增打包字体 wenkai / hanserif 是合法 key
+    // 0.2.1 新增打包字体 wenkai / hanserif 是合法 key；0.3.0 又加了 zhongsong（中宋）
     expect(
       settingsSchema.safeParse({ fontSize: 19, lineHeight: 1.9, theme: 'day', fontFamily: 'wenkai' })
         .success
@@ -289,6 +289,14 @@ describe('IPC 入参校验：非法用例', () => {
         lineHeight: 1.9,
         theme: 'day',
         fontFamily: 'hanserif'
+      }).success
+    ).toBe(true)
+    expect(
+      settingsSchema.safeParse({
+        fontSize: 19,
+        lineHeight: 1.9,
+        theme: 'day',
+        fontFamily: 'zhongsong'
       }).success
     ).toBe(true)
     expect(

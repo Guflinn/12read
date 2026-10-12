@@ -1,5 +1,5 @@
 import type { ReaderSettings } from '@shared/types'
-import { fontStackOf, pageWidthOf } from '@/core/typography'
+import { fontStackOf, fontWeightOf, pageWidthOf } from '@/core/typography'
 
 /**
  * applyTheme 只用得到 <html> 上的这两个能力。显式写出来有两个好处：
@@ -23,6 +23,9 @@ export function applyTheme(settings: ReaderSettings, root: ThemeRoot): void {
   root.style.setProperty('--fs', settings.fontSize + 'px')
   root.style.setProperty('--lh', String(settings.lineHeight))
   root.style.setProperty('--ls', settings.letterSpacing + 'em')
+  // 正文字重（0.3.0）：只有思源宋那一族是可变字体，能吃到 400 / 500 这种真字重；
+  // 系统字体拿到 400（默认）等于什么都没做。**与「加粗」不是一回事** —— 见下面 --stroke。
+  root.style.setProperty('--weight', String(fontWeightOf(settings.fontFamily)))
   // 加粗不用 font-weight：打包的字体只有 Regular，合成粗体（600）会把笔画硬加粗一截，
   // 字挤成一团（用户 2026-10-09 实测）。改用 0.35px 细描边 —— 视觉增重但笔画均匀。
   root.style.setProperty('--stroke', settings.bold ? '0.35px' : '0px')

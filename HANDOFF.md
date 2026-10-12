@@ -54,7 +54,7 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   4. **修掉一个用户报的体验缺陷**：加书签后原本静默无反馈（用户连点好几下都不确定记上没有），现在点一下即弹「已加书签」——`ReaderView.tsx` 走 toast，`reader-store.addBookmark()` 返回值从 `Promise<void>` 改为 `Promise<boolean>`（成功 true / 失败 false），测试同步补齐。
   5. **修掉用户报的阅读统计排版重叠**：14 根柱子下「月-日」轴标签横排互相压字（每列仅 20px、标签要 ~30px），改为月/日上下两行；柱子画布与标签分块固定高度；三张指标卡等高、说明文字贴底对齐。纯函数 `dayParts` 提到 `@shared/core/stats` 并补单测；e2e 新增「轴标签不压隔壁」的排版回归断言。
 - 0.1.3 的十项已全部交付并验证：书架版本号、正文字体与阅读宽度、左右翻动翻页、换编码重解码、手动改分章（改名 / 合并）、书签与划线（schema v2 迁移）、章节内 + 全书搜索、阅读统计、导出备份、大书性能专项。逐项 commit 见 [docs/MVP.md](docs/MVP.md) 的「已发布：0.1.3」表格。
-- **2026-10-13 仓库精简**（用户要求「删没用的、重复的，删前说明用途」）：清了约 **1.4 GB** 构建 / 打包产物 —— `release-tmp5/`（519 MB）、`release/win-unpacked.tmp/`（325 MB）、`out/`（45 MB）、`release/win-unpacked/` 与 `release-build/win-unpacked/`、`release/build-debug`、`release-build/__pycache__/`、electron-vite 配置影子文件 `electron.vite.config.<时间戳>.mjs`、`test-results/.last-run.json`（全部可自动重建，且都在 `.gitignore` 里）。`release/` 里 0.1.0~0.2.0 的 6 个安装包也删了（**GitHub Release 7 个版本全有 exe+sha256 存档**，本地只留 0.2.1 全套）。`demo/` 的 4 张原型截图 + `check.mjs` 零引用已删，`demo/index.html` 保留（README 第 7 行引用着）。**发版工具从 `release-build/` 挪到 `tools/release/`**（4 份 release-notes + 3 个 upload 脚本 + `screens/` 11 张截图），脚本内 `NOTES` 路径已同步改好并通过 `py_compile`。**例外**：5 个 `.asar`（`release-tmp5/`、`release/win-unpacked.tmp/`、`release/win-unpacked/`、`release-build/win-unpacked/` 里各若干）被系统进程锁着删不掉 —— 与 0.1.3 那次「app.asar 被占用」同源，待解锁后清；这四个目录目前只剩这几个 asar，其余内容已清空。
+- **2026-10-13 仓库精简**（用户要求「删没用的、重复的，删前说明用途」）：清了约 **1.4 GB** 构建 / 打包产物 —— `release-tmp5/`（519 MB）、`release/win-unpacked.tmp/`（325 MB）、`out/`（45 MB）、`release/win-unpacked/` 与 `release-build/win-unpacked/`、`release/build-debug`、`release-build/__pycache__/`、electron-vite 配置影子文件 `electron.vite.config.<时间戳>.mjs`、`test-results/.last-run.json`（全部可自动重建，且都在 `.gitignore` 里）。`release/` 里 0.1.0~0.2.0 的 6 个安装包也删了（**GitHub Release 7 个版本全有 exe+sha256 存档**，本地只留 0.2.1 全套）。`demo/` 的 4 张原型截图 + `check.mjs` 零引用已删，`demo/index.html` 保留（README 第 7 行引用着）。**发版工具从 `release-build/` 挪到 `tools/release/`**（4 份 release-notes + 3 个 upload 脚本 + `screens/` 11 张截图），脚本内 `NOTES` 路径已同步改好并通过 `py_compile`。**例外**：5 个 `.asar`（`release-tmp5/`、`release/win-unpacked.tmp/`、`release/win-unpacked/`、`release-build/win-unpacked/` 里各若干）被系统进程锁着删不掉 —— 与 0.1.3 那次「app.asar 被占用」同源，待解锁后清；这四个目录目前只剩这几个 asar，其余内容已清空。**补救：0.2.1 免安装版已用 7za 从 `release/twelve-read-setup-0.2.1.exe` 解出到 `release/win-unpacked-0.2.1/`**（142 文件 / 396 MB；`asar` 内 `package.json` 的 `version` 已核对为 `0.2.1`，用户可直接双击运行）。
 
 ## 下一步（按顺序）
 
@@ -144,13 +144,19 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   与用户提到回收站时，先**去 `C://$Recycle.Bin//<SID>//$I*` 里读原路径**再答话，别凭印象说「不是我」。
 - **打包输出目录：统一用 `release/`（electron-builder.yml 的默认值，2026-10-08 用户定）**。
   不要再搞 release-out2/3/… 的变体目录 —— 那是打包撞文件锁时「换个新目录躲」攒出来的（已废弃）。
-  规矩：打包前确认用户**关掉了正在跑的十二阅读**（免安装版就从 release/win-unpacked 跑的，
+  规矩：打包前确认用户**关掉了正在跑的十二阅读**（免安装版就从 release/win-unpacked-* 跑的，
   开着会让打包撞锁）；撞锁时先 `cmd //c "rmdir /S /Q <目录>"` 再重试，不要开新目录。
   ⚠️ 2026-10-08 遗留：`release-out…out9`（约 3.6GB）被系统文件锁占着（删/改名都拒绝，
   进程清单里没有占用者 —— 杀软/索引器一类），**重启后手动删即可**，不影响任何功能。
-  **免安装版的位置**：`release/win-unpacked/十二阅读.exe`（用户 2026-10-08 要求放工程空间里，
+  **免安装版的位置**：`release/win-unpacked-0.2.1/十二阅读.exe`（用户 2026-10-08 要求放工程空间里，
   临时目录会被系统清掉）—— 构建后从临时目录**复制**过去（别让 electron-builder 直接输出到那里，
   否则用户开着程序时文件被锁，下次打包又会撞锁）。
+  ⚠️ **这是用户的免安装版，不是「解包残留」，清理仓库时别删**。2026-10-13 精简时把它误判成残留，
+  且当时 `release/win-unpacked/` 里只剩一个被锁的 `resources/app.asar`（0.2.1 打包那轮就已不完整）
+  → 一度没有可运行的免安装版。**补救不用重新构建**，直接从已发布的 NSIS 安装包里两步解出来
+  （内容与发布版逐字节一致）：`7za x twelve-read-setup-<ver>.exe -o<tmp>` 取 `$PLUGINSDIR/app-64.7z`，
+  再 `7za x app-64.7z -o<目标>`。7za 用 electron-winstaller 自带的
+  `node_modules/.pnpm/electron-winstaller@*/node_modules/electron-winstaller/vendor/7z-x64.exe`（本机没装 7-Zip）。
 - **打包卡住 10 分钟不动 → 多半是 Electron 在偷偷重下 + 陈旧下载锁**（2026-10-08 踩了 20 分钟）：
   现象是 `release-out*/` 空目录、进程一直挂着。两步排查：
   ① `ls ~/AppData/Local/electron/Cache/` 看有没有当前版本（项目用 38.8.6，缓存里只有 38.2.2 就说明要重下

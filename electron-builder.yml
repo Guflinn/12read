@@ -15,8 +15,12 @@ npmRebuild: false
 win:
   target:
     - nsis
+    - portable
   icon: build/icon.ico
   artifactName: twelve-read-setup-${version}.exe
+portable:
+  # 免安装版：单文件 exe，双击即跑
+  artifactName: twelve-read-portable-${version}.exe
 mac:
   target:
     - dmg

@@ -38,7 +38,7 @@ NOTES = ROOT / 'tools' / 'release' / 'release-notes-0.3.1.md'
 ASSETS = [
     ROOT / 'release' / 'twelve-read-setup-0.3.1.exe',
     ROOT / 'release' / 'twelve-read-setup-0.3.1.exe.sha256',
-    ROOT / 'release' / 'twelve-read-0.3.1-portable.7z',
+    ROOT / 'release' / 'twelve-read-0.3.1-portable.zip',
 ]
 
 GIT_CANDIDATES = [

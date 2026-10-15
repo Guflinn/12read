@@ -1,114 +1,116 @@
-# 十二阅读（12read）
+<div align="center">
 
-本地优先的 TXT 桌面阅读器：导入一本 .txt，从头读到尾，关掉再打开回到原处。  
-没有账号、没有服务器、不联网——书和进度只存在这台电脑上。
+# 📖 十二阅读
 
-产品范围见 [docs/MVP.md](docs/MVP.md)，技术方案见 [docs/TECH.md](docs/TECH.md)，  
-界面原型见 [demo/index.html](demo/index.html)（静态演示，带演示数据），版本改动见 [CHANGELOG.md](CHANGELOG.md)。
+**一个本地优先的 Windows 桌面阅读器：把 TXT / EPUB / MOBI 拖进来，从头读到尾，关掉再打开回到原处。**
 
-## 现在能做什么
+没有账号 · 没有服务器 · 不联网 —— 书和进度只存在这台电脑上
 
-- **导入**：文件选择器或把 .txt 拖进窗口，支持多选；书名/作者从文件名清洗（`《书名》作者.txt`、`书名(完结).txt`）。
-- **编码**：BOM → 严格 UTF-8 → GB18030 兜底；二进制文件直接拒绝并给中文提示，绝不白屏。编码认错（打开满是乱码）的书，在书卡上点「编码」换 UTF-8 / GBK / BIG5 / UTF-16 再解一遍，不用重新导入。
-- **分章**：识别 `第N章/节/回/卷/部/篇/集` 与 `序章/楔子/前言/番外` 等行；认不出来就按 3000–5000 字分段，界面上会明确写「分段」而不是「章节」。分得不准时，目录里每一节可「改名」或「合并」到上一节；正文一个字都不动，读到的位置也不动。
-- **书架**：进度条、最近阅读排序、按书名或作者搜索、四种排序（最近阅读/导入时间/书名/进度）、重命名、删除（连带正文与进度一起删）。
-- **阅读**：滚动模式、只渲染当前章、上一章/下一章、目录抽屉（高亮当前节）、字号 15–27、行距三档、正文加粗、字体（宋体/雅黑/楷体/仿宋/等线）与阅读宽度四档、日间/夜间（顶栏有独立的切换按钮）、键盘翻页（← / → 及空格 / PageUp / PageDown 翻一屏，Ctrl + ← / → 切章，Home / End 跳本章首尾，Ctrl+Home/End 跳全书首尾）、底栏常显「已读 x.x% · 剩余 N 字」。
-- **上次位置**：停下来读一会儿，当前位置就被记下；点顶栏「↩ 上次位置」跳回刚才读到的地方，再点一次回到离开处，来回对照很方便。
-- **书签与划线**：顶栏「🔖 书签」记下当前位置（摘要是当前位置前后 24 字）；选中正文里的一段字，浮出的工具条上点「划线」。目录抽屉有「书签」「划线」两页，每条带章号与原文，点一条跳回原处，也能就地删。
-- **搜索**：顶栏「🔍 搜索」或 Ctrl/Cmd + F 打开搜索面板，边打字边搜，可在「本章」与「全书」之间切换；命中列表带章号与前后文，点一条跳到那一段并闪一下。扫的是正文文件本身（不建索引），每章最多列 30 条、全书最多 200 条。
-- **阅读统计**：书架左下「阅读统计」按钮。只统计窗口开着、人也没走开的时间（每 15 秒记一段），给今天 / 累计 / 连续天数、最近 14 天的柱状图，以及读得最多的 5 本书。
-- **导出备份**：书架「导出备份」按钮弹「另存为」，整库打成一个 zip —— SQLite 的一致快照（`VACUUM INTO`）、每本书的原始文件 `source.bin`，加一份 `12read-backup.json` 清单（版本、导出时间、各表计数）。**只导出不还原**，正文派生的 `content.txt` 与分章文件不进包。
-- **进度**：章序号 + 章内偏移 + 前后各 30 字锚点；改字号/行距只重排版，不改变读到的位置；关掉再打开回到原处。
+[![Electron](https://img.shields.io/badge/Electron-38-47848F?logo=electron&logoColor=white)](https://www.electronjs.org/)
+[![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows&logoColor=white)](#-功能特性)
+[![Format](https://img.shields.io/badge/Format-TXT%20%7C%20EPUB%20%7C%20MOBI-B24A2C)](#-功能特性)
+[![Release](https://img.shields.io/badge/Release-v0.3.1%20beta-orange)](../../releases/latest)
 
-## 快速开始
+<img src="预览图/01-书架.png" width="880" alt="十二阅读书架">
 
-需要 Node 20+ 与 pnpm 11（lockfile 按 pnpm 11 生成）：
+</div>
 
-```bash
-npm install -g pnpm   # 或 corepack enable pnpm
-pnpm install          # better-sqlite3 走 N-API 预编译包，不需要本机 MSVC / Python
-pnpm dev              # 开发模式（HMR）
-```
+---
 
-Windows + PowerShell 上如果直接敲 `pnpm` 报「禁止运行脚本」，执行一次  
-`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` 即可（用户级设置，随时可回退）——  
-它放行的是本机 npm 全局安装的 `pnpm.ps1`。
+## ✨ 功能特性
 
-配置都放在 `pnpm-workspace.yaml` 里（pnpm 11 起构建脚本白名单写作 `allowBuilds:`，`electron`、`better-sqlite3` 等已设为 `true`），仓库里刻意不放 `.npmrc`：hoist 与 peer 相关行为用 pnpm 默认值即可。
+- 📚 **三种格式** —— TXT / EPUB 2·3 / MOBI（MOBI6·KF7，无 DRM）直接拖进窗口；书名、作者、封面与正文插图都从书里读出来
+- 📖 **沉浸阅读** —— 只渲染当前章，正文两侧悬浮箭头切章，键盘翻页（← / →、空格、PageUp / Down），目录抽屉高亮当前节
+- 🔖 **书签与划线** —— 一键记位置、选中即划线；目录抽屉里每条带原文摘要，点一下跳回原处
+- 🔍 **全书搜索** —— Ctrl + F 边打字边搜，「本章 / 全书」切换，命中带前后文，点击跳转并闪烁定位
+- ↩️ **进度常记** —— 「上次位置」一键回跳、再点回到离开处；关掉重开一定停在原处，改字号换字体都不影响
+- 🅰 **排版随心** —— 七款字体（宋体 / 仿宋 / 楷体 / 黑体 / 文楷 / 思源宋 / 中宋）、字号 15–56、行距字距步进微调、栏宽五档、加粗三档（不发虚）
+- 🌙 **日间 / 夜间** —— 顶栏一键切换，整页连滚动条一起变，对比度按 WCAG 4.5:1 校准
+- 📊 **阅读统计** —— 只统计「真在读」的时间：今天 / 累计 / 连续天数、近 14 天柱状图、日历热力视图、每日目标
+- 🧩 **分章可修** —— 自动识别「第 N 章 / 卷 / 回」，认不出按字数分段并如实标注；目录里随时改名、合并，正文一字不动
+- 🔤 **编码无忧** —— UTF-8 / GB18030 自动识别，二进制文件直接拒绝；乱码书在书卡上一键换 GBK / BIG5 / UTF-16 重解，不用重新导入
+- 💾 **数据自主** —— 本地 SQLite 存储，一键导出整库备份 zip，不依赖任何云服务
+- 🔄 **检查更新** —— 书架左下角静默检查，有新版出现一颗「去下载」胶囊（只提示，不自动下载）
 
-常用命令：
+## 📸 界面预览
 
-| 命令                   | 作用                                       |
-| -------------------- | ---------------------------------------- |
-| `pnpm dev`           | 开发模式启动 Electron                          |
-| `pnpm build`         | electron-vite 产出 `out/`                  |
-| `pnpm verify`        | eslint + 三份 tsconfig 类型检查 + 单测 + 契约测试    |
-| `pnpm test:coverage` | 单测覆盖率（行覆盖率门槛 90%）                        |
-| `pnpm test:e2e`      | Playwright 驱动真实 Electron（会先自动 build）     |
-| `pnpm dist`          | 打包到 `release/`（`electron-builder --dir`） |
+<table>
+  <tr>
+    <td width="50%"><img src="预览图/02-阅读器-日间.png" alt="日间阅读"><br><div align="center"><sub>日间阅读（宋体 · 中栏宽）</sub></div></td>
+    <td width="50%"><img src="预览图/05-阅读器-夜间.png" alt="夜间阅读"><br><div align="center"><sub>夜间模式</sub></div></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="预览图/03-排版面板.png" alt="排版面板"><br><div align="center"><sub>Aa 排版面板（字号 / 行距 / 字距 / 字体 / 主题）</sub></div></td>
+    <td width="50%"><img src="预览图/04-目录抽屉.png" alt="目录抽屉"><br><div align="center"><sub>目录抽屉（目录 / 书签 / 划线，可改名合并）</sub></div></td>
+  </tr>
+</table>
 
-## 数据放在哪
+## 📥 安装与使用
 
-`%APPDATA%/12read`（Windows）、`~/Library/Application Support/12read`（macOS）：
+> **推荐从 [Releases 页面](../../releases/latest) 下载**，那里有打包好的 exe，不用自己构建。
 
-```
-library.db               元数据 + 章节 + 进度（SQLite，WAL + 外键）
-library.db.bak-<version> 迁移前的自动备份
-books/<bookId>/source.bin        原始字节，永不改写（将来重新解码要用）
-books/<bookId>/content.txt       解码后的全文（<= 32MB 的书）
-books/<bookId>/chapters/NNNN.txt 分章切片（> 32MB 的大书）
-```
+### 方式一：安装版（推荐）
 
-删书是「先删数据库记录，再删目录」，目录删失败只记日志、不阻塞界面。
+下载 **[`twelve-read-setup-0.3.1.exe`](../../releases/download/v0.3.1/twelve-read-setup-0.3.1.exe)**（约 126 MB），双击安装。
 
-## 几个设计要点
+### 方式二：免安装版
 
-- **偏移语义**：所有 `startOffset` / `charOffset` 都是解码后文本的 UTF-16 code unit 偏移，不是字节偏移（中文 1、emoji 2）。这条由单测钉死。
-- **位置锚点**：进度主字段是章内偏移，另外存前后 30 字。找回位置的顺序是「组合锚点 → 偏移量 → 本章开头 → 百分比估算」。
-- **大章节分块渲染**：超过 5 万字的章只先渲染前 2 万字，滚动接近底部再 `+2 万字` 地续，正文永远不会整本进 DOM；目录草案也只在你打开抽屉时才渲染。
-- **主题变量挂在 `<html>`**：`data-theme` / `--fs` / `--lh` 由 `applyTheme()` 写到 `document.documentElement`，整页底色、文字与原生滚动条一起切换（挂在 `.app` 内部会漏掉 `body`，夜间就成了深底压深字）。
-- **安全基线**：renderer 沙箱开启、只能通过 preload 暴露的 `window.reader` 说话；每个 IPC 通道在 main 侧再过一遍 zod；生产环境挂硬性 CSP（`connect-src 'none'`，应用不发任何网络请求）。
+下载 **[`twelve-read-portable-0.3.1.exe`](../../releases/download/v0.3.1/twelve-read-portable-0.3.1.exe)**（约 114 MB），双击即用、无需安装；首次启动自解压，稍等一两秒。
 
-## 架构与三条铁律
+> 首次运行如遇 Windows SmartScreen 提示，点「更多信息 → 仍要运行」即可（应用未购买代码签名证书）。
 
-```
-src/main      主进程：IPC、SQLite、解码 worker、文件布局
-src/preload   contextBridge 白名单（window.reader）
-src/renderer  React + Zustand 界面
-src/shared    两端共用：类型、IPC 通道、zod schema、core 纯函数
-tests         unit / contract / e2e
-```
+### 使用小贴士
 
-1. renderer 不碰 `fs`、`ipcRenderer`、Node 模块；
-2. renderer 只传 `bookId`，真实路径永远由 main 侧拼；
-3. `src/shared/core` 里的纯函数不 import Electron / Node（main 与 renderer 都复用）。
+| 操作 | 说明 |
+|---|---|
+| 导入书 | 把 .txt / .epub / .mobi 拖进窗口，或点「导入书籍」（支持多选） |
+| 翻页 / 切章 | ← / → 翻一屏；Ctrl + ← / → 切章；点正文两侧箭头也可以 |
+| 搜索 | Ctrl + F，本章 / 全书可切换 |
+| 记位置 | 顶栏「🔖 书签」；「↩ 上次位置」在两处之间来回对照 |
+| 夜间模式 | 顶栏「☾ 夜间」一键切换 |
+| 检查更新 | 书架左下角版本号旁 |
+| 备份 | 书架「导出备份」把整库打成一个 zip 收好 |
+| 数据在哪 | `%APPDATA%\12read` —— 重装系统前记得备份这个目录 |
 
-## 测试
+### 当前边界（如实说）
 
-- `tests/unit`：纯函数、store、主进程服务（真实 better-sqlite3 + 临时目录）。
-- `tests/contract`：IPC 通道清单/接线一致性、zod schema 正负用例。
-- `tests/e2e`：Playwright `_electron.launch`，跑「导入 → 阅读 → 切章 → 改字号 → 重启恢复」、GBK 不乱码、二进制被拒、夜间模式对比度（WCAG 4.5:1）与顶栏主题按钮、键盘翻页、阅读器底栏读数、回到上次位置、字重开关、字体与栏宽、目录里改名/合并并重启保持、BIG5 乱码书换编码重解、书签与划线（记一条 + 抽屉里点回原处 + 删掉；选中正文划线 + 重启还在 + 点一下删掉）、搜索（Ctrl+F 开面板、全书命中列表、点一条跳章并闪一下、切「本章」范围、搜不到给空态），书架的「书名/作者清洗、搜索、排序、重命名、删除、目录高亮、目录惰性渲染、导入不存在的文件给提示」，以及导出备份（另存为选中后写出的 zip 能被解开、取消时只提示不写文件）、大书专项（自造 4 章 × 36 万字的书：首屏只铺 2 万字、滚到章尾、离开后重开回到原处、章内搜索命中跳转）等真实链路。
-- 覆盖率门槛 90% 行（见 `vitest.config.ts`；只做真实 Electron 才能跑起来的入口文件，如 `src/main/index.ts`、`src/main/window.ts`、worker 启动脚本，交给 e2e）。
+- 仅支持 Windows
+- MOBI 只支持 MOBI6 / KF7、无 DRM —— `.azw3`（KF8）与 Kindle 加密书打不开，会明确提示用 Calibre 转一次
+- 备份目前**只能导出**，还不能从 zip 还原回来
+- 不联网：没有书城、账号与云同步；检查更新是唯一的网络访问，且手动可见
 
-## 打包
+## 🛠️ 从源码构建
 
 ```bash
-pnpm build && pnpm exec electron-builder --win nsis   # release/twelve-read-setup-<version>.exe
+# 环境要求：Node.js 20+，pnpm 11，Windows
+
+pnpm install        # better-sqlite3 走 N-API 预编译包，不需要本机 MSVC / Python
+pnpm dev            # 开发模式启动（HMR）
+pnpm verify         # eslint + 类型检查 + 单测 + 契约测试
+pnpm test:e2e       # Playwright 驱动真实 Electron 跑端到端
+pnpm build && pnpm exec electron-builder --win nsis   # 打包安装版
 ```
 
-`electron-builder.yml` 里 `npmRebuild: false`：better-sqlite3 13 自带各平台 N-API 预编译二进制，不必也不要让 node-gyp 重编译。安装包不签名、不带自动更新。
+## 🧰 技术栈
 
-注意 `electron-builder` 内部要用 `pnpm list --prod --json` 收集依赖，所以打包必须在 pnpm 可用的情况下跑（上面的 `pnpm exec` 天然满足；用裸 `npx electron-builder` 时若 PATH 上没有 pnpm 会报 `No JSON content found in output`）。
+- **[Electron 38](https://www.electronjs.org/)** + **React 19 / Zustand** —— 桌面壳与界面
+- **SQLite（better-sqlite3）** —— 书目 / 进度 / 书签划线 / 统计，WAL 模式，每次迁移前自动备份
+- **手写解析器、零第三方解析依赖** —— EPUB 的 ZIP / XML / OPF、MOBI 的 PalmDB / PalmDOC、备份的 ZIP 写入全部手写，供应链面最小
+- **一条格式无关管线** —— 三种格式解成同样的「连续正文 + 章节表 + 字符偏移」，进度 / 书签 / 划线 / 搜索 / 统计对所有格式行为一致
+- **安全基线** —— renderer 全沙箱、每个 IPC 通道过 zod 校验、生产环境 CSP `connect-src 'none'`（应用不发生任何网络请求）
 
-实测（Windows x64，0.1.3）：`release/twelve-read-setup-0.1.3.exe` 约 98 MB（102 766 157 字节），低于 TECH 的 120 MB 目标；解包目录约 352 MB，体积几乎都在 Electron 运行时（`十二阅读.exe` 约 200 MB）与被解包的 better-sqlite3 上（`resources/app.asar` 约 2 MB、`resources/app.asar.unpacked` 约 26 MB）。安装包同目录还留了一份 `twelve-read-setup-0.1.3.exe.sha256`。
+## 🧗 开发中踩过的坑
 
-打包后的 exe 每次发版都做一次冒烟：**把工作目录换到一个临时目录**再启动 `release/win-unpacked/十二阅读.exe`（免得它顺着仓库根的 `package.json` 跑成 dev 构建，白测一场），导入一本 TXT —— 书架出现卡片、打开能读正文、顶栏「🔖 书签」「🔍 搜索」「↩ 上次位置」都在、书架左下角显示 `v0.1.3`、数据目录里建出 `library.db` 与 `books/<id>/source.bin`，说明 N-API 预编译二进制在 asar 外正常加载。
+[`docs/TECH.md`](docs/TECH.md) 的逐版变更记录里沉淀了大量真书驱动的设计与实测，节选三条：
 
-## 已知边界
+- 宋体的横画只有约 1 个屏幕像素宽，「加粗」用半透明描边**必然发虚** —— 只有整数设备像素的字形副本才能既加粗又锐利
+- EPUB 的目录页码映射不可靠（真实书会把第五～七章指到下一个文件），需要全书标题索引兜底
+- 全书搜索故意不用 SQLite FTS5：对中文不切词，851 万字的书要建两千万级三元组；直接扫正文是百毫秒级，零索引体积
 
-不在这个版本里：笔记、备份还原（只能导出，还不能从 zip 还原回来）、EPUB/PDF/MOBI、账号与云同步、书城、TTS、分页/全屏/页边距（这些都在 docs/MVP.md 的「暂不做」里）。0.1.3 这一版交付了：书架版本号、正文字体与阅读宽度、左右翻动翻页、手动指定编码重解码、手动改分章、书签与划线（含 schema v2 迁移）、章节内 + 全书搜索、阅读统计、导出备份，以及大书性能专项（顺带修掉长章节深处还原卡死）。
-其它已知取舍：导入取消目前只对 worker 生效（内联兜底路径不中断）；重排后的位置漂移允许一行以内；外部文件引用模式（只引用不复制）特意没做，避免用户移动源文件后书变空白。
+## 📄 文档
 
-## 里程碑
+- [`docs/MVP.md`](docs/MVP.md) —— 产品范围：做什么、不做什么
+- [`docs/TECH.md`](docs/TECH.md) —— 技术方案与逐版设计记录
+- [`CHANGELOG.md`](CHANGELOG.md) —— 每个版本的完整更新日志
 
-M0 工程骨架与工具链 → M1 导入/解码/分章/存储 → M2 书架/阅读器/目录/进度 → M3 打磨、覆盖率与端到端验证。
+<div align="center"><sub>如果这个项目帮到了你，欢迎点个 ⭐ Star ～</sub></div>

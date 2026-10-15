@@ -32,3 +32,6 @@ tools/release/screens/
 
 # 图标渲染临时页（tools/icon/render-icon.mjs 每次重新生成）
 build/_*.html
+
+# README 截图脚本生成的演示书（公版内容，随时可用 tools/screenshots/make-demo-books.py 重新生成）
+.shots-demo-books/

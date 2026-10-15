@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { inflateRawSync } from 'node:zlib'
@@ -133,7 +133,15 @@ describe('zip-writer: 打包结构', () => {
   })
 
   it('系统 tar 能解出同样的内容（独立校验，Explorer 同款）', async () => {
-    const probe = spawnSync('tar', ['--version'], { encoding: 'utf8' })
+    // Windows 上显式挑 System32 的 bsdtar（Explorer 解 zip 同款）：PATH 里若排在前面的是
+    // GNU tar（如 PortableGit），它会把 `C:\...` 当远程主机名报 "Cannot connect to C:"，
+    // 这条测试就会看 PATH 运气 —— 2026-10-16 实测踩过
+    const systemTar =
+      process.platform === 'win32'
+        ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe')
+        : 'tar'
+    const tarExe = existsSync(systemTar) ? systemTar : 'tar'
+    const probe = spawnSync(tarExe, ['--version'], { encoding: 'utf8' })
     if (probe.error || probe.status !== 0) {
       console.warn('跳过：本机没有可用的 tar')
       return
@@ -148,7 +156,7 @@ describe('zip-writer: 打包结构', () => {
     const archive = join(dir, 'backup.zip')
     writeFileSync(archive, zip)
 
-    const result = spawnSync('tar', ['-xf', archive, '-C', dir], { encoding: 'utf8' })
+    const result = spawnSync(tarExe, ['-xf', archive, '-C', dir], { encoding: 'utf8' })
     expect(result.status, result.stderr).toBe(0)
     expect(readFileSync(join(dir, '12read-backup.json'), 'utf8')).toBe('{"schemaVersion":2}')
     expect(readFileSync(join(dir, 'books', 'a', 'source.bin'), 'utf8')).toBe(text)

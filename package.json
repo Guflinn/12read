@@ -1,7 +1,7 @@
 {
   "name": "12read",
   "version": "0.3.1",
-  "description": "十二阅读 —— 本地优先的 TXT 桌面阅读器",
+  "description": "十二阅读 —— 本地优先的桌面阅读器（TXT / EPUB / MOBI）",
   "main": "./out/main/index.js",
   "private": true,
   "author": "12read",

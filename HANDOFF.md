@@ -15,7 +15,7 @@
 
 ## 项目与仓库
 
-- 十二阅读（12read）：本地优先的 Windows TXT 桌面阅读器。Electron 38 + React 19 + TypeScript + Zustand + zod，主进程直连 SQLite（better-sqlite3）+ iconv-lite 解码；构建 electron-vite，打包 electron-builder；测试 vitest（单测 / 契约）+ Playwright `_electron.launch`（e2e）。
+- 十二阅读（12read）：本地优先的 Windows 桌面阅读器（TXT / EPUB / MOBI）。Electron 38 + React 19 + TypeScript + Zustand + zod，主进程直连 SQLite（better-sqlite3）+ iconv-lite 解码；构建 electron-vite，打包 electron-builder；测试 vitest（单测 / 契约）+ Playwright `_electron.launch`（e2e）。
 - 仓库路径：`D:\Desktop\dsh工作区\十二阅读`。同一台机器上的另一个 Agent 直接用这个目录（并发注意事项见文末）。
 - 包管理器 **pnpm**（有 `pnpm-lock.yaml`）。
 - 目录分层：`src/main`（IPC / 服务 / SQLite / worker）、`src/preload`、`src/renderer`（React）、`src/shared`（通道名 + zod schema + 纯函数，如分章、搜索）。

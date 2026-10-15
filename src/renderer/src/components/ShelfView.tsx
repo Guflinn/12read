@@ -255,7 +255,7 @@ export function ShelfView({
             <div className="logo">十二</div>
             <div>
               <h1>十二阅读</h1>
-              <p>本地 TXT 阅读器 · 数据只存在这台电脑上</p>
+              <p>本地小说阅读器 · 数据只存在这台电脑上</p>
             </div>
           </div>
           <div className="shelf-actions">

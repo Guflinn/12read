@@ -19,7 +19,8 @@ writeFileSync(HTML, `<!doctype html>
   src: url('${pathToFileURL(FONT).href}') format('truetype-variations');
   font-weight: 200 900;
 }
-html, body { margin: 0; padding: 0; background: #fff; }
+html, body { margin: 0; padding: 0; }
+/* 注意：这里绝不能写 background —— 截图靠 omitBackground 保留透明四角 */
 </style></head><body>${svg.replace('<svg ', '<svg width="1024" height="1024" ')}</body></html>`);
 
 const browser = await chromium.launch();
@@ -28,6 +29,6 @@ await page.goto(pathToFileURL(HTML).href);
 await page.evaluate(() => document.fonts.ready);
 const loaded = await page.evaluate(() => document.fonts.check("600 190px 'Noto Serif SC VF'", '十二'));
 if (!loaded) throw new Error('Noto Serif SC VF 未加载，图标会回落到系统字体');
-await page.locator('svg').screenshot({ path: OUT, type: 'png' });
+await page.locator('svg').screenshot({ path: OUT, type: 'png', omitBackground: true });
 await browser.close();
 console.log('rendered:', OUT, '| font loaded:', loaded);

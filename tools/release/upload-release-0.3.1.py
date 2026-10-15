@@ -37,9 +37,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 NOTES = ROOT / 'tools' / 'release' / 'release-notes-0.3.1.md'
 ASSETS = [
     ROOT / 'release' / 'twelve-read-setup-0.3.1.exe',
-    ROOT / 'release' / 'twelve-read-setup-0.3.1.exe.sha256',
     ROOT / 'release' / 'twelve-read-portable-0.3.1.exe',
-    ROOT / 'release' / 'twelve-read-portable-0.3.1.exe.sha256',
 ]
 
 GIT_CANDIDATES = [

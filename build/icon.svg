@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 十二阅读 应用图标 · A 方向：宋体字标 + 朱红书签 -->
+  <!-- 授权说明：「十二」字形来自思源宋体（Noto Serif SC，OFL），成品为位图/轮廓，不内嵌字体文件 -->
+  <defs>
+    <clipPath id="tile">
+      <rect x="0" y="0" width="512" height="512" rx="102"/>
+    </clipPath>
+  </defs>
+  <rect x="0" y="0" width="512" height="512" rx="102" fill="#F6F3EC"/>
+  <g clip-path="url(#tile)">
+    <path d="M368 0 L446 0 L446 148 L407 116 L368 148 Z" fill="#B23B2E"/>
+  </g>
+  <text x="244" y="340" text-anchor="middle"
+        font-family="'Noto Serif SC VF', 'Noto Serif SC', serif"
+        font-size="190" font-weight="700" fill="#2B2A26">十二</text>
+</svg>

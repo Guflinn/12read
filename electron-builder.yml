@@ -15,6 +15,7 @@ npmRebuild: false
 win:
   target:
     - nsis
+  icon: build/icon.ico
   artifactName: twelve-read-setup-${version}.exe
 mac:
   target:

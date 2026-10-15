@@ -29,3 +29,6 @@ release-tmp*/
 # 发版说明图（tools/release/screens/，3.4MB PNG）：本地留档、按需上传到 Release，
 # 体量大且随时可重截，不进仓库
 tools/release/screens/
+
+# 图标渲染临时页（tools/icon/render-icon.mjs 每次重新生成）
+build/_*.html

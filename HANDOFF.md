@@ -49,8 +49,14 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   指向 `402a5f8`）。发版脚本 `tools/release/upload-release-0.3.1.py`。发版前验证：eslint + 三份 tsc 干净；
   单测 56 文件 / 680 例、契约 3 文件 / 33 例、e2e 45 例全绿。打包冒烟：解包 asar 内 `package.json` 版本
   0.3.1、icon.ico 七帧全部在 exe 资源里搜到、win-unpacked exe 临时目录启动正常（main+gpu+renderer 三进程）。
-  **免安装版 `release/win-unpacked-0.3.1/`（409MB，含新图标）**；打包走了轮换目录 `release-tmp12/`
+  **免安装版 `release/win-unpacked-0.3.1/`（409MB，含新图标）**；打包走了轮换目录 `release-tmp13/`
   （`release/win-unpacked/` 的 asar 仍被锁）。顺带修了 zip-writer 测试的 tar 环境坑（见 018d8ad）。
+- **0.3.1 附件同日替换（2026-10-16，用户拍板「替换 0.3.1 附件」）**：用户桌面实测发现**图标四角被拍成白底**
+  （render-icon.mjs 页面 CSS 的 `background:#fff` 盖掉了 `omitBackground`，commit `5556aff` 修复并给图标加了
+  feDropShadow 投影，画布 512→576）。Release 上旧 exe/sha256 已删、新 exe（`71d4b1c0…871d0c`，
+  132,389,776 B）+ **免安装版 `twelve-read-0.3.1-portable.7z`（124MB，py7zr LZMA2）**已传并匿名核对一致；
+  发版说明补了「修正（发布同日）」段。**新长期规矩：免安装版 7z 每次随 Release 一起传**（用户定）。
+  本地图标重打包后未再跑全量测试（只换 exe 图标资源 + 文档，代码零改动；修复 commit 前全量验证已全绿）。
 - 分支 `main`，工作区干净。**别在这里写死 HEAD**：这两段描述的是「完成本文件这次 commit 之前」的提交，改 HANDOFF 本身就会把 HEAD 往前挪一格，写死的哈希永远追不上。要看真实 HEAD，敲 `git log -1 --oneline`。
 - **0.3.0 追加：字体两件事**（2026-10-13，用户问「现在的宋体是什么 / 能不能上国标宋体 / 华文中宋会不会粗」）。① 新增字体档 **`zhongsong`「中宋」= 系统字体优先**（`STZhongsong` → 方正书宋 → 思源宋），**不打包任何字节** —— 华文中宋随 Windows 中文版分发；**商业字体（方正小标宋/书宋/仿宋_GB2312）绝不能打包**（个人非商业免费，但「软件内置字体」要按应用名买嵌入式授权）。② 打包的**思源宋从静态 Regular 换成可变字体**（`NotoSerifSC-VF.ttf`，wght 200–900，OFL，+13.5MB），新增 `FONT_FAMILIES[].weight` / `fontWeightOf()` / CSS `--weight`，**当前全部档仍是 400**，换 VF 只为「以后调字重只改一个数字」。**量出来的粗细数据与「落墨量 ≠ 粗细」这个坑写在 TECH 变更记录 2026-10-13**，下一个人别再靠肉眼重来一遍。
 - **0.3.0 追加 ②：加粗定稿为「关 / 轻 / 中」三档**（2026-10-13，用户先报描边版「发虚」、再报四方向版「太粗」，最后拍板要档位）。`ReaderSettings.bold` **由 boolean 变成 `BoldLevel`（0/1/2）**，schema 用 union+transform 兼容老布尔（true→1、false→0）。`theme.ts` 的 `boldShadow(level, dpr)`：**轻 = 只横向一份字形副本（只加竖画，+30% 落墨）、中 = 四方向（+98%）**；偏移恒为 `1/dpr` 个 CSS 像素 —— **整数屏幕像素是硬要求**，小数偏移会让副本边缘半透明、又变回发虚。UI 那行从「字重（常规/加粗）」改成「加粗（关/轻/中）」，id `#bold-0/1/2`。**为什么只有两档有效的加粗写在 TECH 变更记录 2026-10-13 最上面那条**（含描边越宽越糊、合成粗体更糊、feMorphology 也是整像素量化的实测；以及 Kindle 用 5 档滑块、其他家走内置粗体字库的调研）—— 别再重复试了。**Windows 的宋体没有粗体文件**（`simsunb.ttf` 是 SimSun-ExtB，不是 Bold）。

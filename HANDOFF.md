@@ -56,6 +56,8 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   4. **文字层 PDF**（`a3b2382`）：`services/pdf/`（`layout.ts` 纯函数 + `import.ts` 接 pdfjs），
      目录切章 / 没目录按页；扫描件与加密 PDF 给中文说明。
 - 顺手改的两处小东西：书架页头品牌标换成应用图标本体 + 副标题「本地阅读器」（`62ddb57`）。
+- 又修掉一个崩（2026-10-17）：**导入 PDF 会把应用打崩**（skia 原生模块，见「已知坑」第一条）。
+  修完连跑三轮 PDF e2e，WER 里 0 条新增崩溃报告。
 - 发布前用户真机试出一个崩（已修）：**还原备份之后关窗必弹「A JavaScript error occurred in the main process」**，
   因为换库前先关了连接、而关窗回调还在往 meta 表写窗口位置 —— 已关的连接 `prepare()` 会抛，
   异常出在 Electron 事件回调里就是弹框 + 卡住退出（点掉再关又弹）。修法见 TECH 变更记录 2026-10-16
@@ -306,6 +308,17 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   从那一刻到 `app.exit()` 之间**任何**拿连接去写东西的收尾动作都会抛「The database connection is not open」，
   而这类异常出在 Electron 的事件回调里 = 弹主进程错误框 + 卡住退出。凡是「关窗 / 退出 / beforeunload」
   这类收尾路径上的写库，一律先 `db.isOpen()` 再写、外面再套一层 try/catch。
+- **别让 pdfjs 碰 `@napi-rs/canvas`**（0.4.0 的第二个崩）：它在 Electron 里加载会直接崩进程
+  （WER：`BEX64` / 故障模块 `skia.win32-x64-msvc.node` / 异常 `c0000005`），而**纯 Node 的 vitest
+  里不会崩**，只有真跑 Electron 的 e2e 才暴露 —— 所以「单测全绿」不代表这事没事。
+  已修：`src/main/services/pdf/canvas-shim.ts` 用纯 JS 替身顶掉它（在 import pdfjs 之前塞 require 缓存）
+  + electron-builder 排除 `!**/@napi-rs/**` + pnpm `ignoredOptionalDependencies`。
+  **注意**：这个可选依赖装没装会让行为时好时坏（老的精简安装没装 → 一直没事）。
+- **排查崩溃去哪看证据**：Windows 错误报告在 `%PROGRAMDATA%\Microsoft\Windows\WER\ReportArchive\AppCrash_*\Report.wer`
+  （**UTF-16 编码**），里面有 `Sig[3].Value` = 故障模块名、`Sig[7].Value` = 异常代码；转储在
+  `%LOCALAPPDATA%\CrashDumps\`。事件日志用 `Get-WinEvent -FilterHashtable @{LogName='Application'}`。
+  「has stopped working + Error launching CrashSender.exe」是 Windows 对崩溃 Electron 应用的标准呈现
+  （crashpad 在本机注册不上，`debug.log` 里全是 `registration_protocol_win.cc CreateFile 0x2`）。
 - **e2e 里「关掉应用再起一个」不能紧接着 launch**：Electron 在数据目录里留的锁还没放干净，
   下一次 `launchApp` 会卡在启动上（并行跑整套 e2e、磁盘忙时尤其明显，表现为 90s 超时）。
   `tests/e2e/backup.spec.ts` 的 `relaunchApp()` 是带重试的写法（等 5s → 起不来再等 6s 重试，

@@ -15,7 +15,7 @@
 
 ## 项目与仓库
 
-- 十二阅读（12read）：本地优先的 Windows 桌面阅读器（TXT / EPUB / MOBI）。Electron 38 + React 19 + TypeScript + Zustand + zod，主进程直连 SQLite（better-sqlite3）+ iconv-lite 解码；构建 electron-vite，打包 electron-builder；测试 vitest（单测 / 契约）+ Playwright `_electron.launch`（e2e）。
+- 十二阅读（12read）：本地优先的 Windows 桌面阅读器（**TXT / EPUB / MOBI / Markdown / 文字层 PDF** 五种格式）。Electron 38 + React 19 + TypeScript + Zustand + zod，主进程直连 SQLite（better-sqlite3）+ iconv-lite 解码；构建 electron-vite，打包 electron-builder；测试 vitest（单测 / 契约）+ Playwright `_electron.launch`（e2e）。
 - 仓库路径：`D:\Desktop\dsh工作区\十二阅读`。同一台机器上的另一个 Agent 直接用这个目录（并发注意事项见文末）。
 - 包管理器 **pnpm**（有 `pnpm-lock.yaml`）。
 - 目录分层：`src/main`（IPC / 服务 / SQLite / worker）、`src/preload`、`src/renderer`（React）、`src/shared`（通道名 + zod schema + 纯函数，如分章、搜索）。
@@ -34,11 +34,32 @@ pnpm build          # 产出 out/
 pnpm dist           # electron-vite build + electron-builder --dir（产出 release/）
 ```
 
-判据：`pnpm verify` 与 e2e 全绿才算可交付（AGENTS.md 第 2 条）。当前基线是 **59 个测试文件 / 709 个用例**（56 单测文件 / 677 用例 + 3 契约文件 / 32 用例），e2e **45 例**（13 个 spec）。
+判据：`pnpm verify` 与 e2e 全绿才算可交付（AGENTS.md 第 2 条）。当前基线（0.4.0）是 **67 个测试文件 / 795 个用例**（64 单测文件 + 3 契约文件），e2e **56 例**（17 个 spec）。
+
+> ⚠️ 本机 `pnpm exec` 会想重装 node_modules（见「已知坑」里的装依赖那条），跑测试请直接用 `node node_modules/...` 的形式。
 
 > ⚠️ **本机跑 `pnpm verify` 会大面积超时（环境性，不是回归）**：文件级并行下，DB / 临时文件密集的用例会成批报 `Test timed out in 5000ms`（annotations-repository、backup、importer、main-library、reading-repository、reading-stats-service）。2026-10-07 做过对照：**同一批文件在「带改动」与「干净代码」上跑，失败条数完全一致** → 磁盘 I/O 争用所致。绕法：`pnpm exec vitest run tests/unit --no-file-parallelism`（全量 43 文件 / 452 用例全绿，约 77s），契约测试 `pnpm exec vitest run tests/contract` 不受影响。
 
 ## 现在在哪（以 `git log` 为准）
+
+- **0.4.0 的四项全部做完，但还没发版、没 push（2026-10-16）**。范围由用户当天圈定
+  （「Markdown / 文字层 PDF，应用内更新，备份还原这三个可以做掉」），并拍板**先发 0.4.0 内测版**、
+  试用一轮没问题再转 `1.0.0` 正式版。四项各自的取舍见 CHANGELOG 0.4.0 与 TECH 变更记录 2026-10-16
+  四条（都是当天写的，细节最全）。`package.json` 已提前标 `0.4.0`。
+  1. **Markdown**（`d6f717e`）：`.md` 走 TXT 管线，ATX 标题切章；渲染把标记 `display:none`
+     **藏起来而不是删掉**（偏移体系不受影响）、**不插入任何可见文字**（圆点/序号/分隔线全用 CSS 画）。
+  2. **备份还原**（`22386b2`）：整库覆盖，换库前把旧库整份挪到 `restore-undo-<时间>`，
+     换完自己重启；包里只有原始文件（派生正文不进包），所以配了一个**启动自愈**
+     （`services/derived-repair.ts`，开窗前按 `source.bin` 重新提取）。
+  3. **应用内更新**（`8d68a40`）：`electron-updater`，差量下载 + 进度 + 「重启并更新」；
+     免安装版/开发环境如实说「不支持」并退回「去下载」。
+  4. **文字层 PDF**（`a3b2382`）：`services/pdf/`（`layout.ts` 纯函数 + `import.ts` 接 pdfjs），
+     目录切章 / 没目录按页；扫描件与加密 PDF 给中文说明。
+- 顺手改的两处小东西：书架页头品牌标换成应用图标本体 + 副标题「本地阅读器」（`62ddb57`）。
+- **测试基线（2026-10-16，全绿）**：单测+契约 **67 文件 / 795 例**（`--no-file-parallelism`，
+  约 36s）、e2e **56 例**（`TWELVE_READ_E2E_ELECTRON_ARGS` 那套环境变量别忘了）、
+  eslint 与三份 tsc 干净。分支 `main`，工作区干净（只剩一个历史遗留的未跟踪目录 `12read/`，别提交）。
+
 
 - **0.3.1 已于 2026-10-16 发布**（GitHub Release「十二阅读 v0.3.1 内测版（Windows）」，Pre-release）——
   https://github.com/Guflinn/12read/releases/tag/v0.3.1 。**本版唯一改动 = 应用图标**（宋体字标「十二」+
@@ -94,7 +115,16 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 下一步（按顺序）
 
-1. **0.3.1 已发布完毕（2026-10-16）**，见「现在在哪」首条。**可以做的下一件事**：等用户试用反馈；
+1. **发 0.4.0 内测版**（用户已拍板，等他说「可以发」）：老规矩 —— 版本号已标好、CHANGELOG 定稿后
+   把 `## [0.4.0] - 未发布` 改成发布日期 → `pnpm build` + `electron-builder --win nsis portable`
+   → **这次多两样东西要传**：`latest.yml` 与 `*.blockmap`（应用内更新的差量元数据，缺了客户端
+   会报「找不到 latest.yml」）→ Release 名 `十二阅读 v0.4.0 内测版（Windows）`、勾 Pre-release
+   → 附件：setup exe + portable exe + latest.yml + blockmap（**校验值写进正文，不传 .sha256**）
+   → 冒烟三件套 + portable 只能靠用户真机。
+   `tools/release/upload-release-0.4.0.py` 还没建（照 0.3.1 那份改，注意多传两个附件）。
+2. **等用户试用反馈**；一轮没问题就按他说的转 `1.0.0` 正式版（Release 去掉「内测版」与 Pre-release 勾）。
+   转正式版时要顺带改 CHANGELOG 开头那段「0.x 一律内测版」的说明。
+3. **0.3.1 已发布完毕（2026-10-16）**，见「现在在哪」首条。**可以做的下一件事**：等用户试用反馈；
    或者按「格式路线图」继续 **Markdown**（几乎零成本，走 TXT 管线）→ PDF（只做文字层）。
    - **待用户拍板**：`release/` 里旧的免安装版 `win-unpacked-0.2.1/`（不含 MOBI）与被锁的
      `win-unpacked-0.3.0*` / `win-unpacked.tmp/` / `win-unpacked/` 残壳还在 —— 重启后锁通常就解了，
@@ -148,7 +178,17 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 - **（已完结 2026-10-05）推送与 GitHub Release**：当时唯一没做的事已做完 —— `main` + tag `v0.1.3` 已推、Release「十二阅读 v0.1.3 内测版（Windows）」已建（Pre-release，附安装包与 sha256）、仓库已转 public。**新增长期规矩：每次 push 必须附带 Release notes。**
 - **`release/` 里的 0.1.0–0.1.2 旧产物留着没动**（它们本就该在，各自的 tag 也对得上），只有 0.1.3 被换成新构建。
 - **本机跑不了 e2e 是环境限制、不是缺陷**：受限沙箱里 Chromium GPU 进程必崩导致 electron FATAL。已用环境变量留了口子，默认行为不变。**换到普通终端 / CI 上直接 `pnpm test:e2e` 即可，无需任何设置。**
-- **未验证项（如实记录）**：新安装包没走一遍「图形界面下真实双击安装 → 启动」的全程，只做到「exe 能起、无 FATAL 退出（exit 0）」「解 NSIS 内 asar 与源码一致（含统计排版修复与书签提示文案）」；排版修复本身另用 Playwright 真实启动应用截图核对过（轴标签 12.3px < 柱宽 20px、三张卡说明同基线）。若要求更硬的证据，需要一台有桌面会话的机器。
+- **未验证项（如实记录，0.4.0 新增三条）**：
+  1. **应用内更新的真实下载与重启安装**：沙箱里跑的是未打包的应用（`app.isPackaged=false`），
+     只能验到「如实说不支持 → 退回下载页」。**差量下载、进度、`quitAndInstall()` 都只能在
+     打包后的安装版上由真机验证**；第一次发 0.4.0 后建议自己先装 0.4.0、等 0.4.1 出来点一次试试。
+  2. **还原备份后的自动重启**（`app.relaunch()` + `app.exit(0)`）：e2e 用
+     `TWELVE_READ_NO_RELAUNCH=1` 把它关掉、改成「自己关掉应用再起一次」来验证，
+     所以「进程内 relaunch」这条路没跑过（逻辑很直白，但如实记着）。
+  3. **扫描件 / 加密 PDF 的真实样本**：单测与 e2e 用的是现造 PDF（扫描件是「一页都没文字项」
+     的等价形态）；`格式测试文件/` 里那本 36MB 扫描件 PDF 可以拿来实测一次，看提示是不是人话。
+- **旧的那条**：0.3.1 的安装包没走一遍「图形界面下真实双击安装 → 启动」的全程，只做到「exe 能起、
+  无 FATAL 退出（exit 0）」「解 NSIS 内 asar 与源码一致」；若要求更硬的证据，需要一台有桌面会话的机器。
 - **`pnpm verify` 偶发 1 例超时**：`tests/unit/reading-stats-service.test.ts` 的 `afterEach` 在磁盘繁忙时会碰到 10s hook 超时（`Hook timed out in 10000ms`）。**单独重跑必过、非回归**；真碰到时重跑一次即可，别误判成代码问题。
 - **`builder-debug.yml` 仍是 10-04 的**（electron-builder 的调试快照，不参与安装与更新，未重生成）。`latest.yml` 已按新产物同步 size + sha512（sha512 与 size 均已用 openssl 独立校验一致）。
 
@@ -241,6 +281,26 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   `"/c/Program Files/Git/cmd/git.exe" credential fill`（或 `~/.local/bin/git`），
   官方 git 能取到 `username=Guflinn` + token。普通 commit / log 用哪个 git 都行。
   `tools/release/upload-release-0.1.4.py` 已按这个思路优先用官方 git 取 token。
+- **⚠️ 本机装依赖的坑（2026-10-16 踩了半小时）**：这台机器 pnpm 的默认 store 在 C:、项目在 D:，
+  跨盘无法硬链接；一旦 pnpm 退到 `D://.pnpm-store`，装出来的 `node_modules` **是个空壳**
+  （顶层只有几个 `@scope` 目录，`.pnpm` 里的包也缺自己的依赖，electron 连 dist 都没有），
+  而 pnpm 还报「Done」。**可用配方**（已验证）：
+  `pnpm install --config.node-linker=hoisted --config.package-import-method=copy --config.store-dir="C://Users//Lin//AppData//Local//pnpm//store//v11"`
+  （加 `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/` 让它别卡在 electron 二进制上）。
+  麻烦的是：这样装完，`pnpm exec` / `pnpm run` 每次都想「重装一遍」并在无 TTY 时直接失败
+  （`ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`），所以**直接用 node_modules 里的二进制**最省事：
+  `node node_modules/vitest/vitest.mjs run tests/unit tests/contract --no-file-parallelism`、
+  `node node_modules/typescript/bin/tsc -p tsconfig.node.json`、
+  `node node_modules/eslint/bin/eslint.js src tests`、
+  `node node_modules/@playwright/test/cli.js test`。
+  项目 `.npmrc` 里加过这些配置**没用**（pnpm 11 读 `pnpm-workspace.yaml` 的配置），
+  所以别在仓库里塞 `.npmrc`。**打包（electron-builder）用的是另一套依赖收集逻辑**，
+  hoisted 布局会不会影响 asar 内容，0.4.0 第一次打包时要顺手核对一下（asar 里的 version、
+  better-sqlite3 的 .node、electron-updater 在不在）。
+- **e2e 里「关掉应用再起一个」不能紧接着 launch**：Electron 在数据目录里留的锁还没放干净，
+  下一次 `launchApp` 会卡在启动上（并行跑整套 e2e、磁盘忙时尤其明显，表现为 90s 超时）。
+  `tests/e2e/backup.spec.ts` 的 `relaunchApp()` 是带重试的写法（等 5s → 起不来再等 6s 重试，
+  最多三轮），照抄它。
 - **提交前用 `git status --short` 过一眼，按路径 `git add`，别图省事 `git add -A`**：2026-10-07 就因此误提交过 `electron.vite.config.<时间戳>.mjs`（electron-vite 把 TS 配置转成 JS 的影子文件，跑构建就会生成一个）。该模式已补进 `.gitignore`，但同类「构建顺手产物」以后还会有。
 
 ## 两个 Agent 同时干活（同一台机器）

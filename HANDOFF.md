@@ -56,6 +56,11 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   4. **文字层 PDF**（`a3b2382`）：`services/pdf/`（`layout.ts` 纯函数 + `import.ts` 接 pdfjs），
      目录切章 / 没目录按页；扫描件与加密 PDF 给中文说明。
 - 顺手改的两处小东西：书架页头品牌标换成应用图标本体 + 副标题「本地阅读器」（`62ddb57`）。
+- 发布前用户真机试出一个崩（已修）：**还原备份之后关窗必弹「A JavaScript error occurred in the main process」**，
+  因为换库前先关了连接、而关窗回调还在往 meta 表写窗口位置 —— 已关的连接 `prepare()` 会抛，
+  异常出在 Electron 事件回调里就是弹框 + 卡住退出（点掉再关又弹）。修法见 TECH 变更记录 2026-10-16
+  最后一条：`SqlDatabase.isOpen()` + 收尾写入 fail-soft + `progress:flush` 兜底 + 还原失败先弹窗再重启
+  + 挪库文件重试。**用户的真实书库没受影响**（无 undo 目录、library.db 时间戳未变，4 本书与进度都在）。
 - **测试基线（2026-10-16，全绿）**：单测+契约 **67 文件 / 795 例**（`--no-file-parallelism`，
   约 36s）、e2e **56 例**（`TWELVE_READ_E2E_ELECTRON_ARGS` 那套环境变量别忘了）、
   eslint 与三份 tsc 干净。分支 `main`，工作区干净（只剩一个历史遗留的未跟踪目录 `12read/`，别提交）。
@@ -297,6 +302,10 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   所以别在仓库里塞 `.npmrc`。**打包（electron-builder）用的是另一套依赖收集逻辑**，
   hoisted 布局会不会影响 asar 内容，0.4.0 第一次打包时要顺手核对一下（asar 里的 version、
   better-sqlite3 的 .node、electron-updater 在不在）。
+- **数据库连接可能比进程先结束**（0.4.0 的经验，别再踩）：还原备份会先把连接关掉再换库文件，
+  从那一刻到 `app.exit()` 之间**任何**拿连接去写东西的收尾动作都会抛「The database connection is not open」，
+  而这类异常出在 Electron 的事件回调里 = 弹主进程错误框 + 卡住退出。凡是「关窗 / 退出 / beforeunload」
+  这类收尾路径上的写库，一律先 `db.isOpen()` 再写、外面再套一层 try/catch。
 - **e2e 里「关掉应用再起一个」不能紧接着 launch**：Electron 在数据目录里留的锁还没放干净，
   下一次 `launchApp` 会卡在启动上（并行跑整套 e2e、磁盘忙时尤其明显，表现为 90s 超时）。
   `tests/e2e/backup.spec.ts` 的 `relaunchApp()` 是带重试的写法（等 5s → 起不来再等 6s 重试，

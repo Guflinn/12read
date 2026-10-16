@@ -283,7 +283,20 @@ MVP 只用一句话定义成功标准：
 | 备份还原 | **整库覆盖还原** | 从 zip 恢复整个书库（数据库 + 原始书文件），还原前**自动把当前库另存一份 `.bak`**，并二次确认（会丢当前进度 / 书签 / 划线）。0.1.3 那轮「还原不做」的决定被本次覆盖 |
 | PDF | **引 `pdfjs-dist`，只做文字层** | 坐标聚类还原段落，按 PDF 大纲切章（没大纲按页分章）；扫描件明确报「无文字层」。**不承诺排版保真** |
 
-**进度**：Markdown 已完成（2026-10-16）；备份还原已完成（2026-10-16）；应用内更新 / 文字层 PDF 待做。
+**进度**：Markdown、备份还原、应用内更新都已完成（2026-10-16）；文字层 PDF 待做。
+
+#### 已交付：应用内更新（2026-10-16）
+
+`src/main/services/updater.ts`（包 electron-updater）+ 通道 `update:download` / `update:install` /
+`update:progress`（主进程推送进度）+ 书架那颗胶囊的文案（`renderer/src/core/updates.ts`，纯函数）。
+`electron-builder.yml` 加了 `publish: { provider: github, owner, repo, releaseType: prerelease }` ——
+打包时才会生成 `resources/app-update.yml` 与 `latest.yml` / `*.blockmap`，
+**发版脚本要把后两个附件一起传上去**（否则客户端下载不到差量包）。
+
+三道前提缺一即退回「去下载」：打包后的安装版、非免安装版（`PORTABLE_EXECUTABLE_DIR` 未设）、
+远端 Release 里有 `latest.yml`。`autoUpdater.allowPrerelease = true` 是必须的 —— 我们 0.x 的
+Release 一律勾 Pre-release。**下载完不会自动装**，必须用户点「重启并更新」。
+真的下载 + 重启安装只能靠打包后的安装版在真机验证（沙箱里跑不通），见 HANDOFF 的未验证项。
 
 #### 已交付：备份还原（2026-10-16）
 

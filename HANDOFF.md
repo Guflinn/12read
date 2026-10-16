@@ -318,6 +318,11 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   已修：`src/main/services/pdf/canvas-shim.ts` 用纯 JS 替身顶掉它（在 import pdfjs 之前塞 require 缓存）
   + electron-builder 排除 `!**/@napi-rs/**` + pnpm `ignoredOptionalDependencies`。
   **注意**：这个可选依赖装没装会让行为时好时坏（老的精简安装没装 → 一直没事）。
+- **GitHub Release 的附件名不能有非 ASCII 字符**（用户想给安装包起中文名时踩的）：实测
+  `测试中文名.txt` → `default.txt`、`test-测试.txt` → `test-.txt`、`安装包-0.4.0.exe` → `-0.4.0.exe`
+  —— 中文会被直接删掉。而 `latest.yml` 里的 `path` 必须与远端附件名逐字一致（应用内更新靠它拼下载地址），
+  所以**产物名必须保持 ASCII**，中文名只能在用户本地改（改名不影响运行，实测免安装版中文名能正常起）。
+  electron-builder 对 GitHub 源也是这么处理的（非 ASCII 会写「安全名」进元数据）。
 - **排查崩溃去哪看证据**：Windows 错误报告在 `%PROGRAMDATA%\Microsoft\Windows\WER\ReportArchive\AppCrash_*\Report.wer`
   （**UTF-16 编码**），里面有 `Sig[3].Value` = 故障模块名、`Sig[7].Value` = 异常代码；转储在
   `%LOCALAPPDATA%\CrashDumps\`。事件日志用 `Get-WinEvent -FilterHashtable @{LogName='Application'}`。

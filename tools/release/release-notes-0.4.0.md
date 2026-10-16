@@ -23,13 +23,15 @@
 
 ## 下载
 
-| 文件 | 说明 |
-|---|---|
-| `twelve-read-setup-0.4.0.exe`（约 126 MB） | 安装版，双击安装；**已装旧版直接覆盖**，书库、设置与进度都在。**想用应用内更新就装这个** |
-| `twelve-read-portable-0.4.0.exe`（约 126 MB） | 免安装版，单文件双击即用；首次启动自释放一次，稍等几秒 |
-| `latest.yml`、`*.blockmap` | 应用内更新的元数据（差量下载用），**不用手动下载**，留给应用自己取 |
+> ⚠️ **页面下方 Assets 区里的文件名只能是英文** —— GitHub 会把 Release 附件名里的中文**直接删掉**（实测：`安装包-0.4.0.exe` → `-0.4.0.exe`、`测试中文名.txt` → `default.txt`），没得商量。所以**请点下面这两个中文链接下载**，包本身和 Assets 里那两个完全一样（同一份文件）。
 
-> **文件名为什么是英文的**：GitHub 会把 Release 附件名里的中文直接删掉（实测 `安装包-0.4.0.exe` → `-0.4.0.exe`、`测试中文名.txt` → `default.txt`），所以这里只能放英文名。喜欢中文名的话，**下载后自己重命名即可，改名不影响运行**（「十二阅读免安装版.exe」这种随便叫）。
+- ⬇️ **[免安装版 · 单文件双击即用](https://github.com/Guflinn/12read/releases/download/v0.4.0/twelve-read-portable-0.4.0.exe)**（约 126 MB，对应 Assets 里的 `twelve-read-portable-0.4.0.exe`）
+- ⬇️ **[安装版 · 推荐（装了以后能应用内更新）](https://github.com/Guflinn/12read/releases/download/v0.4.0/twelve-read-setup-0.4.0.exe)**（约 126 MB，对应 Assets 里的 `twelve-read-setup-0.4.0.exe`）
+
+两个包都是：**已装旧版直接覆盖安装**，书库、设置与阅读进度都在。免安装版首次启动会自释放一次，稍等几秒。
+Assets 区里的 `latest.yml` 与 `*.blockmap` 是应用内更新的元数据（差量下载用），**不用手动下载**，留给应用自己取。
+
+> **想要中文文件名**：下载后自己重命名即可 —— 「十二阅读免安装版.exe」「十二阅读安装版.exe」随便叫，**改名不影响运行**（含免安装版的自解压）。
 
 **SHA-256 校验值**（想核对的话，把文件拖进 PowerShell 跑 `Get-FileHash 文件名 -Algorithm SHA256`）：
 

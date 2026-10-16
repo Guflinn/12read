@@ -37,11 +37,13 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 NOTES = ROOT / 'tools' / 'release' / 'release-notes-0.4.0.md'
 # 0.4.0 起多两样：latest.yml 与 blockmap 是 electron-updater 的差量更新元数据，
 # 少了客户端会报「找不到 latest.yml」—— 必须和 exe 一起传。
+# 产物 2026-10-17 起归到「发布-0.4.0/」文件夹里（release/ 是 electron-builder 的默认输出目录，
+# 里面的旧产物已归档到「旧版-可删/」）；重新打包后把文件放回这里再跑本脚本。
 ASSETS = [
-    ROOT / 'release' / 'twelve-read-setup-0.4.0.exe',
-    ROOT / 'release' / 'twelve-read-portable-0.4.0.exe',
-    ROOT / 'release' / 'latest.yml',
-    ROOT / 'release' / 'twelve-read-setup-0.4.0.exe.blockmap',
+    ROOT / '发布-0.4.0' / 'twelve-read-setup-0.4.0.exe',
+    ROOT / '发布-0.4.0' / 'twelve-read-portable-0.4.0.exe',
+    ROOT / '发布-0.4.0' / 'latest.yml',
+    ROOT / '发布-0.4.0' / 'twelve-read-setup-0.4.0.exe.blockmap',
 ]
 
 GIT_CANDIDATES = [

@@ -318,6 +318,14 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   已修：`src/main/services/pdf/canvas-shim.ts` 用纯 JS 替身顶掉它（在 import pdfjs 之前塞 require 缓存）
   + electron-builder 排除 `!**/@napi-rs/**` + pnpm `ignoredOptionalDependencies`。
   **注意**：这个可选依赖装没装会让行为时好时坏（老的精简安装没装 → 一直没事）。
+- **产物目录约定（2026-10-17 用户要求整理）**：发布产物放在仓库根的 **`发布-<版本>/`**（例：
+  `发布-0.4.0/` —— 中文名与英文名两份 exe + `latest.yml` + `.blockmap`；**中文名那份只是给用户双击/分发的副本，
+  与英文名那份逐字节一致**）。旧的构建产物归档在 **`旧版-可删/`**（用户确认后整个删掉）。
+  `release/` 仍是 electron-builder 的默认输出目录，下次打包会重新出现。三者都写进了 `.gitignore`。
+- **`*.asar` 在本机必被系统占用（EBUSY）**：`release*/win-unpacked*/resources/*.asar` 既**挪不动也删不掉**
+  （safe-delete 会 FAIL_CLOSED，报 `trash operation: Some operations were aborted`），而同一个目录里的其它文件都正常
+  —— 这是这台机器上的固定现象（IDE / 索引服务的文件句柄）。**办法**：同盘改名搬走其它内容，只把 asar 留在原地，
+  重启后再删那些空壳目录；别在这上面反复重试耗时间。
 - **GitHub Release 的附件名不能有非 ASCII 字符**（用户想给安装包起中文名时踩的）：实测
   `测试中文名.txt` → `default.txt`、`test-测试.txt` → `test-.txt`、`安装包-0.4.0.exe` → `-0.4.0.exe`
   —— 中文会被直接删掉。而 `latest.yml` 里的 `path` 必须与远端附件名逐字一致（应用内更新靠它拼下载地址），

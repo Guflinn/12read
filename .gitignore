@@ -35,3 +35,7 @@ build/_*.html
 
 # README 截图脚本生成的演示书（公版内容，随时可用 tools/screenshots/make-demo-books.py 重新生成）
 .shots-demo-books/
+
+# 打包产物与旧版归档（二进制大文件，只在本地留档，不进仓库）
+/发布-*/
+/旧版-可删/

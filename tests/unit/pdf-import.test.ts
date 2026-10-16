@@ -121,18 +121,20 @@ describe('pdfjs 的 canvas 依赖被换成纯 JS 替身（0.4.0 的崩）', () =
   })
 
   it('替身能当 DOMMatrix 用：构造、相乘、平移、求逆都对', () => {
+    // 假 DOMMatrix 的形状：self 系方法返回自身类型，测试里的链式调用才过得了 tsc
+    interface MatrixLike {
+      a: number
+      b: number
+      c: number
+      d: number
+      e: number
+      f: number
+      multiplySelf(other: unknown): MatrixLike
+      translateSelf(x: number, y: number): MatrixLike
+      invertSelf(): MatrixLike
+    }
     const Matrix = (require.cache[require.resolve('@napi-rs/canvas')]?.exports as {
-      DOMMatrix: new (init?: number[]) => {
-        a: number
-        b: number
-        c: number
-        d: number
-        e: number
-        f: number
-        multiplySelf(other: unknown): unknown
-        translateSelf(x: number, y: number): unknown
-        invertSelf(): unknown
-      }
+      DOMMatrix: new (init?: number[]) => MatrixLike
     }).DOMMatrix
 
     expect(new Matrix()).toMatchObject({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 })

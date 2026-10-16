@@ -358,8 +358,22 @@ export function registerIpc(ctx: IpcContext): void {
       return result
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause)
-      // 关连接之后出错也重启：回滚已经把旧库搬回去了，重启才能干净地继续用
-      if (cause instanceof RestoreError && cause.closed) scheduleRelaunch()
+      if (!(cause instanceof RestoreError) || !cause.closed) {
+        // 包本身不对：库文件一个字都没动，界面 toast 说清就够了
+        throw new Error('还原失败：' + message)
+      }
+      // 已经动过库文件了（连接也关了）：**必须重启**才能干净地继续用。
+      // 这种时候界面上的 toast 会被重启抹掉，所以先用系统弹窗把原因讲清楚再重启 ——
+      // 失败原因不让人看见的话，用户只会觉得「点了没反应还崩了」。
+      await dialog.showMessageBox({
+        type: 'error',
+        title: '还原失败',
+        message,
+        detail: '已经退回还原前的书库，应用会重启一次，你的书和进度都还在。',
+        buttons: ['知道了'],
+        noLink: true
+      })
+      scheduleRelaunch()
       throw new Error('还原失败：' + message)
     }
   })
@@ -380,7 +394,16 @@ export function registerIpc(ctx: IpcContext): void {
       event.returnValue = false
       return
     }
-    void ctx.progress.save(parsed.data)
+    // 这是 sendSync：**不管出什么事都得把 returnValue 写回去**，否则渲染层的关窗会一直等。
+    // 「还原备份已经把连接关了」那种情况（0.4.0）就靠这一层兜底 —— 进度存不下无所谓，
+    // 不能因此卡住关窗。
+    try {
+      void ctx.progress.save(parsed.data).catch((cause: unknown) => {
+        console.warn('[12read] 退出前落盘失败（不影响关窗）', cause)
+      })
+    } catch (cause) {
+      console.warn('[12read] 退出前落盘失败（不影响关窗）', cause)
+    }
     event.returnValue = true
   })
 

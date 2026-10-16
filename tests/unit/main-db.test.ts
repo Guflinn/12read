@@ -95,6 +95,10 @@ class PragmaRecorder implements SqlDatabase {
     return undefined
   }
 
+  isOpen(): boolean {
+    return true
+  }
+
   close(): void {
     /* 无资源 */
   }
@@ -115,6 +119,10 @@ class StubDatabase implements SqlDatabase {
       get: () => this.rows.shift(),
       all: () => []
     }
+  }
+
+  isOpen(): boolean {
+    return true
   }
 
   transaction<T>(fn: () => T): () => T {
@@ -410,5 +418,20 @@ describe('meta 仓储', () => {
     const stub = new StubDatabase()
     stub.rows.push({ value: 123 })
     expect(new MetaRepository(stub).get('k')).toBeNull()
+  })
+})
+
+describe('连接的开合状态（isOpen，0.4.0）', () => {
+  it('打开时是 true，close 之后变 false', () => {
+    const db = openDatabase(tempDbPath())
+    expect(db.isOpen()).toBe(true)
+    db.close()
+    expect(db.isOpen()).toBe(false)
+  })
+
+  it('连接关了以后 prepare 会抛（所以收尾动作要先问 isOpen）', () => {
+    const db = openDatabase(tempDbPath())
+    db.close()
+    expect(() => db.prepare('SELECT 1')).toThrow(/not open/i)
   })
 })

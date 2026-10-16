@@ -165,6 +165,8 @@ describe('restore: 整库覆盖还原', () => {
     const restore = new RestoreService({ root, db, now: () => 1 })
     const report = await restore.restoreFrom(zip)
 
+    // 换完库文件连接就是关着的了 —— 主进程里所有仓储都得靠重启才干净（ipc 层据此安排重启）
+    expect(db.isOpen()).toBe(false)
     expect(existsSync(bookDir(root, 'stray-book'))).toBe(false)
     expect(existsSync(join(report.undoDir as string, BOOKS_DIR, 'stray-book'))).toBe(true)
   })
@@ -218,6 +220,8 @@ describe('restore: 校验与错误', () => {
     const restore = new RestoreService({ root, db })
     await expect(restore.restoreFrom(zip)).rejects.toThrow(/不是十二阅读/)
     expect(existsSync(sourcePath(root, BOOK_A))).toBe(true)
+    // 校验失败发生在关库之前：连接照旧开着，书库一点没动
+    expect(db.isOpen()).toBe(true)
   })
 
   it('备份来自更新的数据格式：拒绝，并说清当前支持到哪一版', async () => {

@@ -55,6 +55,23 @@ interface StagedBook {
   path: string
 }
 
+/**
+ * Windows 上 rename 会因为「文件被别的进程短暂占着」失败（另一个实例、杀毒、索引器），
+ * 而库文件与 books 目录恰恰是最容易被碰的。挪旧库这一步失败就会走回滚，
+ * 用户看到的是「还原失败」—— 所以这里给几次重试，多半第二次就成了。
+ */
+async function renameWithRetry(from: string, to: string, attempts = 4): Promise<void> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await rename(from, to)
+      return
+    } catch (cause) {
+      if (attempt >= attempts) throw cause
+      await new Promise((resolve) => setTimeout(resolve, 250 * attempt))
+    }
+  }
+}
+
 /** 简单的时间戳（用于 undo 目录名）：20261016-181530。 */
 function stampOf(ms: number): string {
   const iso = new Date(ms).toISOString()
@@ -151,13 +168,13 @@ export class RestoreService {
       await mkdir(undoDir, { recursive: true })
       let moved = false
       if (existsSync(liveDb)) {
-        await rename(liveDb, join(undoDir, DB_FILE))
+        await renameWithRetry(liveDb, join(undoDir, DB_FILE))
         moved = true
       }
       // 关连接后 WAL / SHM 是残留，直接删掉；不删的话新库会被旧 WAL 污染
       for (const suffix of ['-wal', '-shm']) await rm(liveDb + suffix, { force: true })
       if (existsSync(liveBooks)) {
-        await rename(liveBooks, join(undoDir, BOOKS_DIR))
+        await renameWithRetry(liveBooks, join(undoDir, BOOKS_DIR))
         moved = true
       }
       if (!moved) await rm(undoDir, { recursive: true, force: true })
@@ -194,8 +211,8 @@ export class RestoreService {
     for (const suffix of ['-wal', '-shm']) await rm(liveDb + suffix, { force: true }).catch(() => undefined)
     const oldDb = join(undoDir, DB_FILE)
     const oldBooks = join(undoDir, BOOKS_DIR)
-    if (existsSync(oldDb)) await rename(oldDb, liveDb).catch(() => undefined)
-    if (existsSync(oldBooks)) await rename(oldBooks, booksRoot(root)).catch(() => undefined)
+    if (existsSync(oldDb)) await renameWithRetry(oldDb, liveDb).catch(() => undefined)
+    if (existsSync(oldBooks)) await renameWithRetry(oldBooks, booksRoot(root)).catch(() => undefined)
     await rm(undoDir, { recursive: true, force: true }).catch(() => undefined)
   }
 }

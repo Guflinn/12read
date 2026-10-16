@@ -18,15 +18,24 @@ import type {
 import { STAT_MAX_REPORT_CHARS, STAT_MAX_REPORT_MS } from '@shared/core/stats'
 import type { IpcContext } from '@main/ipc'
 import { ImportError } from '@main/services/import-error'
+import { RestoreError } from '@main/services/restore'
 
 type Invoke = (event: unknown, raw: unknown) => Promise<unknown>
 type SyncHandler = (event: { returnValue: unknown }, raw: unknown) => void
 
-const { handlers, syncHandlers, showOpenDialog, showSaveDialog, sendToWindow } = vi.hoisted(() => ({
+const {
+  handlers,
+  syncHandlers,
+  showOpenDialog,
+  showSaveDialog,
+  showMessageBox,
+  sendToWindow
+} = vi.hoisted(() => ({
   handlers: new Map<string, Invoke>(),
   syncHandlers: new Map<string, SyncHandler>(),
   showOpenDialog: vi.fn(),
   showSaveDialog: vi.fn(),
+  showMessageBox: vi.fn(async () => ({ response: 0 })),
   /** 主进程往窗口推的事件（import:progress / update:progress）。 */
   sendToWindow: vi.fn()
 }))
@@ -36,7 +45,7 @@ vi.mock('electron', () => ({
   BrowserWindow: {
     getAllWindows: () => [{ isDestroyed: () => false, webContents: { send: sendToWindow } }]
   },
-  dialog: { showOpenDialog, showSaveDialog },
+  dialog: { showOpenDialog, showSaveDialog, showMessageBox },
   ipcMain: {
     handle: (channel: string, fn: Invoke) => {
       handlers.set(channel, fn)
@@ -328,6 +337,7 @@ function setup(): ReturnType<typeof makeContext> {
   syncHandlers.clear()
   showOpenDialog.mockReset()
   showSaveDialog.mockReset()
+  showMessageBox.mockReset()
   sendToWindow.mockReset()
   return makeContext()
 }
@@ -659,6 +669,18 @@ describe('IPC 注册与转发', () => {
     expect(progress.save.mock.calls[0]?.[0]).toEqual(PROGRESS)
   })
 
+  it('progress:flush 落盘失败也要回执 true（不能卡住关窗，0.4.0）', () => {
+    const { progress } = setup()
+    progress.save.mockImplementation(() => {
+      throw new Error('The database connection is not open')
+    })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    // 还原备份之后连接已经关了，关窗时这一下会失败 —— 但渲染层在等回执，必须给
+    expect(callSync(CH.progressFlush, PROGRESS)).toBe(true)
+    expect(warn).toHaveBeenCalled()
+  })
+
   it('progress:flush 参数非法时回执 false 且不写库', () => {
     const { progress } = setup()
     expect(callSync(CH.progressFlush, { ...PROGRESS, bookId: 'not-a-uuid' })).toBe(false)
@@ -877,7 +899,7 @@ describe('应用内更新与还原备份的通道（0.4.0）', () => {
     try {
       const { restore } = setup()
       restore.restoreFrom.mockResolvedValueOnce({
-        path: 'D:////备份////12read.zip',
+        path: 'D://备份//12read.zip',
         books: 2,
         sources: 2,
         restoredAt: '2026-10-16T00:00:00.000Z',
@@ -885,11 +907,11 @@ describe('应用内更新与还原备份的通道（0.4.0）', () => {
         schemaVersion: 5,
         undoDir: null
       })
-      showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ['D:////备份////12read.zip'] })
+      showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ['D://备份//12read.zip'] })
 
       const result = await call(CH.backupRestore)
 
-      expect(restore.restoreFrom.mock.calls[0]?.[0]).toBe('D:////备份////12read.zip')
+      expect(restore.restoreFrom.mock.calls[0]?.[0]).toBe('D://备份//12read.zip')
       expect(result).toMatchObject({ books: 2, sources: 2 })
 
       // 换完库文件必须重启（主进程里的数据库连接已经作废）
@@ -903,11 +925,40 @@ describe('应用内更新与还原备份的通道（0.4.0）', () => {
     }
   })
 
-  it('backup:restore 失败时翻成中文提示', async () => {
+  it('backup:restore 校验不过（库文件没动）：只把中文原因抛回去，不重启', async () => {
     const { restore } = setup()
-    showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ['D:////坏包.zip'] })
+    showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ['D://坏包.zip'] })
     restore.restoreFrom.mockRejectedValueOnce(new Error('这不是十二阅读的备份包'))
 
     await expect(call(CH.backupRestore)).rejects.toThrow('还原失败：这不是十二阅读的备份包')
+    expect(showMessageBox).not.toHaveBeenCalled()
+  })
+
+  it('backup:restore 动过库文件之后失败（closed）：先弹系统弹窗讲清原因，再重启', async () => {
+    vi.useFakeTimers()
+    try {
+      const { restore } = setup()
+      showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ['D://包.zip'] })
+      // closed = true：连接已经关了、库文件动过（失败时也已经回滚）
+      restore.restoreFrom.mockRejectedValueOnce(
+        new RestoreError('还原失败，已经退回原来的书库：磁盘忙', true)
+      )
+
+      await expect(call(CH.backupRestore)).rejects.toThrow(/已经退回原来的书库/)
+
+      // 界面上的 toast 会被重启抹掉，所以原因得先用系统弹窗讲清楚
+      expect(showMessageBox).toHaveBeenCalledTimes(1)
+      const boxed = showMessageBox.mock.calls[0]?.[0] as { message?: string; detail?: string }
+      expect(boxed.message).toContain('磁盘忙')
+      expect(boxed.detail).toContain('重启')
+
+      const { app } = (await import('electron')) as unknown as {
+        app: { relaunch: ReturnType<typeof vi.fn> }
+      }
+      vi.advanceTimersByTime(2000)
+      expect(app.relaunch).toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

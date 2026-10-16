@@ -55,7 +55,14 @@ export class FakeSqlDatabase implements SqlDatabase {
     return undefined
   }
 
+  private open = true
+
+  isOpen(): boolean {
+    return this.open
+  }
+
   close(): void {
     /* 内存实现无需释放 */
+    this.open = false
   }
 }

@@ -200,9 +200,30 @@ describe('WindowStateStore 与 captureWindowState（0.1.4 窗口记忆）', () =
   it('set 后 get 读回同一份状态', () => {
     const meta = makeMetaHarness()
     const store = new WindowStateStore(meta.repo)
-    store.set(SAVED)
+    expect(store.set(SAVED)).toBe('saved')
     expect(meta.set).toHaveBeenCalledWith(KEY, JSON.stringify(SAVED))
     expect(store.get()).toEqual(SAVED)
+  })
+
+  it('书库连接已经关了：跳过写入（0.4.0 修的那个崩）', () => {
+    const meta = makeMetaHarness()
+    // 还原备份之后连接就关了，关窗回调照旧会跑 —— 这时候写库会抛「connection is not open」，
+    // 异常出在 Electron 的事件回调里会弹主进程错误框、还会卡住退出
+    const store = new WindowStateStore(meta.repo, () => false)
+    expect(store.set(SAVED)).toBe('skipped')
+    expect(meta.set).not.toHaveBeenCalled()
+  })
+
+  it('写库真出错时也吞掉：窗口记忆不值得拦住关窗', () => {
+    const meta = makeMetaHarness()
+    meta.set.mockImplementation(() => {
+      throw new Error('The database connection is not open')
+    })
+    const logged: string[] = []
+    const store = new WindowStateStore(meta.repo, () => true, (message) => logged.push(message))
+
+    expect(store.set(SAVED)).toBe('failed')
+    expect(logged[0]).toContain('窗口状态没能存下来')
   })
 
   it('meta 里是坏 JSON 时返回 null，不抛异常', () => {

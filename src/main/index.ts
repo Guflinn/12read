@@ -124,10 +124,15 @@ async function bootstrap(): Promise<() => void> {
 
   // 窗口尺寸 / 位置记忆（0.1.4）：建窗口前读、关窗时写。
   // 只在 close 写一次，不做 resize 防抖 —— 少一次写库，代价是进程被强杀时丢本次调整。
-  const windowState = new WindowStateStore(meta)
+  //
+  // 写入要经过 isOpen 与 try/catch 两道闸（0.4.0）：还原备份之后连接已经关了，
+  // 而关窗回调照旧会跑 —— 那时候写库会抛异常、弹主进程错误框、还会把退出卡住。
+  const windowState = new WindowStateStore(meta, () => db.isOpen())
   return (): void => {
     const win = createMainWindow(windowState.get())
-    win.on('close', () => windowState.set(captureWindowState(win)))
+    win.on('close', () => {
+      windowState.set(captureWindowState(win))
+    })
   }
 }
 

@@ -9,7 +9,9 @@ export function openDatabase(filePath: string): SqlDatabase {
     prepare: (sql) => raw.prepare(sql) as unknown as SqlStatement,
     transaction: <T>(fn: () => T) => raw.transaction(fn) as unknown as () => T,
     pragma: (statement) => raw.pragma(statement) as unknown,
-    close: () => raw.close()
+    close: () => raw.close(),
+    // better-sqlite3 自己就带这个只读属性（关掉连接后变 false）
+    isOpen: () => raw.open
   }
   applyConnectionPragmas(adapter)
   return adapter

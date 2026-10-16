@@ -133,7 +133,10 @@ test('还原备份：整库覆盖，重启后书架与正文都回来了（派�
   const undoDir = readdirSync(dataDir).find((name) => name.startsWith('restore-undo-'))
   expect(undoDir).toBeTruthy()
 
-  // ④ 真的重启一次（比进程内 relaunch 更硬）：书架回来了，正文也补齐了
+  // ④ 真的重启一次（比进程内 relaunch 更硬）：书架回来了，正文也补齐了。
+  //    注意这一步顺带守着一个 0.4.0 的回归：这会儿**数据库连接已经关了**，
+  //    关窗回调若还去写窗口状态就会抛「connection is not open」——
+  //    那个异常会弹主进程错误框并把退出卡死，表现就是这里的 close 一直不返回。
   const restored = await relaunchApp(dataDir)
   await expect(restored.locator('.book-card')).toHaveCount(1)
   await expect(restored.locator('.book-title')).toHaveText('备份样书')

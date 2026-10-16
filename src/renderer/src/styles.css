@@ -162,6 +162,54 @@
   .chapter-title { font-size: calc(var(--fs) * 1.22); line-height: 1.5; margin: 0 0 calc(var(--fs) * 1.5);
     font-weight: 600; text-align: center; letter-spacing: .02em; }
   .reader-content p { margin: 0 0 .85em; text-indent: 2em; text-align: justify; }
+
+  /* ---------- Markdown 正文（0.4.0） ----------
+     渲染的两条硬约束（改这几行前先读 src/renderer/src/core/markdown.ts 的注释）：
+     ① 语法标记是**藏起来**（display:none）而不是删掉 —— DOM 里的文字与原始文件逐字相同，
+        选区的字符偏移才不会错位（进度 / 书签 / 划线 / 搜索全部锚在这个偏移上）；
+     ② **绝不插入可见文字**：列表圆点与序号、分隔线一律用 CSS 画，插字会让偏移整体错位。 */
+  .md-syntax { display: none; }
+  .reader-content p.md-p { text-indent: 0; }         /* Markdown 自己就是「按行写」的，不再加首行缩进 */
+  .reader-content p.md-heading { text-indent: 0; text-align: left; font-weight: 600;
+    margin: 1.5em 0 .7em; letter-spacing: .01em; }
+  .reader-content p.md-h1 { font-size: 1.42em; margin-top: 1.7em; }
+  .reader-content p.md-h2 { font-size: 1.26em; margin-top: 1.6em; }
+  .reader-content p.md-h3 { font-size: 1.13em; }
+  .reader-content p.md-h4 { font-size: 1.04em; }
+  .reader-content p.md-h5, .reader-content p.md-h6 { font-size: 1em; color: var(--dim); }
+  .reader-content p.md-quote { text-indent: 0; margin: .4em 0 .9em; padding-left: 1em;
+    border-left: 3px solid var(--line); color: var(--dim); }
+  .reader-content p.md-li { text-indent: 0; text-align: left; padding-left: 1.6em; position: relative;
+    margin-bottom: .35em; }
+  /* 圆点与序号都是 CSS 生成的（不进 DOM 文字），嵌套层级直接用 padding 推开 */
+  .reader-content p.md-ul::before { content: '·'; position: absolute; left: .55em; color: var(--dim); font-weight: 700; }
+  .reader-content p.md-ol::before { content: attr(data-md-num) '.'; position: absolute; left: .05em;
+    color: var(--dim); font-size: .9em; }
+  .reader-content p.md-li[data-md-depth="1"] { padding-left: 2.9em; }
+  .reader-content p.md-li[data-md-depth="2"] { padding-left: 4.2em; }
+  .reader-content p.md-li[data-md-depth="3"] { padding-left: 5.5em; }
+  .reader-content p.md-li[data-md-depth="4"] { padding-left: 6.8em; }
+  .reader-content p.md-li[data-md-depth="5"] { padding-left: 8.1em; }
+  .reader-content p.md-code { text-indent: 0; text-align: left; margin: 0; padding: .12em .9em;
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Courier New", monospace; font-size: .88em;
+    line-height: 1.7; background: var(--surface); border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+  .reader-content p.md-code-first { border-radius: 8px 8px 0 0; border-top: 1px solid var(--line); padding-top: .7em; }
+  .reader-content p.md-code-last { border-radius: 0 0 8px 8px; border-bottom: 1px solid var(--line); padding-bottom: .7em; }
+  .reader-content p.md-code-only { border-radius: 8px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    padding-top: .7em; padding-bottom: .7em; }
+  /* 围栏行（```）整行藏掉：不占高度，也不吃 p 的默认下边距 */
+  .reader-content p.md-fence { margin: 0; padding: 0; line-height: 0; min-height: 0; }
+  /* 分隔线：整行字符都藏着，线由 border 画 */
+  .reader-content p.md-rule { margin: 1.8em 0; padding: 0; line-height: 0; min-height: 0;
+    border-top: 1px solid var(--line); }
+  .md-strong { font-weight: 700; }
+  .md-em { font-style: italic; }
+  .md-code-inline { font-family: ui-monospace, SFMono-Regular, Consolas, "Courier New", monospace;
+    font-size: .9em; background: var(--surface); padding: 0 .3em; border-radius: 4px; }
+  /* 链接与图片 v1 只做样式（不跳转、不加载远程图）：地址放在 title 里，指上去能看到 */
+  .md-link { color: var(--accent); text-decoration: underline; text-underline-offset: .18em; }
+  .md-image { color: var(--dim); }
+
   .chapter-end { text-align: center; color: var(--dim); font-size: .72em; margin: 2.4em 0 2em; letter-spacing: .3em; }
   .chapter-nav { max-width: var(--page-w); margin: 0 auto; display: flex; align-items: center; justify-content: space-between;
     gap: 12px; padding: 22px 0 30px; border-top: 1px solid var(--line); }

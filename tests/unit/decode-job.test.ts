@@ -454,3 +454,89 @@ describe('runDecodeJob：MOBI（0.3.0）', () => {
     expect(existsSync(destDir)).toBe(false)
   })
 })
+
+/**
+ * Markdown（0.4.0）：正文走 TXT 的解码路径，切章换成 ATX 标题，
+ * 正文里**一个标记都不删**（偏移体系要求正文就是原始字符流）。
+ */
+describe('runDecodeJob 的 Markdown 分支（0.4.0）', () => {
+  const MD = [
+    '# 读书笔记',
+    '',
+    '## 第一章 起手',
+    '正文里有 **粗体** 与 `代码`。',
+    '',
+    '- 一条清单',
+    '- 另一条',
+    '',
+    '## 第二章 收束',
+    '结尾。',
+    ''
+  ].join('\n')
+
+  it('按标题切章，书名取第一个一级标题，正文原样落盘', async () => {
+    await seedSource(bytesUtf8(MD))
+    const result = await runDecodeJob(
+      { taskId: 'md1', sourcePath: srcFile, destDir, contentMode: 'single', format: 'md' },
+      () => undefined
+    )
+
+    expect(result.format).toBe('md')
+    expect(result.title).toBe('读书笔记')
+    expect(result.author).toBeNull()
+    expect(result.chapters.map((c) => c.title)).toEqual(['开篇', '第一章 起手', '第二章 收束'])
+    expect(result.chapters.map((c) => c.kind)).toEqual(['segment', 'chapter', 'chapter'])
+    expect(result.charCount).toBe(MD.length)
+
+    // 标记与文字都还在（渲染层负责把标记藏起来）
+    const text = await readFile(join(destDir, CONTENT_FILE), 'utf8')
+    expect(text).toBe(MD)
+    expect(text).toContain('**粗体**')
+    expect(text).toContain('## 第一章 起手')
+  })
+
+  it('手工指定编码时按指定编码解（与 TXT 同一条路径）', async () => {
+    await seedSource(bytesGbk(MD))
+    const result = await runDecodeJob(
+      {
+        taskId: 'md2',
+        sourcePath: srcFile,
+        destDir,
+        contentMode: 'single',
+        format: 'md',
+        encoding: 'gb18030'
+      },
+      () => undefined
+    )
+
+    expect(result.encoding).toBe('gb18030')
+    expect(result.title).toBe('读书笔记')
+    expect(await readFile(join(destDir, CONTENT_FILE), 'utf8')).toBe(MD)
+  })
+
+  it('切片模式：按标题章节切到 chapters/NNNN.txt', async () => {
+    await seedSource(bytesUtf8(MD))
+    const result = await runDecodeJob(
+      { taskId: 'md3', sourcePath: srcFile, destDir, contentMode: 'sliced', format: 'md' },
+      () => undefined
+    )
+
+    const files = (await readdir(join(destDir, CHAPTERS_DIR))).sort()
+    expect(files).toEqual([chapterFileName(0), chapterFileName(1), chapterFileName(2)])
+    expect(await readFile(join(destDir, CHAPTERS_DIR, chapterFileName(1)), 'utf8')).toContain('## 第一章 起手')
+    expect(result.chapters).toHaveLength(3)
+  })
+
+  it('没有标题结构时退回 TXT 规则，书名退回 null（用文件名）', async () => {
+    const plain = '就是一段没有标题的笔记。'.repeat(30)
+    await seedSource(bytesUtf8(plain))
+    const result = await runDecodeJob(
+      { taskId: 'md4', sourcePath: srcFile, destDir, contentMode: 'single', format: 'md' },
+      () => undefined
+    )
+
+    expect(result.title).toBeNull()
+    expect(result.usedFallback).toBe(true)
+    expect(result.chapters[0].title).toBe('分段 1')
+  })
+})

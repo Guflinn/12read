@@ -1,6 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { splitChapters } from '@shared/core/chapter-split'
+import { findMarkdownHeadings, splitMarkdownChapters } from '@shared/core/markdown'
 import type {
   BookFormat,
   ChapterKind,
@@ -66,6 +67,17 @@ export type ProgressReporter = (stage: ImportStage, ratio: number, message?: str
 
 const WRITE_CONCURRENCY = 8
 
+/**
+ * 从 Markdown 里认书名：开头一小段里的**第一个一级标题**（`# 读书笔记`）当书名。
+ * 认不出返回 null，调用方退回文件名清洗 —— 与 EPUB 取 OPF、MOBI 取 EXTH 同一个立场：
+ * 文件里写了的比文件名可信。
+ */
+function markdownTitle(text: string): string | null {
+  const first = findMarkdownHeadings(text.slice(0, 4000)).find((heading) => heading.level === 1)
+  const title = first ? first.title.trim() : ''
+  return title === '' || title.length > 80 ? null : title
+}
+
 async function runPool(count: number, limit: number, worker: (index: number) => Promise<void>): Promise<void> {
   let cursor = 0
   const runners = Array.from({ length: Math.min(limit, count) }, async () => {
@@ -91,7 +103,9 @@ export async function runDecodeJob(job: DecodeJob, onProgress: ProgressReporter)
       ? decodeEpubPayload(bytes, onProgress)
       : format === 'mobi'
         ? decodeMobiPayload(bytes, onProgress)
-        : decodeTextPayload(bytes, job, onProgress)
+        : format === 'md'
+          ? decodeMarkdownPayload(bytes, job, onProgress)
+          : decodeTextPayload(bytes, job, onProgress)
 
   onProgress('splitting', 0.45)
   await mkdir(job.destDir, { recursive: true })
@@ -167,6 +181,35 @@ function decodeTextPayload(bytes: Buffer, job: DecodeJob, onProgress: ProgressRe
     markerHits: split.markerHits,
     suspicious: decoded.suspicious,
     title: null,
+    author: null
+  }
+}
+
+/**
+ * Markdown（0.4.0）：正文走 TXT 那条解码路径（纯文本文件，同样支持手工指定编码），
+ * 切章换成 ATX 标题；标题行本身留在章内（渲染层会把它与章名去重）。
+ */
+function decodeMarkdownPayload(bytes: Buffer, job: DecodeJob, onProgress: ProgressReporter): DecodedPayload {
+  onProgress('detecting', 0.1)
+  const decoded = job.encoding ? decodeBytesWith(bytes, job.encoding) : decodeBytes(bytes)
+  onProgress('decoding', 0.25)
+  const split = splitMarkdownChapters(decoded.text)
+  return {
+    format: 'md',
+    encoding: decoded.encoding,
+    text: decoded.text,
+    chapters: split.chapters.map((chapter) => ({
+      title: chapter.title,
+      groupTitle: null,
+      parentTitle: null,
+      startOffset: chapter.startOffset,
+      charLength: chapter.charLength,
+      kind: chapter.kind
+    })),
+    usedFallback: split.usedFallback,
+    markerHits: split.markerHits,
+    suspicious: decoded.suspicious,
+    title: markdownTitle(decoded.text),
     author: null
   }
 }

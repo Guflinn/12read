@@ -20,6 +20,14 @@ export type BookId = string
 export type BookFormat = 'txt' | 'epub' | 'mobi' | 'md' | 'pdf'
 
 /**
+ * 纯文本格式（0.4.0）：正文就是「一个文本文件」，所以编码可以手工指定、
+ * 书卡上的「重新解码」对它有意义。EPUB / MOBI / PDF 的编码写在文件自己里头，没有这一说。
+ */
+export function isTextFormat(format: BookFormat): boolean {
+  return format === 'txt' || format === 'md'
+}
+
+/**
  * 检测到的源文件编码。unknown 表示解码结果可疑，仅附警告，不阻塞导入。
  * big5 只可能来自用户手工指定（繁体老书常见），自动检测永远不会给出它。
  */

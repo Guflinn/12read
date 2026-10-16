@@ -5,7 +5,7 @@ import { Worker } from 'node:worker_threads'
 import { cleanTitleFromPath } from '@shared/core/filename'
 import { newBookId } from '@shared/core/ids'
 import type { Book, BookFormat, ImportProgress, ImportStage, ManualEncoding } from '@shared/types'
-import { SLICE_MODE_BYTES } from '@shared/types'
+import { isTextFormat, SLICE_MODE_BYTES } from '@shared/types'
 import type { LibraryRepository } from '../db/library-repository'
 import { runDecodeJob, type DecodeJob, type DecodeJobResult } from '../workers/decode-job'
 import { ImportError, toImportError } from './import-error'
@@ -22,11 +22,15 @@ export interface ImportServiceOptions {
   workerPath?: string
 }
 
-/** 按扩展名分派提取器（0.2.0 起）：认得的走各自的分支，其它一律按 TXT 处理。 */
+/**
+ * 按扩展名分派提取器（0.2.0 起）：认得的走各自的分支，其它一律按 TXT 处理。
+ * `.md` / `.markdown`（0.4.0）走的是 TXT 的解码路径，只是切章换成 ATX 标题。
+ */
 function formatOf(filePath: string): BookFormat {
   const ext = extname(filePath).toLowerCase()
   if (ext === '.epub') return 'epub'
   if (ext === '.mobi') return 'mobi'
+  if (ext === '.md' || ext === '.markdown') return 'md'
   return 'txt'
 }
 
@@ -150,10 +154,11 @@ export class ImportService {
         sourcePath: source,
         destDir: bookDir(root, bookId),
         contentMode: book.contentMode,
-        // 非 TXT 格式没有「编码」这回事：EPUB 按规范就是 UTF-8/UTF-16，
+        // 非 TXT 格式没有「编码」这回事：EPUB 按规范就是 UTF-8/UTF-16、MOBI 写在文件头里，
         // 这里的「重新解码」等价于「用最新提取器重新提取」（0.2.0 第 6 项）。
+        // MD 是纯文本，和 TXT 一样允许手工指定编码。
         format: book.format,
-        encoding: book.format === 'txt' && encoding !== 'auto' ? encoding : undefined
+        encoding: isTextFormat(book.format) && encoding !== 'auto' ? encoding : undefined
       })
       repo.replaceDecoded(
         bookId,

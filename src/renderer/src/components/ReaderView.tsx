@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { MouseEvent as ReactMouseEvent } from 'react'
-import { normalizeSelection, rangesOfChapter, splitHighlighted } from '@/core/annotations'
-import { offsetForScrollTop, scrollTopForOffset, splitParagraphs } from '@/core/paragraphs'
+import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
+import { normalizeSelection, rangesOfChapter, splitHighlighted, type HighlightRange } from '@/core/annotations'
+import { offsetForScrollTop, scrollTopForOffset, splitParagraphs, type Paragraph } from '@/core/paragraphs'
 import { chapterImages, splitByImages } from '@/core/images'
+import { markdownBlocks, mdInline, type MdBlock } from '@/core/markdown'
 import { chapterLabel, edgeChapterTip, progressLabel } from '@/core/reading'
 import { STAT_READ_PAUSE_MS } from '@shared/core/stats'
+import { stripInlineMarkdown } from '@shared/core/markdown'
 import { BOOKMARK_DWELL_MS, BOOKMARK_REST_MS, useReaderStore } from '@/store/reader'
 import { useSettingsStore } from '@/store/settings'
 import { SearchPanel } from './SearchPanel'
@@ -53,6 +55,165 @@ function chapterOffsetAt(node: Node, offsetInNode: number): number | null {
   const base = Number(paragraph.getAttribute('data-offset'))
   if (!Number.isFinite(base)) return null
   return base + offsetInParagraph(paragraph, node, offsetInNode)
+}
+
+/** Markdown 段落的 class：块级类型 → 样式（`.md-*` 见 styles.css）。 */
+function mdBlockClass(block: MdBlock): string {
+  switch (block.kind) {
+    case 'heading':
+      return 'md-heading md-h' + block.level
+    case 'quote':
+      return 'md-quote'
+    case 'ul':
+      return 'md-li md-ul'
+    case 'ol':
+      return 'md-li md-ol'
+    case 'code':
+      return ('md-code ' + codePositionClass(block)).trim()
+    case 'fence':
+      return 'md-fence'
+    case 'rule':
+      return 'md-rule'
+    default:
+      return 'md-p'
+  }
+}
+
+/** 代码块首/末行的圆角 class。 */
+function codePositionClass(block: MdBlock): string {
+  return block.codePos === null ? '' : 'md-code-' + block.codePos
+}
+
+/**
+ * 一段正文的内容节点（把原来的内联 map 抽出来，好让 Markdown 与普通书的两条路并存）。
+ *
+ * 两条路的差别只在「要不要把行内标记切出来」：
+ *  普通书：一段文字 → 按划线切分 → 渲染；
+ *  Markdown：行首块级标记（`#`、`>`、`-`、`1.`）与行内标记（`**`、`` ` ``、`[]()`）先以
+ *  `.md-syntax` 片段藏起来，剩下的文字再按划线切分 —— 藏起来的字符仍在 DOM 里，
+ *  所以 `offsetInParagraph` 数出来的偏移与原始文本完全一致（选区的划线不会错位）。
+ */
+function paragraphContent(
+  paragraph: Paragraph,
+  block: MdBlock | null,
+  imageByOffset: ReadonlyMap<number, string>,
+  ranges: readonly HighlightRange[]
+): ReactNode[] {
+  const out: ReactNode[] = []
+
+  splitByImages(paragraph.text, paragraph.offset, imageByOffset).forEach((piece, pieceIndex) => {
+    if (piece.kind === 'image') {
+      if (piece.url !== null) {
+        out.push(
+          <img
+            key={'img-' + pieceIndex}
+            className="inline-image"
+            src={piece.url}
+            alt="插图"
+            data-image-offset={paragraph.offset + piece.at}
+          />
+        )
+      }
+      return
+    }
+
+    const base = paragraph.offset + piece.start
+
+    if (block === null) {
+      splitHighlighted(piece.text, base, ranges).forEach((segment, part) => {
+        out.push(
+          segment.highlightId ? (
+            <mark
+              key={segment.highlightId + '-' + pieceIndex + '-' + part}
+              className="hl"
+              data-hl-id={segment.highlightId}
+            >
+              {segment.text}
+            </mark>
+          ) : (
+            <span key={'plain-' + pieceIndex + '-' + part}>{segment.text}</span>
+          )
+        )
+      })
+      return
+    }
+
+    const markerLength = Math.min(block.contentStart, piece.text.length)
+    if (markerLength > 0) {
+      out.push(
+        <span key={'md-mark-' + pieceIndex} className="md-syntax" aria-hidden="true">
+          {piece.text.slice(0, markerLength)}
+        </span>
+      )
+    }
+
+    for (const segment of mdInline(piece.text.slice(markerLength), base + markerLength)) {
+      if (segment.kind === 'syntax') {
+        out.push(
+          <span key={'md-mark-' + segment.start} className="md-syntax" aria-hidden="true">
+            {segment.text}
+          </span>
+        )
+        continue
+      }
+      const inner = splitHighlighted(segment.text, segment.start, ranges).map((part, partIndex) =>
+        part.highlightId ? (
+          <mark
+            key={segment.start + '-' + partIndex}
+            className="hl"
+            data-hl-id={part.highlightId}
+          >
+            {part.text}
+          </mark>
+        ) : (
+          part.text
+        )
+      )
+      const key = 'md-' + segment.start
+      switch (segment.kind) {
+        case 'strong':
+          out.push(
+            <strong key={key} className="md-strong">
+              {inner}
+            </strong>
+          )
+          break
+        case 'em':
+          out.push(
+            <em key={key} className="md-em">
+              {inner}
+            </em>
+          )
+          break
+        case 'code':
+          out.push(
+            <code key={key} className="md-code-inline">
+              {inner}
+            </code>
+          )
+          break
+        // 链接与图片 v1 只做样式：地址在 title 里，不跳转、不加载远程图（见 CHANGELOG 0.4.0）
+        case 'link':
+          out.push(
+            <span key={key} className="md-link" title={segment.href}>
+              {inner}
+            </span>
+          )
+          break
+        case 'image':
+          out.push(
+            <span key={key} className="md-image" title={segment.href}>
+              {inner}
+            </span>
+          )
+          break
+        default:
+          out.push(<span key={key}>{inner}</span>)
+      }
+    }
+  })
+
+  return out
 }
 
 export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
@@ -115,14 +276,36 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
     return map
   }, [images, chapter])
 
-  // 正文第一段常常就是章节标题，避免重复显示
-  const body = useMemo(() => {
+  // 正文第一段常常就是章节标题，避免重复显示。
+  // Markdown（0.4.0）多一层：章名是标题行的**文字**（`## 第一章` 对应章名「第一章」），
+  // 所以先把行首的标记切掉再比，不然每章顶上都会重复一行标题。
+  const markdown = book?.format === 'md'
+  const mdBlocks = useMemo(
+    () => (markdown ? markdownBlocks(paragraphs.map((paragraph) => paragraph.text)) : null),
+    [markdown, paragraphs]
+  )
+
+  const dropFirstParagraph = useMemo(() => {
     const first = paragraphs[0]
-    if (first && first.offset === 0 && first.text.trim().length > 0 && first.text.trim() === title.trim()) {
-      return paragraphs.slice(1)
+    if (!first || first.offset !== 0 || first.text.trim().length === 0) return false
+    if (first.text.trim() === title.trim()) return true
+    const block = mdBlocks?.[0]
+    if (block && block.kind === 'heading') {
+      return stripInlineMarkdown(first.text.slice(block.contentStart)).trim() === title.trim()
     }
-    return paragraphs
-  }, [paragraphs, title])
+    return false
+  }, [paragraphs, title, mdBlocks])
+
+  const body = useMemo(
+    () => (dropFirstParagraph ? paragraphs.slice(1) : paragraphs),
+    [paragraphs, dropFirstParagraph]
+  )
+
+  /** 与 body 对齐的块级结构（Markdown 才有；去掉首段时一起往前挪一格）。 */
+  const bodyBlocks = useMemo(
+    () => (mdBlocks ? mdBlocks.slice(dropFirstParagraph ? 1 : 0) : null),
+    [mdBlocks, dropFirstParagraph]
+  )
 
   // 测量序列：[标题, ...正文段落]，标题对应偏移 0
   const measurement = useMemo(() => [{ offset: 0, text: title }, ...body], [title, body])
@@ -433,60 +616,45 @@ export function ReaderView({ onBack }: { onBack(): void }): React.JSX.Element {
             onMouseUp={onContentMouseUp}
           >
             <h1 className="chapter-title">{title}</h1>
-            {body.map((paragraph, index) =>
-              paragraph.text.length === 0 ? (
-                <p
-                  key={paragraph.offset}
-                  className="blank"
-                  ref={(el) => {
-                    paraRefs.current[index] = el
-                  }}
-                >
-                  &nbsp;
-                </p>
-              ) : (
+            {body.map((paragraph, index) => {
+              const block = bodyBlocks ? (bodyBlocks[index] ?? null) : null
+              if (paragraph.text.length === 0) {
+                // 空行：Markdown 的代码块里也要占住一行，不然代码块会被压扁
+                const blank =
+                  block?.kind === 'code'
+                    ? 'blank ' + ('md-code ' + codePositionClass(block)).trim()
+                    : 'blank'
+                return (
+                  <p
+                    key={paragraph.offset}
+                    className={blank}
+                    ref={(el) => {
+                      paraRefs.current[index] = el
+                    }}
+                  >
+                    &nbsp;
+                  </p>
+                )
+              }
+              const classes = [block ? mdBlockClass(block) : '', flashIndex === index ? 'hit' : '']
+                .filter(Boolean)
+                .join(' ')
+              const list = block !== null && (block.kind === 'ul' || block.kind === 'ol')
+              return (
                 <p
                   key={paragraph.offset}
                   data-offset={paragraph.offset}
-                  className={flashIndex === index ? 'hit' : undefined}
+                  {...(block !== null && block.kind === 'ol' ? { 'data-md-num': block.num } : {})}
+                  {...(list ? { 'data-md-depth': (block as MdBlock).depth } : {})}
+                  className={classes === '' ? undefined : classes}
                   ref={(el) => {
                     paraRefs.current[index] = el
                   }}
                 >
-                  {splitByImages(paragraph.text, paragraph.offset, imageByOffset).map((piece, index) =>
-                    piece.kind === 'image' ? (
-                      piece.url === null ? null : (
-                        <img
-                          key={'img-' + index}
-                          className="inline-image"
-                          src={piece.url}
-                          alt="插图"
-                          data-image-offset={paragraph.offset + piece.at}
-                        />
-                      )
-                    ) : (
-                      splitHighlighted(
-                        piece.text,
-                        paragraph.offset + piece.start,
-                        ranges
-                      ).map((segment, part) =>
-                        segment.highlightId ? (
-                          <mark
-                            key={segment.highlightId + '-' + index + '-' + part}
-                            className="hl"
-                            data-hl-id={segment.highlightId}
-                          >
-                            {segment.text}
-                          </mark>
-                        ) : (
-                          <span key={'plain-' + index + '-' + part}>{segment.text}</span>
-                        )
-                      )
-                    )
-                  )}
+                  {paragraphContent(paragraph, block, imageByOffset, ranges)}
                 </p>
               )
-            )}
+            })}
             {truncated ? (
               <button
                 className="btn ghost load-more"

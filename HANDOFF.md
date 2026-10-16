@@ -122,13 +122,10 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 下一步（按顺序）
 
-1. **发 0.4.0 内测版**（用户已拍板，等他说「可以发」）：老规矩 —— 版本号已标好、CHANGELOG 定稿后
-   把 `## [0.4.0] - 未发布` 改成发布日期 → `pnpm build` + `electron-builder --win nsis portable`
-   → **这次多两样东西要传**：`latest.yml` 与 `*.blockmap`（应用内更新的差量元数据，缺了客户端
-   会报「找不到 latest.yml」）→ Release 名 `十二阅读 v0.4.0 内测版（Windows）`、勾 Pre-release
-   → 附件：setup exe + portable exe + latest.yml + blockmap（**校验值写进正文，不传 .sha256**）
-   → 冒烟三件套 + portable 只能靠用户真机。
-   `tools/release/upload-release-0.4.0.py` 还没建（照 0.3.1 那份改，注意多传两个附件）。
+1. ~~**发 0.4.0 内测版**~~ **已完成（2026-10-17）**：CHANGELOG 定稿 → 打包（nsis + portable）→
+   附注 tag + Pre-release，附件 = setup exe + portable exe + **latest.yml + blockmap**（后两样是
+   应用内更新的差量元数据）。发版说明 `tools/release/release-notes-0.4.0.md`、
+   脚本 `tools/release/upload-release-0.4.0.py`（照 0.3.1 那份改的）。
 2. **等用户试用反馈**；一轮没问题就按他说的转 `1.0.0` 正式版（Release 去掉「内测版」与 Pre-release 勾）。
    转正式版时要顺带改 CHANGELOG 开头那段「0.x 一律内测版」的说明。
 3. **0.3.1 已发布完毕（2026-10-16）**，见「现在在哪」首条。**可以做的下一件事**：等用户试用反馈；

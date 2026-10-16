@@ -163,6 +163,9 @@ function makeContext(): {
   stats: Record<string, ReturnType<typeof vi.fn>>
   backup: Record<string, ReturnType<typeof vi.fn>>
   update: Record<string, ReturnType<typeof vi.fn>>
+  /** 应用内更新（0.4.0）与还原备份（0.4.0）的替身 */
+  updater: Record<string, ReturnType<typeof vi.fn>>
+  restore: Record<string, ReturnType<typeof vi.fn>>
   images: Record<string, ReturnType<typeof vi.fn>>
   content: Record<string, ReturnType<typeof vi.fn>>
   progress: Record<string, ReturnType<typeof vi.fn>>

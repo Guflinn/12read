@@ -15,10 +15,30 @@ test.afterEach(async () => {
 
 /**
  * 关掉应用后不能立刻再起一个：Electron 在数据目录里留的锁还没放干净，
- * 紧接着 launch 会卡在启动上（实测）。等一下是最省事的办法。
+ * 紧接着 launch 会卡在启动上（实测；并行跑整套 e2e、磁盘忙的时候尤其明显）。
+ * 所以：先等一会儿，起不来就再等一轮重试，最多三轮。
  */
-function settle(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 3000))
+function settle(ms = 3000): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** 关掉当前应用、再起一个带上限重试的实例（还原那条用例要「真的重启一次」）。 */
+async function relaunchApp(dataDir: string): Promise<Page> {
+  await app?.close()
+  app = null
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await settle(attempt === 0 ? 5000 : 6000)
+    const started = await Promise.race([
+      launchApp(dataDir).then((instance) => instance),
+      settle(25_000).then(() => null)
+    ])
+    if (started === null) continue
+    app = started
+    const window = await app.firstWindow()
+    await window.waitForSelector('#btn-import')
+    return window
+  }
+  throw new Error('应用在还原之后起不来（试了三轮）')
 }
 
 async function openShelf(dataDir: string, sourceDir: string): Promise<Page> {
@@ -73,6 +93,8 @@ test('导出备份：用户取消时只提示不写文件', async () => {
  * 那条链路断了的话，书架上看得到书、点进去却是空的。
  */
 test('还原备份：整库覆盖，重启后书架与正文都回来了（派生正文由启动自愈补齐）', async () => {
+  // 这条用例要开关应用两次 + 真的重启一次，比别的用例慢得多，超时放宽
+  test.setTimeout(200_000)
   // 主进程换完库文件会自己重启应用；这条用例要自己关掉再重起一次（更硬），
   // 所以用官方留的口子（TWELVE_READ_NO_RELAUNCH）把自动重启关掉，由 helpers.childEnv 传给子进程。
   process.env['TWELVE_READ_NO_RELAUNCH'] = '1'
@@ -112,12 +134,7 @@ test('还原备份：整库覆盖，重启后书架与正文都回来了（派�
   expect(undoDir).toBeTruthy()
 
   // ④ 真的重启一次（比进程内 relaunch 更硬）：书架回来了，正文也补齐了
-  await app.close()
-  app = null
-  await settle()
-  app = await launchApp(dataDir)
-  const restored = await app.firstWindow()
-  await restored.waitForSelector('#btn-import')
+  const restored = await relaunchApp(dataDir)
   await expect(restored.locator('.book-card')).toHaveCount(1)
   await expect(restored.locator('.book-title')).toHaveText('备份样书')
 

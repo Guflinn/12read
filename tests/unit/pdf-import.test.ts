@@ -93,3 +93,57 @@ describe('decodePdf：读不了的情况都要给中文人话', () => {
     expect((error as Error).message).toMatch(/PDF/)
   })
 })
+
+/**
+ * 回归（0.4.0）：**别让 pdfjs 去碰 @napi-rs/canvas**。
+ *
+ * pdfjs 在 Node 环境下加载时会 require 它来 polyfill DOMMatrix；那个包带的 skia 原生模块
+ * 在 Electron 里加载会直接把进程打崩（WER：BEX64 / 故障模块 skia.win32-x64-msvc.node /
+ * 异常代码 c0000005），用户看到的是「十二阅读 has stopped working」。
+ * `decodePdf` 会在 import pdfjs 之前把它挡掉 —— 这里用「加载过的模块清单」钉住这件事。
+ */
+describe('pdfjs 的 canvas 依赖被换成纯 JS 替身（0.4.0 的崩）', () => {
+  it('抽完一本 PDF 之后，进程里一个原生模块都没被加载', async () => {
+    await decodePdf(createPlainPdf())
+
+    // skia.win32-x64-msvc.node 在 Electron 里加载会崩（BEX64 / c0000005），
+    // 所以这条断言的意思是「pdfjs 没去碰任何 .node」
+    const natives = Object.keys(require.cache).filter((path) => path.endsWith('.node'))
+    expect(natives).toEqual([])
+  })
+
+  it('require 缓存里那条 @napi-rs/canvas 就是我们塞的替身', () => {
+    const resolved = require.resolve('@napi-rs/canvas')
+    const cached = require.cache[resolved]
+    expect(cached).toBeDefined()
+    // 不是真的那个包（真的那个 exports 里是 skia 的 createCanvas）
+    expect(Object.keys(cached?.exports ?? {}).sort()).toEqual(['DOMMatrix', 'ImageData'])
+  })
+
+  it('替身能当 DOMMatrix 用：构造、相乘、平移、求逆都对', () => {
+    const Matrix = (require.cache[require.resolve('@napi-rs/canvas')]?.exports as {
+      DOMMatrix: new (init?: number[]) => {
+        a: number
+        b: number
+        c: number
+        d: number
+        e: number
+        f: number
+        multiplySelf(other: unknown): unknown
+        translateSelf(x: number, y: number): unknown
+        invertSelf(): unknown
+      }
+    }).DOMMatrix
+
+    expect(new Matrix()).toMatchObject({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 })
+    // 平移 (10, 20) 后原点上移 → e/f 变成 10/20
+    const moved = new Matrix().translateSelf(10, 20)
+    expect(moved).toMatchObject({ e: 10, f: 20 })
+    // 2 倍缩放 × 平移：先缩放后平移（行向量约定）
+    const scaled = new Matrix([2, 0, 0, 2, 0, 0]).translateSelf(3, 4)
+    expect(scaled).toMatchObject({ a: 2, d: 2, e: 3, f: 4 })
+    // 求逆：平移的逆是反向平移
+    const inverse = new Matrix().translateSelf(5, -7).invertSelf()
+    expect(inverse).toMatchObject({ a: 1, d: 1, e: -5, f: 7 })
+  })
+})

@@ -15,7 +15,9 @@
  * pdfjs 走**动态 import**：它是 ESM 包，主进程是 CJS 产物，动态 import 是这两者之间
  * 最省事的桥；顺带让「没装 pdfjs 也能起应用」保持成立（只有真的导入 PDF 才加载它）。
  */
+import type { Module as NodeModule } from 'node:module'
 import { ImportError } from '../import-error'
+import { canvasShimExports } from './canvas-shim'
 import { pageToParagraphs, type PdfTextItem } from './layout'
 import type { ChapterKind } from '@shared/types'
 
@@ -83,7 +85,38 @@ function toTextItems(content: PdfjsTextContent): PdfTextItem[] {
   return items
 }
 
+/**
+ * 用**纯 JS 替身**顶掉 pdfjs 的 canvas 依赖（**必须在 import pdfjs 之前调用**）。
+ *
+ * pdfjs 在 Node 环境下**模块加载时**就会 `require('@napi-rs/canvas')`，拿它把
+ * `DOMMatrix` / `ImageData` 装成全局变量，并且顶层就 `new DOMMatrix()` 建了个常量。
+ * 那个包带来的 skia 原生模块在 Electron 里加载会**直接把进程打崩**：Windows 错误报告里是
+ * `BEX64`、故障模块 `skia.win32-x64-msvc.node`、异常代码 `c0000005`（访问冲突），
+ * 用户看到的就是「十二阅读 has stopped working」。
+ *
+ * 所以这里在 require 缓存里放一份 `canvas-shim`：pdfjs 会照常拿到 `DOMMatrix` / `ImageData`
+ * （不再 warn，也不会去碰原生模块），文字抽取完全不受影响。解析不到这个包（打包后的应用
+ * 里本来就没有）就什么都不做 —— pdfjs 那句 require 自己有 try/catch。
+ */
+function blockCanvasNative(): void {
+  try {
+    // 主进程与 worker 的产物都是 CJS，require 一定在；拿不到就跳过
+    if (typeof require !== 'function' || require.cache === undefined) return
+    const resolved = require.resolve('@napi-rs/canvas')
+    require.cache[resolved] = {
+      exports: canvasShimExports,
+      loaded: true,
+      id: resolved,
+      filename: resolved,
+      paths: []
+    } as unknown as NodeModule
+  } catch {
+    // 没装 / 解析不到：交给 pdfjs 自己的 try/catch
+  }
+}
+
 async function loadPdfjs(): Promise<PdfjsModule> {
+  blockCanvasNative()
   try {
     // legacy 包是给非浏览器环境（Node / Electron 主进程 / worker_threads）准备的
     return (await import('pdfjs-dist/legacy/build/pdf.mjs')) as unknown as PdfjsModule

@@ -35,7 +35,7 @@ const {
   syncHandlers: new Map<string, SyncHandler>(),
   showOpenDialog: vi.fn(),
   showSaveDialog: vi.fn(),
-  showMessageBox: vi.fn(async () => ({ response: 0 })),
+  showMessageBox: vi.fn(async (_options?: unknown) => ({ response: 0 })),
   /** 主进程往窗口推的事件（import:progress / update:progress）。 */
   sendToWindow: vi.fn()
 }))

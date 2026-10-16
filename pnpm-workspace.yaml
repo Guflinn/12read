@@ -3,3 +3,8 @@ allowBuilds:
   electron: true
   electron-winstaller: true
   esbuild: true
+
+# pdfjs 的可选依赖，自带 skia 原生模块；在 Electron 里加载会把进程打崩（BEX64 访问冲突），
+# 而抽文字用不到 canvas。不装它，pdfjs 只会 warn 一句「Cannot load @napi-rs/canvas」。
+ignoredOptionalDependencies:
+  - '@napi-rs/canvas'

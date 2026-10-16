@@ -8,6 +8,9 @@ files:
   - package.json
   - node_modules/**
   - '!**/*.map'
+  # pdfjs 的可选依赖，带着 skia 原生模块：在 Electron 里加载会崩（BEX64），
+  # 而我们只抽文字用不到它（见 src/main/services/pdf/import.ts 的 blockCanvasNative）。
+  - '!**/@napi-rs/**'
 asarUnpack:
   - '**/node_modules/better-sqlite3/**'
 # 应用内更新（0.4.0）：有了这一节，打包时才会生成 resources/app-update.yml（客户端据此找更新源）

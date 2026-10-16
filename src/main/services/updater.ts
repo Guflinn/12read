@@ -159,8 +159,9 @@ function describe(cause: unknown): string {
 
 /**
  * 生产环境的依赖：只在**打包后的安装版**上可用。
- * `allowPrerelease = true` 是必须的 —— 我们 0.x 阶段的 Release 一律勾 Pre-release，
- * 不打开这个开关，electron-updater 会把它们全部忽略掉。
+ * `allowPrerelease = true` 保持打开 —— 0.x 阶段的 Release 一律勾 Pre-release，不开会被全部忽略；
+ * 1.0.0 起转正式版后它同样无害：GitHubProvider 走 Atom feed 取第一条（最新发布的 Release），
+ * 远端不管是 Pre-release 还是正式版都能命中。
  */
 export function defaultUpdaterDeps(): UpdaterDeps {
   return {
@@ -172,7 +173,7 @@ export function defaultUpdaterDeps(): UpdaterDeps {
     create: () => {
       autoUpdater.autoDownload = false
       autoUpdater.autoInstallOnAppQuit = false
-      // 我们 0.x 阶段的 Release 一律勾 Pre-release，不开这个开关会被全部忽略
+      // 见上方注释：开与不开各管一段历史，保持 true 两者通吃
       autoUpdater.allowPrerelease = true
       autoUpdater.logger = null
       return autoUpdater as unknown as AutoUpdaterLike

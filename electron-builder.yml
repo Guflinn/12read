@@ -19,7 +19,8 @@ publish:
   provider: github
   owner: Guflinn
   repo: 12read
-  releaseType: prerelease
+  # 1.0.0 起是正式版；客户端 electron-updater 会按这个值决定是否接受正式渠道更新
+  releaseType: release
 # better-sqlite3 13 提供 N-API prebuild，打包时无需 node-gyp 重编译
 npmRebuild: false
 win:

@@ -184,6 +184,19 @@ test('书架搜索与排序：搜作者也能命中，进度可排序', async ()
   await expect(page.locator('.book-title').first()).toHaveText('乙书')
 })
 
+test('书架页头的品牌标用的是应用图标本身，副标题是「本地阅读器」', async () => {
+  page = await openApp(makeTempDir('12read-brand-'))
+
+  const logo = page.locator('#view-shelf .brand img.logo')
+  await expect(logo).toHaveCount(1)
+  // 图真的加载出来了：路径写错 / 资源没进包时 naturalWidth 是 0（.logo 尺寸由 CSS 给，不会撑开）
+  await expect.poll(() => logo.evaluate((el) => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
+  await expect(logo).toHaveAttribute('alt', '')
+
+  // 文案（2026-10-16 用户拍板）：不再写死 TXT —— 现在是 MD / TXT / EPUB / MOBI 都能读
+  await expect(page.locator('#view-shelf .brand p')).toHaveText('本地阅读器 · 数据只存在这台电脑上')
+})
+
 test('书架左下角显示版本号，进阅读器就不出现', async () => {
   const sourceDir = makeTempDir('12read-version-src-')
   writeNovelFile(sourceDir, '版本书.txt', buildNovel())

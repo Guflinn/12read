@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
+import { BrandMark } from './components/BrandMark'
 import { ErrorBar } from './components/ErrorBar'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ReaderView } from './components/ReaderView'
@@ -125,7 +126,7 @@ export default function App(): React.JSX.Element {
       <div className="app">
         <div className="boot">
           <div className="boot-card">
-            <div className="logo">十二</div>
+            <BrandMark />
             <h1>十二阅读</h1>
             <p className="dim">正在初始化…</p>
           </div>

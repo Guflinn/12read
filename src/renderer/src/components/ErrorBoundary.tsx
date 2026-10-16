@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { BrandMark } from './BrandMark'
 
 interface Props {
   children: ReactNode
@@ -25,7 +26,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="boot">
           <div className="boot-card">
-            <div className="logo">十二</div>
+            <BrandMark />
             <h1>界面出错了</h1>
             <p className="dim">这不是致命错误，回到书架通常可以继续阅读。</p>
             <p className="err">{this.state.message}</p>

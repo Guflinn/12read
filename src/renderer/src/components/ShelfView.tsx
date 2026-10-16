@@ -375,7 +375,7 @@ export function ShelfView({
             importFiles(event.dataTransfer.files)
           }}
         >
-          把 .txt / .md / .epub / .mobi 拖到这里，或点击此处导入（支持多选）
+          把 .txt / .md / .epub / .mobi / .pdf 拖到这里，或点击此处导入（支持多选）
         </div>
 
         <ImportStatus />
@@ -627,7 +627,7 @@ export function ShelfView({
         <Modal title="这个版本做什么" confirmLabel="知道了" cancelLabel="关闭" onCancel={() => setScopeOpen(false)} onConfirm={() => setScopeOpen(false)}>
           <p className="scope-h">现在能用</p>
           <ul className="scope-list">
-            <li>导入本地 .txt / .md / .epub / .mobi：拖入或选择文件；TXT 与 MD 自动识别 UTF-8 / GBK / UTF-16 编码</li>
+            <li>导入本地 .txt / .md / .epub / .mobi / .pdf：拖入或选择文件；TXT 与 MD 自动识别 UTF-8 / GBK / UTF-16 编码</li>
             <li>自动分章：识别「第 N 章」这类标题，识别不到就按字数分段</li>
             <li>
               阅读：← / → 翻一屏（Ctrl + ← → 切章）、目录跳转、字号 / 行距 / 字重 / 字体 / 宽度 / 日夜间
@@ -643,6 +643,10 @@ export function ShelfView({
               Markdown（.md）：按 `#` 标题切章，标题 / 引用 / 列表 / 代码块 / 分隔线 / 粗斜体与行内代码都按样渲染
               （书封面上点「编码」可以换编码重解）
             </li>
+            <li>
+              PDF（有文字层）：按书里的目录切章，没目录就按页分章（「第 N 页」）；段落靠坐标还原，
+              扫描件（没有文字层）读不了，会明确告诉你
+            </li>
             <li>手动改分章：目录里给每一节改名，或把它并进上一节</li>
             <li>书签与划线：顶栏 🔖 记位置，选中一段字划线；目录抽屉里分「书签 / 划线」两页</li>
             <li>搜索：Ctrl + F 在章节内或全书找词，结果上是章名与上下文</li>
@@ -656,7 +660,6 @@ export function ShelfView({
           <p className="scope-h">还不在范围内</p>
           <ul className="scope-list">
             <li>笔记（划线只能记原文，还不能在旁边写字）</li>
-            <li>PDF（有文字层的那种）</li>
             <li>Markdown 的表格 / 任务列表 / 脚注，链接还不能点开（只做样式，地址在悬停提示里）</li>
             <li>带 DRM 的书、KF8（.azw3）与 Huff/CDic 压缩的 MOBI</li>
             <li>账号、云同步、在线书城、TTS 朗读</li>

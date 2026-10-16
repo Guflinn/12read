@@ -14,6 +14,7 @@ import type {
 import { decodeBytes, decodeBytesWith } from '../services/decode'
 import { decodeEpub } from '../services/epub/import'
 import { decodeMobi } from '../services/mobi/import'
+import { decodePdf } from '../services/pdf/import'
 import {
   CHAPTERS_DIR,
   CONTENT_FILE,
@@ -105,7 +106,10 @@ export async function runDecodeJob(job: DecodeJob, onProgress: ProgressReporter)
         ? decodeMobiPayload(bytes, onProgress)
         : format === 'md'
           ? decodeMarkdownPayload(bytes, job, onProgress)
-          : decodeTextPayload(bytes, job, onProgress)
+          : format === 'pdf'
+            ? // PDF 是唯一要 await 的一条：pdfjs 是 ESM 包，只能动态 import
+              await decodePdfPayload(bytes, onProgress)
+            : decodeTextPayload(bytes, job, onProgress)
 
   onProgress('splitting', 0.45)
   await mkdir(job.destDir, { recursive: true })
@@ -211,6 +215,35 @@ function decodeMarkdownPayload(bytes: Buffer, job: DecodeJob, onProgress: Progre
     suspicious: decoded.suspicious,
     title: markdownTitle(decoded.text),
     author: null
+  }
+}
+
+/**
+ * PDF（0.4.0）：pdfjs 抠文字 → 坐标还原段落 → 目录切章（没有目录按页）。
+ * 只做**有文字层**的 PDF：扫描件、加密书都给中文说明（见 services/pdf/import.ts）。
+ */
+async function decodePdfPayload(bytes: Buffer, onProgress: ProgressReporter): Promise<DecodedPayload> {
+  onProgress('detecting', 0.1)
+  const book = await decodePdf(bytes)
+  onProgress('decoding', 0.3)
+  return {
+    format: 'pdf',
+    // 抽出来的文字本来就统一成 UTF-16 字符串了，编码这一栏对它没有意义
+    encoding: 'utf-8',
+    text: book.text,
+    chapters: book.chapters.map((chapter) => ({
+      title: chapter.title,
+      groupTitle: null,
+      parentTitle: null,
+      startOffset: chapter.startOffset,
+      charLength: chapter.charLength,
+      kind: chapter.kind
+    })),
+    usedFallback: book.chapterSource === 'page',
+    markerHits: book.chapters.length,
+    suspicious: false,
+    title: book.title,
+    author: book.author
   }
 }
 

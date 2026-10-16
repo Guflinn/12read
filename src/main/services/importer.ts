@@ -24,12 +24,14 @@ export interface ImportServiceOptions {
 
 /**
  * 按扩展名分派提取器（0.2.0 起）：认得的走各自的分支，其它一律按 TXT 处理。
- * `.md` / `.markdown`（0.4.0）走的是 TXT 的解码路径，只是切章换成 ATX 标题。
+ * `.md` / `.markdown`（0.4.0）走的是 TXT 的解码路径，只是切章换成 ATX 标题；
+ * `.pdf`（0.4.0）走 pdfjs，只吃有文字层的那种。
  */
 function formatOf(filePath: string): BookFormat {
   const ext = extname(filePath).toLowerCase()
   if (ext === '.epub') return 'epub'
   if (ext === '.mobi') return 'mobi'
+  if (ext === '.pdf') return 'pdf'
   if (ext === '.md' || ext === '.markdown') return 'md'
   return 'txt'
 }

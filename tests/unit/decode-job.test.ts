@@ -26,6 +26,7 @@ import {
   bytesUtf8Bom
 } from '../fixtures/texts'
 import { FAKE_JPEG, createMobi, hasControlChars } from '../fixtures/mobi'
+import { createOutlinedPdf, createPlainPdf, createScannedPdf } from '../fixtures/pdf'
 
 /**
  * decode-job 是 worker 里的执行体，测试直接调用它就能完整覆盖
@@ -538,5 +539,70 @@ describe('runDecodeJob 的 Markdown 分支（0.4.0）', () => {
     expect(result.title).toBeNull()
     expect(result.usedFallback).toBe(true)
     expect(result.chapters[0].title).toBe('分段 1')
+  })
+})
+
+/**
+ * PDF（0.4.0）：pdfjs 抠文字 → 坐标还原段落 → 目录切章（没有目录按页）。
+ * 夹具是现造的最小 PDF（内置 Helvetica），所以这里既不依赖真书也不含版权内容。
+ */
+describe('runDecodeJob 的 PDF 分支（0.4.0）', () => {
+  it('按 PDF 自带目录切章，书名作者取自元数据，正文落到 content.txt', async () => {
+    const file = join(root, 'sample.pdf')
+    await writeFile(file, createOutlinedPdf())
+
+    const result = await runDecodeJob(
+      { taskId: 'pdf1', sourcePath: file, destDir, contentMode: 'single', format: 'pdf' },
+      () => undefined
+    )
+
+    expect(result.format).toBe('pdf')
+    expect(result.title).toBe('样张')
+    expect(result.author).toBe('测试作者')
+    expect(result.chapters.map((chapter) => chapter.title)).toEqual(['Chapter 1 起风', 'Chapter 2 落雨'])
+    expect(result.chapters.map((chapter) => chapter.kind)).toEqual(['chapter', 'chapter'])
+    expect(result.charCount).toBeGreaterThan(50)
+    expect(result.usedFallback).toBe(false)
+
+    // 章节表无缝覆盖正文：首尾相接，合起来正好是全文
+    const text = await readFile(join(destDir, CONTENT_FILE), 'utf8')
+    expect(result.chapters[0].startOffset).toBe(0)
+    for (let i = 0; i < result.chapters.length; i += 1) {
+      const end = result.chapters[i].startOffset + result.chapters[i].charLength
+      expect(end).toBe(
+        i + 1 < result.chapters.length ? result.chapters[i + 1].startOffset : text.length
+      )
+    }
+    expect(text).toContain('The wind came down from the pass')
+
+    // 原始字节照旧留着，将来可以「提取」重跑
+    expect(await readFile(join(destDir, SOURCE_FILE))).toEqual(createOutlinedPdf())
+  })
+
+  it('没有目录的 PDF：按页切章，usedFallback 标出来', async () => {
+    const file = join(root, 'plain.pdf')
+    await writeFile(file, createPlainPdf())
+
+    const result = await runDecodeJob(
+      { taskId: 'pdf2', sourcePath: file, destDir, contentMode: 'single', format: 'pdf' },
+      () => undefined
+    )
+
+    expect(result.chapters.map((chapter) => chapter.title)).toEqual(['第 1 页', '第 2 页'])
+    expect(result.chapters.map((chapter) => chapter.kind)).toEqual(['segment', 'segment'])
+    expect(result.usedFallback).toBe(true)
+  })
+
+  it('扫描件：给中文说明，且什么都不落盘', async () => {
+    const file = join(root, 'scanned.pdf')
+    await writeFile(file, createScannedPdf())
+
+    await expect(
+      runDecodeJob(
+        { taskId: 'pdf3', sourcePath: file, destDir, contentMode: 'single', format: 'pdf' },
+        () => undefined
+      )
+    ).rejects.toThrow(/扫描件/)
+    expect(existsSync(destDir)).toBe(false)
   })
 })

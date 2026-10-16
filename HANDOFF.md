@@ -47,11 +47,17 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
   功能集与 0.4.0 完全一致（只转版本号），CHANGELOG / README / MVP / TECH 都已对齐正式版口径
   （`electron-builder.yml` 的 `publish.releaseType` 改 `release`，纯 builder 侧；客户端 `allowPrerelease=true`
   保持不变 —— 走 Atom feed 第一条或 `/releases/latest` 两条路都能从 0.4.0 升上来）。
-  附件四个（全英文名，GitHub 删中文，见已知坑）：setup exe（132,584,709 B）+ portable exe（132,349,748 B）
-  + `latest.yml` + `.blockmap`；SHA-256 setup `d5bbf850…538a4` / portable `799305d5…05c60`，
-  **匿名下载 portable 逐字节核对过**。中文名副本「十二阅读安装版 1.0.0.exe」「十二阅读免安装版 1.0.0.exe」
+  **Assets 只放两个 exe**（`twelve-read-setup/portable-1.0.0.exe`，用户明确要求「只上传安装版和免安装版」，
+  `latest.yml` 与 `.blockmap` 已从 Release 删除）—— **代价：0.4.0 → 1.0.0 的应用内更新不可用**，
+  客户端会提示失败并退回下载页（设计内的退路）；**以后版本若想恢复应用内更新，发版时必须重新带上
+  latest.yml + blockmap**（上传脚本 `upload-release-1.0.0.py` 的 ASSETS 里把这两行加回来即可）。
+  SHA-256 setup `d5bbf850…538a4` / portable `799305d5…05c60`，**匿名下载 portable 逐字节核对过**。
+  中文名副本「十二阅读安装版 1.0.0.exe」「十二阅读免安装版 1.0.0.exe」
   在 `发布-1.0.0/`（与英文名逐字节一致，给用户直接分发用）；`发布-0.4.0` 已归档进 `旧版-可删/`。
-  ⚠️ **应用内更新 0.4.0 → 1.0.0 是更新器的第一次真跑，待用户真机点一次验证**（差量下载 / 重启安装沙箱里验不了）。
+  ⚠️ **附件中文名已彻底定论（不可行）**：用 Python 强制 UTF-8 绕开 shell 编码再测两轮
+  （查询参数上传 → `default.txt`；JSON PATCH 改名 → `十二阅读安装版-1.0.0.exe` 变 `-1.0.0.exe`），
+  加上之前两轮共四种姿势全被 GitHub **服务器端**删非 ASCII —— 不是客户端编码问题，平台级无法绕过。
+  Assets 里 exe 的中文名没有任何办法，能做的只有正文中文链接 + 本地中文名副本。
   发版前全绿：eslint + 三份 tsc + 单测契约 67 文件 / 804 例 + e2e 56 例；打包冒烟：asar 内 version=1.0.0、
   icon.ico 七帧逐字节在 exe、better-sqlite3 的 win32-x64.node 与 electron-updater 都在包内、
   隔离数据目录启动 14s 存活 + 正常建库。**顺带修了一个存量 tsc 错**（`pdf-import.test.ts` 假 DOMMatrix

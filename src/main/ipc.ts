@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import type { z } from 'zod'
 import { CH } from '@shared/channels'
 import { newBookId } from '@shared/core/ids'
@@ -37,6 +37,7 @@ import type {
   ReadingStats,
   RestoreResult,
   UpdateCheckResult,
+  UpdateProgress,
   SearchResult,
   ShelfBook
 } from '@shared/types'
@@ -54,6 +55,7 @@ import type { ReadingStatsService } from './services/reading-stats'
 import { RestoreError, type RestoreService } from './services/restore'
 import type { BookSearchService } from './services/search'
 import type { SettingsStore } from './services/settings-store'
+import type { UpdaterService } from './services/updater'
 
 export interface IpcContext {
   importer: ImportService
@@ -71,8 +73,10 @@ export interface IpcContext {
   backup: BackupService
   /** 还原备份（0.4.0）：整库覆盖还原，换完库文件后由本模块负责重启应用。 */
   restore: RestoreService
-  /** 检查更新（0.1.5）：拉远端 Release 比版本号，只提示不下载。 */
+  /** 检查更新（0.1.5）：拉远端 Release 比版本号；0.4.0 起还负责「去下载」这条退路。 */
   update: UpdateService
+  /** 应用内更新（0.4.0）：下载 + 重启安装（走 electron-updater）。 */
+  updater: UpdaterService
   /** EPUB 内联图片（0.2.0 第 5 项）。 */
   images: BookImagesService
   progress: SqlProgressStore
@@ -119,6 +123,13 @@ function runChapterEdit(edit: () => Chapter[]): Chapter[] {
  * `TWELVE_READ_NO_RELAUNCH=1` 时不重启：**给 e2e 留的口子**（与 TWELVE_READ_DATA_DIR 同类），
  * 因为这个测试要自己关掉应用再重新起一次，比进程内 relaunch 更硬；普通使用不会设它。
  */
+/** 把应用内更新的进度推给所有窗口（0.4.0）。 */
+function broadcastUpdateProgress(progress: UpdateProgress): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) window.webContents.send(CH.updateProgress, progress)
+  }
+}
+
 const RELAUNCH_DELAY_MS = 1200
 
 function scheduleRelaunch(): void {
@@ -302,6 +313,12 @@ export function registerIpc(ctx: IpcContext): void {
 
   // 打开下载页：地址由渲染层回传，但两边都只放 github.com 的 https 链接进来
   handle(CH.updateOpen, updateOpenArgsSchema, ({ url }): Promise<void> => ctx.update.open(url))
+
+  // 应用内更新（0.4.0）：下载与安装分成两条通道 —— 下载要能一路报进度，
+  // 装的时候必须等用户点头（下载完不会自动重启）。
+  ctx.updater.onProgress(broadcastUpdateProgress)
+  handle(CH.updateDownload, emptyArgsSchema, (): Promise<UpdateProgress> => ctx.updater.startDownload())
+  handle(CH.updateInstall, emptyArgsSchema, (): void => ctx.updater.install())
 
   // 导出备份：位置由用户在「另存为」里选，取消返回 null；失败翻成中文提示
   handle(CH.backupExport, emptyArgsSchema, async (): Promise<BackupResult | null> => {

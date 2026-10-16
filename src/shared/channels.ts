@@ -33,6 +33,12 @@ export const CH = {
   updateCheck: 'update:check',
   /** 打开更新下载页（0.1.5）：地址只允许是 GitHub 的 https 链接。 */
   updateOpen: 'update:open',
+  /** 应用内更新（0.4.0）：开始下载新版本（走 electron-updater），返回当前状态。 */
+  updateDownload: 'update:download',
+  /** 应用内更新（0.4.0）：重启并安装已经下好的新版本。 */
+  updateInstall: 'update:install',
+  /** 应用内更新的进度推送（0.4.0，main → renderer）。 */
+  updateProgress: 'update:progress',
   /** 书的内联图片清单（0.2.0 第 5 项）：偏移 → URL，没有图就是空数组。 */
   bookImages: 'book:images',
   /** 导出备份（0.1.3 第 9 项）：整库打一个 zip，只导出不恢复。 */

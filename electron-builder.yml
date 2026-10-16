@@ -10,6 +10,13 @@ files:
   - '!**/*.map'
 asarUnpack:
   - '**/node_modules/better-sqlite3/**'
+# 应用内更新（0.4.0）：有了这一节，打包时才会生成 resources/app-update.yml（客户端据此找更新源）
+# 与输出目录里的 latest.yml / *.blockmap（后者支持差量更新，安装时要一并传到 Release）。
+publish:
+  provider: github
+  owner: Guflinn
+  repo: 12read
+  releaseType: prerelease
 # better-sqlite3 13 提供 N-API prebuild，打包时无需 node-gyp 重编译
 npmRebuild: false
 win:

@@ -3,16 +3,17 @@ import { CH } from '@shared/channels'
 import type {
   BackupResult,
   Book,
+  BookImage,
   Bookmark,
   Chapter,
   Highlight,
   Progress,
   ReaderSettings,
-  BookImage,
   ReadingCalendar,
   ReadingStats,
   SearchResult,
-  ShelfBook
+  ShelfBook,
+  UpdateProgress
 } from '@shared/types'
 import { STAT_MAX_REPORT_CHARS, STAT_MAX_REPORT_MS } from '@shared/core/stats'
 import type { IpcContext } from '@main/ipc'
@@ -21,15 +22,20 @@ import { ImportError } from '@main/services/import-error'
 type Invoke = (event: unknown, raw: unknown) => Promise<unknown>
 type SyncHandler = (event: { returnValue: unknown }, raw: unknown) => void
 
-const { handlers, syncHandlers, showOpenDialog, showSaveDialog } = vi.hoisted(() => ({
+const { handlers, syncHandlers, showOpenDialog, showSaveDialog, sendToWindow } = vi.hoisted(() => ({
   handlers: new Map<string, Invoke>(),
   syncHandlers: new Map<string, SyncHandler>(),
   showOpenDialog: vi.fn(),
-  showSaveDialog: vi.fn()
+  showSaveDialog: vi.fn(),
+  /** 主进程往窗口推的事件（import:progress / update:progress）。 */
+  sendToWindow: vi.fn()
 }))
 
 vi.mock('electron', () => ({
-  app: { getVersion: () => '9.9.9' },
+  app: { getVersion: () => '9.9.9', relaunch: vi.fn(), exit: vi.fn() },
+  BrowserWindow: {
+    getAllWindows: () => [{ isDestroyed: () => false, webContents: { send: sendToWindow } }]
+  },
   dialog: { showOpenDialog, showSaveDialog },
   ipcMain: {
     handle: (channel: string, fn: Invoke) => {
@@ -247,6 +253,19 @@ function makeContext(): {
     get: vi.fn((): ReaderSettings => SETTINGS),
     set: vi.fn((next: ReaderSettings): ReaderSettings => next)
   }
+  // 还原备份（0.4.0）：文件层面的行为在 restore.test.ts 里测，这里只要一个能接通道的替身
+  const restore = { restoreFrom: vi.fn() }
+  // 应用内更新（0.4.0）：单测只关心通道有没有接上 / 转发对不对，行为细节在 updater.test.ts
+  const updater = {
+    onProgress: vi.fn(),
+    startDownload: vi.fn(async (): Promise<UpdateProgress> => ({
+      state: 'unsupported',
+      percent: null,
+      version: null,
+      message: '这个版本不支持应用内更新'
+    })),
+    install: vi.fn()
+  }
   const ctx = {
     importer,
     library,
@@ -255,6 +274,8 @@ function makeContext(): {
     search,
     stats,
     backup,
+    restore,
+    updater,
     content,
     progress,
     settings,
@@ -277,6 +298,8 @@ function makeContext(): {
     progress,
     settings,
     update,
+    updater,
+    restore,
     images
   }
 }
@@ -302,6 +325,7 @@ function setup(): ReturnType<typeof makeContext> {
   syncHandlers.clear()
   showOpenDialog.mockReset()
   showSaveDialog.mockReset()
+  sendToWindow.mockReset()
   return makeContext()
 }
 
@@ -791,5 +815,96 @@ describe('IPC 注册与转发', () => {
       '参数校验失败: ' + CH.backupExport
     )
     expect(showSaveDialog).not.toHaveBeenCalled()
+  })
+})
+
+describe('应用内更新与还原备份的通道（0.4.0）', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('update:download 把结果原样回给渲染层（不支持时也如实说）', async () => {
+    const { updater } = setup()
+
+    const result = await call(CH.updateDownload)
+
+    expect(updater.startDownload).toHaveBeenCalledTimes(1)
+    expect(result).toMatchObject({ state: 'unsupported' })
+  })
+
+  it('update:install 转发安装；失败翻成中文提示', async () => {
+    const { updater } = setup()
+
+    await call(CH.updateInstall)
+    expect(updater.install).toHaveBeenCalledTimes(1)
+
+    updater.install.mockImplementationOnce(() => {
+      throw new Error('更新还没下载完成')
+    })
+    await expect(call(CH.updateInstall)).rejects.toThrow('更新还没下载完成')
+  })
+
+  it('更新进度从主进程推给窗口（update:progress）', async () => {
+    const { updater } = setup()
+    const listener = updater.onProgress.mock.calls[0]?.[0] as (progress: UpdateProgress) => void
+
+    listener({ state: 'downloading', percent: 42, version: '9.9.9' })
+
+    expect(sendToWindow).toHaveBeenCalledWith(CH.updateProgress, {
+      state: 'downloading',
+      percent: 42,
+      version: '9.9.9'
+    })
+  })
+
+  it('backup:restore 取消时返回 null，也不碰还原服务', async () => {
+    const { restore } = setup()
+    showOpenDialog.mockResolvedValueOnce({ canceled: true, filePaths: [] })
+
+    expect(await call(CH.backupRestore)).toBeNull()
+    expect(restore.restoreFrom).not.toHaveBeenCalled()
+  })
+
+  it('backup:restore 把选中的包交给服务，并安排重启应用', async () => {
+    vi.useFakeTimers()
+    try {
+      const { restore } = setup()
+      restore.restoreFrom.mockResolvedValueOnce({
+        path: 'D:////备份////12read.zip',
+        books: 2,
+        sources: 2,
+        restoredAt: '2026-10-16T00:00:00.000Z',
+        exportedAt: null,
+        schemaVersion: 5,
+        undoDir: null
+      })
+      showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ['D:////备份////12read.zip'] })
+
+      const result = await call(CH.backupRestore)
+
+      expect(restore.restoreFrom.mock.calls[0]?.[0]).toBe('D:////备份////12read.zip')
+      expect(result).toMatchObject({ books: 2, sources: 2 })
+
+      // 换完库文件必须重启（主进程里的数据库连接已经作废）
+      const { app } = (await import('electron')) as unknown as {
+        app: { relaunch: ReturnType<typeof vi.fn>; exit: ReturnType<typeof vi.fn> }
+      }
+      vi.advanceTimersByTime(2000)
+      expect(app.relaunch).toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('backup:restore 失败时翻成中文提示', async () => {
+    const { restore } = setup()
+    showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ['D:////坏包.zip'] })
+    restore.restoreFrom.mockRejectedValueOnce(new Error('这不是十二阅读的备份包'))
+
+    await expect(call(CH.backupRestore)).rejects.toThrow('还原失败：这不是十二阅读的备份包')
   })
 })

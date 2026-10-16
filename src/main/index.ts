@@ -25,6 +25,7 @@ import { RestoreService } from './services/restore'
 import { BookSearchService } from './services/search'
 import { SettingsStore } from './services/settings-store'
 import { UpdateService } from './services/update'
+import { defaultUpdaterDeps, UpdaterService } from './services/updater'
 import { captureWindowState, WindowStateStore } from './services/window-state'
 import { createMainWindow } from './window'
 
@@ -112,6 +113,7 @@ async function bootstrap(): Promise<() => void> {
     progress: new SqlProgressStore(repo),
     settings: new SettingsStore(meta),
     update: new UpdateService(),
+    updater: new UpdaterService(defaultUpdaterDeps()),
     deviceId: deviceIdOf(meta)
   })
 

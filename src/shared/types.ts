@@ -260,6 +260,35 @@ export interface UpdateCheckResult {
   info: UpdateInfo | null
 }
 
+/**
+ * 应用内更新的状态（0.4.0）。
+ * - `unsupported`：这个构建没有应用内更新的能力（开发环境、免安装版），界面退回「去下载」
+ * - `started`：开始下载（还没拿到进度）
+ * - `downloading`：下载中，`percent` 是 0..100
+ * - `ready`：下载完了，等用户点「重启并更新」
+ * - `error`：出错（网络、远端没有 latest.yml、下载校验不过……），`message` 是给人看的中文
+ */
+export type UpdateProgressState = 'unsupported' | 'started' | 'downloading' | 'ready' | 'error'
+
+/** 状态取值表（schema 里 z.enum 用，别在别处再抄一遍字面量）。 */
+export const UPDATE_PROGRESS_STATES = [
+  'unsupported',
+  'started',
+  'downloading',
+  'ready',
+  'error'
+] as const
+
+export interface UpdateProgress {
+  state: UpdateProgressState
+  /** 0..100；拿不到进度时是 null（不要显示成 0%，那会像卡住了）。 */
+  percent: number | null
+  /** 目标版本号，拿不到时是 null。 */
+  version: string | null
+  /** state 为 unsupported / error 时给一句中文说明；其它情况下可能有也可能没有。 */
+  message?: string
+}
+
 /** 某个自然月的每日阅读量（0.1.4 的日历视图）：days 覆盖整月，没读的日子补 0。 */
 export interface ReadingCalendar {
   /** 'YYYY-MM' */

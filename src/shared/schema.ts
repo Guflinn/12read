@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { UUID_V4_RE } from '@shared/core/ids'
-import { MANUAL_ENCODINGS, SEARCH_SCOPES } from '@shared/types'
+import { MANUAL_ENCODINGS, SEARCH_SCOPES, UPDATE_PROGRESS_STATES } from '@shared/types'
 import type { BoldLevel, FontFamilyKey } from '@shared/types'
 import { SEARCH_MAX_QUERY_CHARS } from '@shared/core/search'
 import {
@@ -172,6 +172,14 @@ export const importProgressSchema = z.object({
   filePath: z.string(),
   stage: z.enum(IMPORT_STAGES),
   ratio: z.number().min(0).max(1),
+  message: z.string().optional()
+})
+
+/** 应用内更新的进度（0.4.0，main → renderer 推送，preload 订阅时再校验一次）。 */
+export const updateProgressSchema = z.object({
+  state: z.enum(UPDATE_PROGRESS_STATES),
+  percent: z.number().min(0).max(100).nullable(),
+  version: z.string().nullable(),
   message: z.string().optional()
 })
 

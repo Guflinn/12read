@@ -19,7 +19,8 @@ import type {
   SearchResult,
   SearchScope,
   ShelfBook,
-  UpdateCheckResult
+  UpdateCheckResult,
+  UpdateProgress
 } from './types'
 
 /**
@@ -96,6 +97,16 @@ export interface ReaderApi {
   checkUpdate(): Promise<UpdateCheckResult>
   /** 打开更新下载页（0.1.5）：交给系统浏览器。 */
   openUpdatePage(url: string): Promise<void>
+  /**
+   * 应用内更新（0.4.0）：开始下载新版本（走 electron-updater，带差量更新）。
+   * 返回「此刻的状态」：`unsupported` 表示这个构建不支持（免安装版 / 开发环境），
+   * 界面应当退回 `openUpdatePage(url)` 让用户自己去下载；后续进度走 onUpdateProgress。
+   */
+  downloadUpdate(): Promise<UpdateProgress>
+  /** 应用内更新（0.4.0）：重启并安装已经下好的新版本。 */
+  installUpdate(): Promise<void>
+  /** 订阅应用内更新的进度，返回取消订阅函数。 */
+  onUpdateProgress(callback: (progress: UpdateProgress) => void): () => void
   /**
    * 导出备份（0.1.3 第 9 项）：主进程弹「另存为」，把整库打成一个 zip。
    * 用户取消返回 null；导出本身只读本机数据，不会动书库。

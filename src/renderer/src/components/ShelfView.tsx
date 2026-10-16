@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react'
 import { todayReadText } from '@shared/core/stats'
-import type { Book, ManualEncoding, RestoreResult, ShelfBook, UpdateInfo } from '@shared/types'
+import type {
+  Book,
+  ManualEncoding,
+  RestoreResult,
+  ShelfBook,
+  UpdateInfo,
+  UpdateProgress
+} from '@shared/types'
 import { isTextFormat } from '@shared/types'
 import { readerApi } from '@/core/api'
 import {
@@ -14,6 +21,7 @@ import {
 } from '@/core/reading'
 import { ENCODING_CHOICES } from '@/core/encoding-choices'
 import { SHELF_SORTS, shelfView, type ShelfSort } from '@/core/shelf'
+import { updateNoticeEnabled, updateNoticeText } from '@/core/updates'
 import { useLibraryStore } from '@/store/library'
 import { useSettingsStore } from '@/store/settings'
 import { BrandMark } from './BrandMark'
@@ -149,6 +157,8 @@ export function ShelfView({
   /** 检查更新（0.1.5）：只提示不下载；失败静默。 */
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
+  /** 应用内更新（0.4.0）：状态由主进程推过来（下载进度 / 已下好）。 */
+  const [updateProgress, setUpdateProgress] = useState<UpdateProgress | null>(null)
   const dailyGoalMinutes = useSettingsStore((s) => s.settings.dailyGoalMinutes)
   const now = Date.now()
   const totalChars = books.reduce((sum, book) => sum + book.charCount, 0)
@@ -166,7 +176,7 @@ export function ShelfView({
       .then((result) => {
         if (result.outcome === 'update' && result.info) {
           setUpdateInfo(result.info)
-          toast('发现新版本 v' + result.info.version + '，点左下角那行去下载')
+          toast('发现新版本 v' + result.info.version + '，点左下角那行更新')
         } else if (result.outcome === 'latest') {
           toast('已是最新版本 v' + version)
         } else {
@@ -183,6 +193,38 @@ export function ShelfView({
       .openUpdatePage(updateInfo.url)
       .catch(() => toast('打不开下载页'))
   }
+
+  /**
+   * 点那颗更新胶囊：先试应用内更新（electron-updater），
+   * 这个构建不支持时（免安装版 / 开发环境）退回老路 —— 打开下载页自己去换。
+   * 已经下好了就直接重启安装。
+   */
+  const startUpdate = (): void => {
+    if (!updateInfo) return
+    if (updateProgress?.state === 'ready') {
+      void readerApi()
+        .installUpdate()
+        .catch(() => toast('重启安装失败，请手动换新版'))
+      return
+    }
+    void readerApi()
+      .downloadUpdate()
+      .then((progress) => {
+        setUpdateProgress(progress)
+        if (progress.state === 'unsupported') {
+          toast(progress.message ?? '这个版本不支持应用内更新')
+          openUpdatePage()
+        } else if (progress.state === 'error') {
+          toast(progress.message ?? '下载更新失败')
+        } else if (progress.state === 'started') {
+          toast('正在下载新版本…')
+        }
+      })
+      .catch(() => toast('下载更新失败'))
+  }
+
+  // 主进程推的更新进度（下载中 / 已下好）：订阅一次，卸载时退订
+  useEffect(() => readerApi().onUpdateProgress(setUpdateProgress), [])
 
   // 启动后静默查一次更新（每次会话一次）。查不到 / 没网都不吭声 —— 那不是用户要处理的事。
   useEffect(() => {
@@ -427,8 +469,13 @@ export function ShelfView({
           {checkingUpdate ? '正在检查…' : '检查更新'}
         </button>
         {updateInfo ? (
-          <button className="app-update-notice" id="update-notice" onClick={openUpdatePage}>
-            有新版本 v{updateInfo.version} · 去下载
+          <button
+            className="app-update-notice"
+            id="update-notice"
+            disabled={!updateNoticeEnabled(updateProgress)}
+            onClick={startUpdate}
+          >
+            {updateNoticeText(updateInfo, updateProgress)}
           </button>
         ) : null}
       </footer>

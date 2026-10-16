@@ -23,7 +23,8 @@ import {
   statReadArgsSchema,
   statGetArgsSchema,
   statCalendarArgsSchema,
-  updateOpenArgsSchema
+  updateOpenArgsSchema,
+  updateProgressSchema
 } from '@shared/schema'
 import type {
   AnnotationId,
@@ -46,7 +47,8 @@ import type {
   SearchResult,
   SearchScope,
   ShelfBook,
-  UpdateCheckResult
+  UpdateCheckResult,
+  UpdateProgress
 } from '@shared/types'
 
 /**
@@ -143,6 +145,21 @@ const readerApi: ReaderApi = {
     ipcRenderer.on(CH.importProgress, listener)
     return () => {
       ipcRenderer.removeListener(CH.importProgress, listener)
+    }
+  },
+  downloadUpdate: (): Promise<UpdateProgress> =>
+    invoke(CH.updateDownload, emptyArgsSchema, undefined),
+  installUpdate: (): Promise<void> => invoke(CH.updateInstall, emptyArgsSchema, undefined),
+  onUpdateProgress: (callback: (progress: UpdateProgress) => void): (() => void) => {
+    // 主进程推的是自己造的对象，形状由 shared/types 定死；这里仍过一遍 zod，
+    // 与 import:progress 同一个口径（跨进程边界的数据不信任）。
+    const listener = (_event: IpcRendererEvent, payload: unknown): void => {
+      const parsed = updateProgressSchema.safeParse(payload)
+      if (parsed.success) callback(parsed.data as UpdateProgress)
+    }
+    ipcRenderer.on(CH.updateProgress, listener)
+    return () => {
+      ipcRenderer.removeListener(CH.updateProgress, listener)
     }
   }
 }

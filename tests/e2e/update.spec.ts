@@ -3,11 +3,15 @@ import { expect, test } from '@playwright/test'
 import { launchApp, makeTempDir } from './helpers'
 
 /**
- * 检查更新（0.1.5）：只提示不下载。
+ * 检查更新（0.1.5）+ 应用内更新（0.4.0）。
  *
  * 网络不可控，所以这里分两条路：
  * - 手动检查：只要求「给了一句准话」，三种结果（最新 / 有新版 / 连不上）都算过；
  * - 「有新版本」提示：用本地假更新源喂一个比本机新的版本号，完全确定性。
+ *
+ * 应用内更新在 e2e 里只可能走「不支持」那条分支（测试跑的是**未打包**的应用，
+ * 没有 app-update.yml），所以这里断言的是：**老老实实说不支持，并退回「去下载」**。
+ * 真的下载 + 重启安装只能靠打包后的安装版在真机上验证（见 HANDOFF「未验证项」）。
  */
 test.describe.configure({ mode: 'serial' })
 
@@ -69,9 +73,41 @@ test('远端有新版时，书架显示「有新版本 … · 去下载」（0.1
     await page.waitForSelector('#btn-import')
 
     // 进书架就自动静默查一次：发现新版 → 左下角出现可点的提示
-    await expect(page.locator('#update-notice')).toHaveText('有新版本 v9.9.9 · 去下载', {
+    await expect(page.locator('#update-notice')).toHaveText('有新版本 v9.9.9 · 更新', {
       timeout: 20_000
     })
+  } finally {
+    feed.server.close()
+  }
+})
+
+test('点更新胶囊：这个构建不支持应用内更新时，老实说清楚并退回下载页（0.4.0）', async () => {
+  const feed = await fakeFeed([
+    {
+      tag_name: 'v9.9.9',
+      html_url: 'https://github.com/Guflinn/12read/releases/tag/v9.9.9',
+      published_at: '2026-10-07T00:00:00Z'
+    }
+  ])
+  process.env['TWELVE_READ_UPDATE_FEED'] = feed.url
+
+  try {
+    app = await launchApp(makeTempDir('12read-upd-inapp-'))
+    // 别真的把系统浏览器叫起来（main 侧走 shell.openExternal）
+    await app.evaluate(({ shell }) => {
+      shell.openExternal = (async () => undefined) as typeof shell.openExternal
+    })
+    const page = await app.firstWindow()
+    await page.waitForSelector('#btn-import')
+    await expect(page.locator('#update-notice')).toHaveText('有新版本 v9.9.9 · 更新', {
+      timeout: 20_000
+    })
+
+    await page.click('#update-notice')
+
+    // 未打包 → 走不通应用内更新：给一句中文说明，并把文案退回「去下载」
+    await expect(page.locator('#toast')).toHaveText(/这个版本不支持应用内更新/, { timeout: 20_000 })
+    await expect(page.locator('#update-notice')).toHaveText('有新版本 v9.9.9 · 去下载')
   } finally {
     feed.server.close()
   }

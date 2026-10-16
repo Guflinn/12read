@@ -42,6 +42,20 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 现在在哪（以 `git log` 为准）
 
+- **1.0.0 正式版已发布（2026-10-17）**：tag `v1.0.0` → `941e77a`（附注 tag，说明以「正式版：」开头），
+  Release「十二阅读 v1.0.0（Windows）」**不勾 Pre-release** —— `releases/latest` 接口第一次有了返回值就指向它。
+  功能集与 0.4.0 完全一致（只转版本号），CHANGELOG / README / MVP / TECH 都已对齐正式版口径
+  （`electron-builder.yml` 的 `publish.releaseType` 改 `release`，纯 builder 侧；客户端 `allowPrerelease=true`
+  保持不变 —— 走 Atom feed 第一条或 `/releases/latest` 两条路都能从 0.4.0 升上来）。
+  附件四个（全英文名，GitHub 删中文，见已知坑）：setup exe（132,584,709 B）+ portable exe（132,349,748 B）
+  + `latest.yml` + `.blockmap`；SHA-256 setup `d5bbf850…538a4` / portable `799305d5…05c60`，
+  **匿名下载 portable 逐字节核对过**。中文名副本「十二阅读安装版 1.0.0.exe」「十二阅读免安装版 1.0.0.exe」
+  在 `发布-1.0.0/`（与英文名逐字节一致，给用户直接分发用）；`发布-0.4.0` 已归档进 `旧版-可删/`。
+  ⚠️ **应用内更新 0.4.0 → 1.0.0 是更新器的第一次真跑，待用户真机点一次验证**（差量下载 / 重启安装沙箱里验不了）。
+  发版前全绿：eslint + 三份 tsc + 单测契约 67 文件 / 804 例 + e2e 56 例；打包冒烟：asar 内 version=1.0.0、
+  icon.ico 七帧逐字节在 exe、better-sqlite3 的 win32-x64.node 与 electron-updater 都在包内、
+  隔离数据目录启动 14s 存活 + 正常建库。**顺带修了一个存量 tsc 错**（`pdf-import.test.ts` 假 DOMMatrix
+  返回 unknown 的链式调用，TS2571；类型收窄，行为零改动，commit `1b86126`）。打包走轮换目录 `release-tmp18/`。
 - **0.4.0 已发版（2026-10-17）**：tag `v0.4.0` → `ec23bfa`（附注 tag，说明以「内测版：」开头），
   Release「十二阅读 v0.4.0 内测版（Windows）」勾了 Pre-release，附件四个：
   setup exe（132,584,495 B）+ portable exe（132,349,463 B）+ **latest.yml** + **blockmap**（后两样是应用内更新的差量元数据）。
@@ -129,12 +143,13 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 下一步（按顺序）
 
-1. ~~**发 0.4.0 内测版**~~ **已完成（2026-10-17）**：CHANGELOG 定稿 → 打包（nsis + portable）→
-   附注 tag + Pre-release，附件 = setup exe + portable exe + **latest.yml + blockmap**（后两样是
-   应用内更新的差量元数据）。发版说明 `tools/release/release-notes-0.4.0.md`、
-   脚本 `tools/release/upload-release-0.4.0.py`（照 0.3.1 那份改的）。
-2. **等用户试用反馈**；一轮没问题就按他说的转 `1.0.0` 正式版（Release 去掉「内测版」与 Pre-release 勾）。
-   转正式版时要顺带改 CHANGELOG 开头那段「0.x 一律内测版」的说明。
+1. ~~发 0.4.0~~、~~**转 1.0.0 正式版**~~ **均已完成（2026-10-17）**：1.0.0 已上线
+   （不勾 Pre-release、标题不带「内测版」），CHANGELOG 开头的「0.x 一律内测版」说明已补「1.0.0 起为正式版」。
+2. **等用户真机反馈三件事**：① 应用内更新第一次真跑（装了 0.4.0 安装版的机器点「有新版本」→ 差量下载 → 重启并更新）；
+   ② 1.0.0 安装包图形界面双击安装全程；③ 中文名 exe 副本分发（微信 / 网盘）是否好使。
+3. **可做的下一件事（都要用户拍板）**：`release/` 里的 `win-unpacked-0.2.1 / 0.3.0 / 0.3.0-new / 0.3.1 /
+   win-unpacked.tmp / win-unpacked`（只剩锁死的 asar）与 `release-tmp18/` 可清（重启后锁通常就解了）；
+   `旧版-可删/`（现已含 `发布-0.4.0`）用户确认后整个删。**删前问用户**，别自作主张。
 3. **0.3.1 已发布完毕（2026-10-16）**，见「现在在哪」首条。**可以做的下一件事**：等用户试用反馈；
    或者按「格式路线图」继续 **Markdown**（几乎零成本，走 TXT 管线）→ PDF（只做文字层）。
    - **待用户拍板**：`release/` 里旧的免安装版 `win-unpacked-0.2.1/`（不含 MOBI）与被锁的

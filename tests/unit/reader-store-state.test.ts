@@ -73,6 +73,7 @@ function makeApi(): ApiMock {
     checkUpdate: vi.fn(async () => null),
     openUpdatePage: vi.fn(async () => undefined),
     exportBackup: vi.fn(async () => null),
+    restoreBackup: vi.fn(async () => null),
     readChapter: vi.fn(async () => TEXT),
     getProgress: vi.fn(async () => PROGRESS),
     saveProgress: vi.fn(async () => undefined),

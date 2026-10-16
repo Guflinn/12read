@@ -35,6 +35,7 @@ import type {
   ReaderSettings,
   ReadingCalendar,
   ReadingStats,
+  RestoreResult,
   UpdateCheckResult,
   SearchResult,
   ShelfBook
@@ -50,6 +51,7 @@ import type { ImportService } from './services/importer'
 import type { LibraryService } from './services/library'
 import type { SqlProgressStore } from './services/progress-store'
 import type { ReadingStatsService } from './services/reading-stats'
+import { RestoreError, type RestoreService } from './services/restore'
 import type { BookSearchService } from './services/search'
 import type { SettingsStore } from './services/settings-store'
 
@@ -67,6 +69,8 @@ export interface IpcContext {
   stats: ReadingStatsService
   /** 导出备份（0.1.3 第 9 项）：只读本机数据打一个 zip。 */
   backup: BackupService
+  /** 还原备份（0.4.0）：整库覆盖还原，换完库文件后由本模块负责重启应用。 */
+  restore: RestoreService
   /** 检查更新（0.1.5）：拉远端 Release 比版本号，只提示不下载。 */
   update: UpdateService
   /** EPUB 内联图片（0.2.0 第 5 项）。 */
@@ -105,6 +109,27 @@ function runChapterEdit(edit: () => Chapter[]): Chapter[] {
     const error = toImportError(cause)
     throw new Error('改分章失败（' + error.code + '）：' + error.message)
   }
+}
+
+/**
+ * 换完库文件后原地重启：主进程里所有仓储都还攥着旧的数据库连接，
+ * 与其在进程内重新装配一遍（容易漏掉某个缓存），不如重启来得干净可预期。
+ * 留一点延时，好让界面把「还原完成，正在重启」显示出来。
+ *
+ * `TWELVE_READ_NO_RELAUNCH=1` 时不重启：**给 e2e 留的口子**（与 TWELVE_READ_DATA_DIR 同类），
+ * 因为这个测试要自己关掉应用再重新起一次，比进程内 relaunch 更硬；普通使用不会设它。
+ */
+const RELAUNCH_DELAY_MS = 1200
+
+function scheduleRelaunch(): void {
+  if (process.env['TWELVE_READ_NO_RELAUNCH'] === '1') {
+    console.info('[12read] 已按 TWELVE_READ_NO_RELAUNCH=1 跳过重启（测试用）')
+    return
+  }
+  setTimeout(() => {
+    app.relaunch()
+    app.exit(0)
+  }, RELAUNCH_DELAY_MS)
 }
 
 export function registerIpc(ctx: IpcContext): void {
@@ -295,10 +320,35 @@ export function registerIpc(ctx: IpcContext): void {
     }
   })
 
+  /**
+   * 还原备份（0.4.0）：选一个备份 zip，**整库覆盖**。换库文件后主进程的数据库连接
+   * 已经作废，所以无论成败都要重启应用（成功 → 进新库；失败已回滚 → 进旧库）。
+   * 界面负责在调这里之前拿到用户的二次确认（会丢当前进度 / 书签 / 划线）。
+   */
+  handle(CH.backupRestore, emptyArgsSchema, async (): Promise<RestoreResult | null> => {
+    const picked = await dialog.showOpenDialog({
+      title: '选择要还原的备份包',
+      properties: ['openFile'],
+      filters: [{ name: 'ZIP 压缩包', extensions: ['zip'] }]
+    })
+    if (picked.canceled || picked.filePaths.length === 0) return null
+
+    const target = picked.filePaths[0]
+    try {
+      const result = await ctx.restore.restoreFrom(target)
+      scheduleRelaunch()
+      return result
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause)
+      // 关连接之后出错也重启：回滚已经把旧库搬回去了，重启才能干净地继续用
+      if (cause instanceof RestoreError && cause.closed) scheduleRelaunch()
+      throw new Error('还原失败：' + message)
+    }
+  })
+
   handle(CH.progressGet, getArgsSchema, ({ bookId }): Promise<Progress | null> =>
     ctx.progress.get(bookId)
   )
-
   handle(CH.progressSave, progressSchema, async (progress): Promise<void> => {
     await ctx.progress.save(progress)
   })

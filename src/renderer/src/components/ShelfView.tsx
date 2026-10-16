@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { todayReadText } from '@shared/core/stats'
-import type { Book, ManualEncoding, ShelfBook, UpdateInfo } from '@shared/types'
+import type { Book, ManualEncoding, RestoreResult, ShelfBook, UpdateInfo } from '@shared/types'
 import { isTextFormat } from '@shared/types'
 import { readerApi } from '@/core/api'
 import {
@@ -138,6 +138,10 @@ export function ShelfView({
   const [scopeOpen, setScopeOpen] = useState(false)
   const [statsOpen, setStatsOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
+  /** 还原备份（0.4.0）：先弹二次确认（整库覆盖），确认后主进程换库并重启应用。 */
+  const [restoreOpen, setRestoreOpen] = useState(false)
+  const [restoring, setRestoring] = useState(false)
+  const [restored, setRestored] = useState<RestoreResult | null>(null)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<ShelfSort>('recent')
   /** 今天读了多久（0.1.4）：进书架时取一次；从阅读器回来自会重新挂载，所以不用订阅。 */
@@ -231,6 +235,26 @@ export function ShelfView({
       .finally(() => setExporting(false))
   }
 
+  /**
+   * 还原备份（0.4.0）：**整库覆盖** —— 还原之后书库就是备份那一刻的样子。
+   * 主进程会在换库前把当前书库整份挪到 `restore-undo-<时间>`（想反悔可以手动搬回），
+   * 换完库文件应用会自己重启（数据库连接已作废），所以这里成功后只负责把话说明白。
+   */
+  const restoreBackup = (): void => {
+    if (restoring) return
+    setRestoring(true)
+    void readerApi()
+      .restoreBackup()
+      .then((result) => {
+        if (result === null) toast('已取消还原')
+        else setRestored(result)
+      })
+      .catch((cause: unknown) => {
+        toast('还原失败：' + (cause instanceof Error ? cause.message : String(cause)))
+      })
+      .finally(() => setRestoring(false))
+  }
+
   const importFiles = (files: FileList | null): void => {
     const list = files ? Array.from(files) : []
     const paths: string[] = []
@@ -274,6 +298,14 @@ export function ShelfView({
               onClick={exportBackup}
             >
               {exporting ? '导出中…' : '导出备份'}
+            </button>
+            <button
+              id="btn-restore"
+              className="btn ghost"
+              disabled={restoring}
+              onClick={() => setRestoreOpen(true)}
+            >
+              {restoring ? '还原中…' : '还原备份'}
             </button>
             <button id="btn-scope" className="btn ghost" onClick={() => setScopeOpen(true)}>
               范围说明
@@ -439,6 +471,49 @@ export function ShelfView({
         </Modal>
       ) : null}
 
+      {restoreOpen ? (
+        <Modal
+          title="从备份还原？"
+          confirmLabel="选择备份包并还原"
+          cancelLabel="取消"
+          danger
+          onCancel={() => setRestoreOpen(false)}
+          onConfirm={() => {
+            setRestoreOpen(false)
+            restoreBackup()
+          }}
+        >
+          <p className="modal-text">
+            <strong>这会用备份里的书库整份替换掉当前书库</strong>
+            ：现在书架上的书、阅读进度、书签与划线都会被备份里那一份取代，界面上没法撤销。
+          </p>
+          <p className="modal-note">
+            还原前会把当前书库整份挪到数据目录下的 restore-undo-&lt;时间&gt;
+            文件夹（不是直接删），万一后悔可以手动换回来。还原完成后应用会自己重启一次。
+          </p>
+        </Modal>
+      ) : null}
+
+      {restored ? (
+        <Modal
+          title="还原完成"
+          confirmLabel="知道了"
+          cancelLabel="关闭"
+          onCancel={() => setRestored(null)}
+          onConfirm={() => setRestored(null)}
+        >
+          <p className="modal-text">
+            已从《{restored.path}》还原 {restored.sources} 本书的原始文件（清单里记了 {restored.books} 本）。
+            应用正在重启，重启后书架就是备份里的样子。
+          </p>
+          <p className="modal-note">
+            {restored.undoDir
+              ? '还原前的书库已经挪到：' + restored.undoDir
+              : '还原前本来就没有书库，没有需要退回的东西。'}
+          </p>
+        </Modal>
+      ) : null}
+
       {recoding ? (
         !isTextFormat(recoding.format) ? (
           /* EPUB / MOBI 没有「编码」这回事（正文编码写在文件里）：这里的语义是
@@ -526,10 +601,13 @@ export function ShelfView({
             <li>搜索：Ctrl + F 在章节内或全书找词，结果上是章名与上下文</li>
             <li>阅读统计：书架右上角「阅读统计」，看今天 / 累计时长与字数、连续天数、最近两周、读得最多的书</li>
             <li>导出备份：整库打成一个 zip（数据库快照 + 每本书的原始文件 + 清单），存到你选的位置</li>
+            <li>
+              还原备份：拿上面那个 zip 整库还原（会替换当前书库，换之前先把旧书库挪到 restore-undo-&lt;时间&gt;，
+              换完自动重启）
+            </li>
           </ul>
           <p className="scope-h">还不在范围内</p>
           <ul className="scope-list">
-            <li>备份还原（现在只能导出，还不能从备份还原回来）</li>
             <li>笔记（划线只能记原文，还不能在旁边写字）</li>
             <li>PDF（有文字层的那种）</li>
             <li>Markdown 的表格 / 任务列表 / 脚注，链接还不能点开（只做样式，地址在悬停提示里）</li>

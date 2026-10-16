@@ -15,11 +15,13 @@ import { BackupService } from './services/backup'
 import { ChapterEditor } from './services/chapter-editor'
 import { FileContentReader } from './services/content-reader'
 import { deviceIdOf } from './services/device-id'
+import { DerivedRepair } from './services/derived-repair'
 import { ImportService } from './services/importer'
 import { booksRoot, dbPath } from './services/layout'
 import { LibraryService } from './services/library'
 import { SqlProgressStore } from './services/progress-store'
 import { ReadingStatsService } from './services/reading-stats'
+import { RestoreService } from './services/restore'
 import { BookSearchService } from './services/search'
 import { SettingsStore } from './services/settings-store'
 import { UpdateService } from './services/update'
@@ -45,7 +47,7 @@ function broadcast(): (progress: import('@shared/types').ImportProgress) => void
   }
 }
 
-function bootstrap(): () => void {
+async function bootstrap(): Promise<() => void> {
   mkdirSync(root, { recursive: true })
   mkdirSync(booksRoot(root), { recursive: true })
 
@@ -64,6 +66,24 @@ function bootstrap(): () => void {
   const repo = new LibraryRepository(db)
   const importer = new ImportService({ root, repo }, broadcast())
   const meta = new MetaRepository(db)
+
+  // 启动自愈（0.4.0）：派生正文缺失就按 source.bin 重新提取一次。
+  // 还原备份之后每本书都缺正文（包里只放原始文件），靠这一步补齐；开窗前跑完，
+  // 免得界面已经能点书、正文却还没生成。
+  const repaired = await new DerivedRepair({
+    root,
+    books: () =>
+      repo.listBooks().map((book) => ({
+        id: book.id,
+        title: book.title,
+        contentMode: book.contentMode,
+        chapterCount: book.chapterCount
+      })),
+    redecode: (bookId) => importer.redecode(bookId, 'auto', 'repair-' + bookId)
+  }).run()
+  if (repaired.length > 0) {
+    console.info('[12read] 已重新生成 ' + repaired.length + ' 本书的正文（派生文件缺失）')
+  }
 
   // 正文缓存 64MB：阅读与搜索共用同一个实例，别各建一份（0.1.3 第 7 项）
   const content = new FileContentReader(root, repo)
@@ -88,6 +108,7 @@ function bootstrap(): () => void {
     search: new BookSearchService(content, repo),
     stats: new ReadingStatsService(new ReadingStatRepository(db)),
     backup: new BackupService({ root, db, repo, version: app.getVersion() }),
+    restore: new RestoreService({ root, db }),
     progress: new SqlProgressStore(repo),
     settings: new SettingsStore(meta),
     update: new UpdateService(),
@@ -117,9 +138,9 @@ protocol.registerSchemesAsPrivileged([
   { scheme: IMAGE_SCHEME, privileges: { standard: true, secure: true } }
 ])
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   installCsp(isDev)
-  const openWindow = bootstrap()
+  const openWindow = await bootstrap()
   openWindow()
 
   app.on('activate', () => {

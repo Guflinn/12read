@@ -42,6 +42,7 @@ import type {
   ReadSpanInput,
   ReadingCalendar,
   ReadingStats,
+  RestoreResult,
   SearchResult,
   SearchScope,
   ShelfBook,
@@ -114,6 +115,8 @@ const readerApi: ReaderApi = {
   openUpdatePage: (url: string): Promise<void> => invoke(CH.updateOpen, updateOpenArgsSchema, { url }),
   exportBackup: (): Promise<BackupResult | null> =>
     invoke(CH.backupExport, emptyArgsSchema, undefined),
+  restoreBackup: (): Promise<RestoreResult | null> =>
+    invoke(CH.backupRestore, emptyArgsSchema, undefined),
   getProgress: (bookId: string): Promise<Progress | null> =>
     invoke(CH.progressGet, getArgsSchema, { bookId }),
   saveProgress: (progress: Progress): Promise<void> =>

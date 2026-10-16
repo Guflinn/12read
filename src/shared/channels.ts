@@ -37,6 +37,8 @@ export const CH = {
   bookImages: 'book:images',
   /** 导出备份（0.1.3 第 9 项）：整库打一个 zip，只导出不恢复。 */
   backupExport: 'backup:export',
+  /** 还原备份（0.4.0）：整库覆盖还原，换完库文件后应用重启。 */
+  backupRestore: 'backup:restore',
   progressGet: 'progress:get',
   progressSave: 'progress:save',
   /** 退出前的同步落盘：beforeunload 里异步 IPC 未必来得及（TECH.md 6.3）。 */

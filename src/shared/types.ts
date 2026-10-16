@@ -292,6 +292,28 @@ export interface BackupResult {
   books: number
 }
 
+/**
+ * 还原备份的结果（0.4.0）。语义是**整库覆盖**：还原之后书库就是备份那一刻的样子，
+ * 当前库里的书 / 进度 / 书签 / 划线全部被替换（换之前会把旧库整份挪到 undoDir）。
+ * 换完库文件应用会重启（主进程的数据库连接已经作废）。
+ */
+export interface RestoreResult {
+  /** 选中的备份包路径。 */
+  path: string
+  /** 清单里记了几本书（老包没有清单时为 0）。 */
+  books: number
+  /** 真正恢复出来的原始文件数。 */
+  sources: number
+  /** 还原完成时间（ISO）。 */
+  restoredAt: string
+  /** 备份包的导出时间（老包可能没有）。 */
+  exportedAt: string | null
+  /** 备份包的数据格式版本（老包可能没有）。 */
+  schemaVersion: number | null
+  /** 还原前把旧书库挪到了哪儿；null 表示原本就是空库、没东西可退。 */
+  undoDir: string | null
+}
+
 export type ImportStage =
   | 'reading'
   | 'detecting'

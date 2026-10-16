@@ -15,6 +15,7 @@ import type {
   ReadingCalendar,
   ReaderSettings,
   ReadingStats,
+  RestoreResult,
   SearchResult,
   SearchScope,
   ShelfBook,
@@ -100,6 +101,12 @@ export interface ReaderApi {
    * 用户取消返回 null；导出本身只读本机数据，不会动书库。
    */
   exportBackup(): Promise<BackupResult | null>
+  /**
+   * 还原备份（0.4.0）：主进程弹「打开」选一个备份 zip，**整库覆盖**还原。
+   * 用户取消返回 null。语义与风险都在 main 侧实现里写着：换库前会把当前书库
+   * 整份挪到 restore-undo-<时间>，进程随后重启（数据库连接已作废）。
+   */
+  restoreBackup(): Promise<RestoreResult | null>
   getProgress(bookId: string): Promise<Progress | null>
   saveProgress(progress: Progress): Promise<void>
   /**

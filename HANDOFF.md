@@ -42,6 +42,16 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 现在在哪（以 `git log` 为准）
 
+- **还原后的自动重启已重做（2026-10-17，用户报「还原完应用自己退了像闪退」）**：
+  根因是 `app.relaunch()` 退出后按 `process.execPath` 拉新进程，而**免安装版的 execPath 指向
+  临时解包目录里的真身，老进程一退 portable 启动器就把目录清了** → 拉起必败（安装版也可能被
+  杀软/文件锁绊住，且 relaunch 失败是静默的）。修复：新增 `src/main/services/relaunch.ts`
+  —— 打包版（安装 + 免安装）改派生**独立 cmd**（`ping -n 3` 等约 2 秒老进程退干净，再
+  `start "" "<exe>"`），免安装版目标用启动器放进 `PORTABLE_EXECUTABLE_FILE` 的外层便携 exe 本体，
+  安装版用 execPath；开发态仍走 `app.relaunch()`。ipc.ts 的 `scheduleRelaunch` 变薄壳，
+  `TWELVE_READ_NO_RELAUNCH=1` 行为不变。测试：新增 `tests/unit/relaunch.test.ts`（10 例），
+  ipc.test 原有断言不动仍绿；单测 65 文件 781 例 + 契约 3 文件 33 例 + 三份 tsc 全绿。
+  **待用户真机验**：还原备份后应用应自己重新打开（两种发行形态）。
 - **1.0.0 正式版已发布（2026-10-17）**：tag `v1.0.0` → `941e77a`（附注 tag，说明以「正式版：」开头），
   Release「十二阅读 v1.0.0（Windows）」**不勾 Pre-release** —— `releases/latest` 接口第一次有了返回值就指向它。
   功能集与 0.4.0 完全一致（只转版本号），CHANGELOG / README / MVP / TECH 都已对齐正式版口径
@@ -149,7 +159,10 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 下一步（按顺序）
 
-1. ~~发 0.4.0~~、~~**转 1.0.0 正式版**~~ **均已完成（2026-10-17）**：1.0.0 已上线
+1. **还原后自动重启的真机验证 + 发版决策（2026-10-17 的新增）**：修复已进 main（未 push、未发版），
+   用户真机用免安装版/安装版各还原一次，确认应用会自己重新打开；确认没问题后用户拍板要不要
+   发 1.0.1（发版规矩见记忆/HANDOFF「现在在哪」1.0.0 条）。
+2. ~~发 0.4.0~~、~~**转 1.0.0 正式版**~~ **均已完成（2026-10-17）**：1.0.0 已上线
    （不勾 Pre-release、标题不带「内测版」），CHANGELOG 开头的「0.x 一律内测版」说明已补「1.0.0 起为正式版」。
 2. **等用户真机反馈三件事**：① 应用内更新第一次真跑（装了 0.4.0 安装版的机器点「有新版本」→ 差量下载 → 重启并更新）；
    ② 1.0.0 安装包图形界面双击安装全程；③ 中文名 exe 副本分发（微信 / 网盘）是否好使。

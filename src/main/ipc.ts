@@ -53,6 +53,7 @@ import type { LibraryService } from './services/library'
 import type { SqlProgressStore } from './services/progress-store'
 import type { ReadingStatsService } from './services/reading-stats'
 import { RestoreError, type RestoreService } from './services/restore'
+import { scheduleRestartAfterDelay, spawnDetached } from './services/relaunch'
 import type { BookSearchService } from './services/search'
 import type { SettingsStore } from './services/settings-store'
 import type { UpdaterService } from './services/updater'
@@ -120,6 +121,10 @@ function runChapterEdit(edit: () => Chapter[]): Chapter[] {
  * 与其在进程内重新装配一遍（容易漏掉某个缓存），不如重启来得干净可预期。
  * 留一点延时，好让界面把「还原完成，正在重启」显示出来。
  *
+ * 具体怎么拉起新进程（1.0.0 后重做）见 services/relaunch.ts —— 旧的
+ * `app.relaunch()` 在免安装版上必然失败（execPath 指向退出即被清理的临时
+ * 解包目录），用户看到的就是「应用自己关了，像闪退」。
+ *
  * `TWELVE_READ_NO_RELAUNCH=1` 时不重启：**给 e2e 留的口子**（与 TWELVE_READ_DATA_DIR 同类），
  * 因为这个测试要自己关掉应用再重新起一次，比进程内 relaunch 更硬；普通使用不会设它。
  */
@@ -130,17 +135,17 @@ function broadcastUpdateProgress(progress: UpdateProgress): void {
   }
 }
 
-const RELAUNCH_DELAY_MS = 1200
-
 function scheduleRelaunch(): void {
-  if (process.env['TWELVE_READ_NO_RELAUNCH'] === '1') {
-    console.info('[12read] 已按 TWELVE_READ_NO_RELAUNCH=1 跳过重启（测试用）')
-    return
-  }
-  setTimeout(() => {
-    app.relaunch()
-    app.exit(0)
-  }, RELAUNCH_DELAY_MS)
+  scheduleRestartAfterDelay({
+    isPackaged: app.isPackaged,
+    execPath: process.execPath,
+    portableExecutableFile: process.env['PORTABLE_EXECUTABLE_FILE'],
+    noRelaunchEnv: process.env['TWELVE_READ_NO_RELAUNCH'],
+    relaunch: () => app.relaunch(),
+    spawnDetached,
+    exit: (code) => app.exit(code),
+    setTimer: setTimeout
+  })
 }
 
 export function registerIpc(ctx: IpcContext): void {

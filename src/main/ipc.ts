@@ -52,7 +52,7 @@ import type { ImportService } from './services/importer'
 import type { LibraryService } from './services/library'
 import type { SqlProgressStore } from './services/progress-store'
 import type { ReadingStatsService } from './services/reading-stats'
-import { RestoreError, type RestoreService } from './services/restore'
+import { RestoreError } from './services/restore'
 import { scheduleRestartAfterDelay, spawnDetached } from './services/relaunch'
 import type { BookSearchService } from './services/search'
 import type { SettingsStore } from './services/settings-store'
@@ -72,8 +72,11 @@ export interface IpcContext {
   stats: ReadingStatsService
   /** 导出备份（0.1.3 第 9 项）：只读本机数据打一个 zip。 */
   backup: BackupService
-  /** 还原备份（0.4.0）：整库覆盖还原，换完库文件后由本模块负责重启应用。 */
-  restore: RestoreService
+  /**
+   * 还原备份（0.4.0 引入，1.0.1 重做）：传入备份 zip 路径，编排层负责
+   * 换库 + **原地重建运行时**（不退出应用）。见 services/restore-in-place.ts。
+   */
+  restore: (zipPath: string) => Promise<RestoreResult>
   /** 检查更新（0.1.5）：拉远端 Release 比版本号；0.4.0 起还负责「去下载」这条退路。 */
   update: UpdateService
   /** 应用内更新（0.4.0）：下载 + 重启安装（走 electron-updater）。 */
@@ -117,13 +120,12 @@ function runChapterEdit(edit: () => Chapter[]): Chapter[] {
 }
 
 /**
- * 换完库文件后原地重启：主进程里所有仓储都还攥着旧的数据库连接，
- * 与其在进程内重新装配一遍（容易漏掉某个缓存），不如重启来得干净可预期。
- * 留一点延时，好让界面把「还原完成，正在重启」显示出来。
+ * 原地重启的**最后兜底**（1.0.1）：还原编排正常情况下会原地重建运行时、应用不退出；
+ * 只有「重开书库也失败、进程状态已坏」这种极罕见情况才走到这里。
  *
- * 具体怎么拉起新进程（1.0.0 后重做）见 services/relaunch.ts —— 旧的
- * `app.relaunch()` 在免安装版上必然失败（execPath 指向退出即被清理的临时
- * 解包目录），用户看到的就是「应用自己关了，像闪退」。
+ * 具体怎么拉起新进程见 services/relaunch.ts —— 旧的 `app.relaunch()` 在免安装版上
+ * 必然失败（execPath 指向退出即被清理的临时解包目录），用户看到的就是「应用自己
+ * 关了，像闪退」。
  *
  * `TWELVE_READ_NO_RELAUNCH=1` 时不重启：**给 e2e 留的口子**（与 TWELVE_READ_DATA_DIR 同类），
  * 因为这个测试要自己关掉应用再重新起一次，比进程内 relaunch 更硬；普通使用不会设它。
@@ -344,8 +346,8 @@ export function registerIpc(ctx: IpcContext): void {
   })
 
   /**
-   * 还原备份（0.4.0）：选一个备份 zip，**整库覆盖**。换库文件后主进程的数据库连接
-   * 已经作废，所以无论成败都要重启应用（成功 → 进新库；失败已回滚 → 进旧库）。
+   * 还原备份（0.4.0 引入，1.0.1 重做）：选一个备份 zip，**整库覆盖**，应用**不退出** ——
+   * 编排层换完库会把新库原地重新接上，渲染层拿到结果后自己刷新书架。
    * 界面负责在调这里之前拿到用户的二次确认（会丢当前进度 / 书签 / 划线）。
    */
   handle(CH.backupRestore, emptyArgsSchema, async (): Promise<RestoreResult | null> => {
@@ -358,23 +360,22 @@ export function registerIpc(ctx: IpcContext): void {
 
     const target = picked.filePaths[0]
     try {
-      const result = await ctx.restore.restoreFrom(target)
-      scheduleRelaunch()
-      return result
+      return await ctx.restore(target)
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause)
       if (!(cause instanceof RestoreError) || !cause.closed) {
-        // 包本身不对：库文件一个字都没动，界面 toast 说清就够了
+        // 普通失败（校验不过 / 换库失败已回滚且运行时重建好了）：库文件要么没动、
+        // 要么已经是旧库，应用一切正常 —— 界面 toast 说清就够
         throw new Error('还原失败：' + message)
       }
-      // 已经动过库文件了（连接也关了）：**必须重启**才能干净地继续用。
+      // 原地重建也失败（极罕见）：进程状态已坏，**必须重启**才能干净地继续用。
       // 这种时候界面上的 toast 会被重启抹掉，所以先用系统弹窗把原因讲清楚再重启 ——
       // 失败原因不让人看见的话，用户只会觉得「点了没反应还崩了」。
       await dialog.showMessageBox({
         type: 'error',
         title: '还原失败',
         message,
-        detail: '已经退回还原前的书库，应用会重启一次，你的书和进度都还在。',
+        detail: '应用会重启一次，重启后就是当前书库的内容，你的数据没有丢。',
         buttons: ['知道了'],
         noLink: true
       })

@@ -12,7 +12,8 @@
  * 不进包（0.1.3 的口径：能重新生成的东西不进包）。所以还原之后，
  * 每本书的正文由启动自愈（`derived-repair.ts`）按 source.bin 重新提取一次补齐。
  *
- * 换完库文件后**必须重启应用**：主进程里所有的仓储都还攥着旧的数据库连接。
+ * 换完库文件连接已关 —— 由**编排层**（`restore-in-place.ts`，1.0.1 起）原地重开新库
+ * 并重建运行时，应用不退出；只有重建也失败才由 ipc 兜底重启。
  */
 import { copyFile, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -34,7 +35,10 @@ const SQLITE_MAGIC = Buffer.from('SQLite format 3\u0000', 'utf8')
 export class RestoreError extends Error {
   constructor(
     message: string,
-    /** true 表示数据库连接已经关了（换库文件之前就关）—— 调用方必须重启应用才干净。 */
+    /**
+     * true 表示数据库连接已经关了（换库文件之前就关）——
+     * 编排层会靠它区分「校验失败」与「动过文件」，决定要不要原地重开库。
+     */
     readonly closed: boolean = false
   ) {
     super(message)
@@ -87,7 +91,7 @@ export class RestoreService {
 
   /**
    * 还原：读包 → 校验 → 解出原始文件 → 关库 → 换库 → 返回报告。
-   * 返回后**必须重启应用**（数据库连接已关、文件已换）。
+   * 返回后数据库连接已关、文件已换 —— 由编排层原地重开（见 restore-in-place.ts）。
    */
   async restoreFrom(zipPath: string): Promise<RestoreResult> {
     const { root, db } = this.options

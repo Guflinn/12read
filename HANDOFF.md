@@ -42,6 +42,17 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 现在在哪（以 `git log` 为准）
 
+- **还原备份彻底改成「不退出、原地重接」（2026-10-17，用户两轮真机反馈后拍板方向）**：
+  用户实测 1.0.1 的 cmd 兜底重启在真机上**两种发行形态都没生效**（怀疑 Electron 主进程的
+  作业对象把派生的 cmd 连坐杀了，未深究），要求干脆不退出。实现：`services/restore-in-place.ts`
+  编排（换库成功 → `index.ts` 的 `buildRuntime()` 原地重开新库并重建全部仓储/服务，窗口不动），
+  渲染层「还原完成」弹窗点「刷新书架」整页重载（`window.location.reload()`）。
+  `ipc.ts` 的 `IpcContext.restore` 变成编排函数；`scheduleRelaunch` 只剩「原地重建也失败」
+  的最后兜底。**index.ts 的运行时全部从 `buildRuntime()` 里出**（will-quit / 关窗回调都读
+  `runtime` 变量），新代码别在别处攥着 db/repo。⚠️ 踩过的坑：重构时把 `protocol.handle(IMAGE_SCHEME)`
+  弄丢过 → 封面/插图全挂，e2e 的 epub/mobi 用例当场抓住 —— `protocol.handle` 必须在 app ready
+  后注册，动 index.ts 时留意。测试：新增 restore-in-place.test.ts（5 例），ipc/backup e2e 已改口径；
+  单测 786 例 + 契约 33 例 + e2e 56 例 + 三份 tsc 全绿。
 - **还原后的自动重启已重做（2026-10-17，用户报「还原完应用自己退了像闪退」）**：
   根因是 `app.relaunch()` 退出后按 `process.execPath` 拉新进程，而**免安装版的 execPath 指向
   临时解包目录里的真身，老进程一退 portable 启动器就把目录清了** → 拉起必败（安装版也可能被
@@ -159,7 +170,10 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 下一步（按顺序）
 
-1. **还原后自动重启的真机验证 + 发版决策（2026-10-17 的新增）**：修复已进 main（未 push、未发版），
+1. **不退出还原的真机验证 + 发版决策（2026-10-17 的最新）**：原地还原已进 main（未 push、未发版），
+   重新打包的 1.0.1 试用包等用户真机验：还原后应用**不退出**、点「刷新书架」书架就切换；
+   确认没问题后用户拍板要不要发 1.0.1（发版规矩见「现在在哪」1.0.0 条）。
+2. **还原后自动重启的真机验证 + 发版决策（2026-10-17 的新增）**：修复已进 main（未 push、未发版），
    用户真机用免安装版/安装版各还原一次，确认应用会自己重新打开；确认没问题后用户拍板要不要
    发 1.0.1（发版规矩见记忆/HANDOFF「现在在哪」1.0.0 条）。
 2. ~~发 0.4.0~~、~~**转 1.0.0 正式版**~~ **均已完成（2026-10-17）**：1.0.0 已上线

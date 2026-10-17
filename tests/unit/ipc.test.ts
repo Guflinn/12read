@@ -11,6 +11,7 @@ import type {
   ReaderSettings,
   ReadingCalendar,
   ReadingStats,
+  RestoreResult,
   SearchResult,
   ShelfBook,
   UpdateProgress
@@ -147,6 +148,16 @@ const BACKUP_RESULT: BackupResult = {
   books: 2
 }
 
+const BACKUP_RESTORE_RESULT: RestoreResult = {
+  path: 'D:\\备份\\12read.zip',
+  books: 2,
+  sources: 2,
+  restoredAt: '2026-10-17T00:00:00.000Z',
+  exportedAt: null,
+  schemaVersion: 5,
+  undoDir: null
+}
+
 const SETTINGS: ReaderSettings = {
   fontSize: 19,
   lineHeight: 1.9,
@@ -172,9 +183,9 @@ function makeContext(): {
   stats: Record<string, ReturnType<typeof vi.fn>>
   backup: Record<string, ReturnType<typeof vi.fn>>
   update: Record<string, ReturnType<typeof vi.fn>>
-  /** 应用内更新（0.4.0）与还原备份（0.4.0）的替身 */
+  /** 还原编排（1.0.1）与应用内更新（0.4.0）的替身 */
   updater: Record<string, ReturnType<typeof vi.fn>>
-  restore: Record<string, ReturnType<typeof vi.fn>>
+  restore: ReturnType<typeof vi.fn>
   images: Record<string, ReturnType<typeof vi.fn>>
   content: Record<string, ReturnType<typeof vi.fn>>
   progress: Record<string, ReturnType<typeof vi.fn>>
@@ -265,8 +276,9 @@ function makeContext(): {
     get: vi.fn((): ReaderSettings => SETTINGS),
     set: vi.fn((next: ReaderSettings): ReaderSettings => next)
   }
-  // 还原备份（0.4.0）：文件层面的行为在 restore.test.ts 里测，这里只要一个能接通道的替身
-  const restore = { restoreFrom: vi.fn() }
+  // 还原备份（1.0.1 起为编排函数）：文件层面的行为在 restore.test.ts、
+  // 编排逻辑在 restore-in-place.test.ts，这里只要一个能接通道的替身
+  const restore = vi.fn(async (): Promise<RestoreResult> => BACKUP_RESTORE_RESULT)
   // 应用内更新（0.4.0）：单测只关心通道有没有接上 / 转发对不对，行为细节在 updater.test.ts
   const updater = {
     onProgress: vi.fn(),
@@ -886,70 +898,56 @@ describe('应用内更新与还原备份的通道（0.4.0）', () => {
     })
   })
 
-  it('backup:restore 取消时返回 null，也不碰还原服务', async () => {
+  it('backup:restore 取消时返回 null，也不碰还原编排', async () => {
     const { restore } = setup()
     showOpenDialog.mockResolvedValueOnce({ canceled: true, filePaths: [] })
 
     expect(await call(CH.backupRestore)).toBeNull()
-    expect(restore.restoreFrom).not.toHaveBeenCalled()
+    expect(restore).not.toHaveBeenCalled()
   })
 
-  it('backup:restore 把选中的包交给服务，并安排重启应用', async () => {
-    vi.useFakeTimers()
-    try {
-      const { restore } = setup()
-      restore.restoreFrom.mockResolvedValueOnce({
-        path: 'D://备份//12read.zip',
-        books: 2,
-        sources: 2,
-        restoredAt: '2026-10-16T00:00:00.000Z',
-        exportedAt: null,
-        schemaVersion: 5,
-        undoDir: null
-      })
-      showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ['D://备份//12read.zip'] })
+  it('backup:restore 把选中的包交给还原编排，原样返回报告；成功不重启不弹窗', async () => {
+    const { restore } = setup()
+    showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ['D://备份//12read.zip'] })
 
-      const result = await call(CH.backupRestore)
+    const result = await call(CH.backupRestore)
 
-      expect(restore.restoreFrom.mock.calls[0]?.[0]).toBe('D://备份//12read.zip')
-      expect(result).toMatchObject({ books: 2, sources: 2 })
+    expect(restore.mock.calls[0]?.[0]).toBe('D://备份//12read.zip')
+    expect(result).toEqual(BACKUP_RESTORE_RESULT)
 
-      // 换完库文件必须重启（主进程里的数据库连接已经作废）
-      const { app } = (await import('electron')) as unknown as {
-        app: { relaunch: ReturnType<typeof vi.fn>; exit: ReturnType<typeof vi.fn> }
-      }
-      vi.advanceTimersByTime(2000)
-      expect(app.relaunch).toHaveBeenCalled()
-    } finally {
-      vi.useRealTimers()
+    // 应用不退出：编排层原地重接新库（1.0.1），这里既不弹系统弹窗也不安排重启
+    const { app } = (await import('electron')) as unknown as {
+      app: { relaunch: ReturnType<typeof vi.fn> }
     }
+    expect(showMessageBox).not.toHaveBeenCalled()
+    expect(app.relaunch).not.toHaveBeenCalled()
   })
 
   it('backup:restore 校验不过（库文件没动）：只把中文原因抛回去，不重启', async () => {
     const { restore } = setup()
     showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ['D://坏包.zip'] })
-    restore.restoreFrom.mockRejectedValueOnce(new Error('这不是十二阅读的备份包'))
+    restore.mockRejectedValueOnce(new RestoreError('这不是十二阅读的备份包', false))
 
     await expect(call(CH.backupRestore)).rejects.toThrow('还原失败：这不是十二阅读的备份包')
     expect(showMessageBox).not.toHaveBeenCalled()
   })
 
-  it('backup:restore 动过库文件之后失败（closed）：先弹系统弹窗讲清原因，再重启', async () => {
+  it('backup:restore 原地重建也失败（closed）：先弹系统弹窗讲清原因，再兜底重启', async () => {
     vi.useFakeTimers()
     try {
       const { restore } = setup()
       showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ['D://包.zip'] })
-      // closed = true：连接已经关了、库文件动过（失败时也已经回滚）
-      restore.restoreFrom.mockRejectedValueOnce(
-        new RestoreError('还原失败，已经退回原来的书库：磁盘忙', true)
+      // closed = true：运行时没能重建，进程状态已坏，只能重启兜底（1.0.1 起仅此一种情况）
+      restore.mockRejectedValueOnce(
+        new RestoreError('还原失败，重新加载书库也失败了', true)
       )
 
-      await expect(call(CH.backupRestore)).rejects.toThrow(/已经退回原来的书库/)
+      await expect(call(CH.backupRestore)).rejects.toThrow(/重新加载书库也失败了/)
 
       // 界面上的 toast 会被重启抹掉，所以原因得先用系统弹窗讲清楚
       expect(showMessageBox).toHaveBeenCalledTimes(1)
       const boxed = showMessageBox.mock.calls[0]?.[0] as { message?: string; detail?: string }
-      expect(boxed.message).toContain('磁盘忙')
+      expect(boxed.message).toContain('重新加载书库也失败了')
       expect(boxed.detail).toContain('重启')
 
       const { app } = (await import('electron')) as unknown as {

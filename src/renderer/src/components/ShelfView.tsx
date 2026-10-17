@@ -278,9 +278,9 @@ export function ShelfView({
   }
 
   /**
-   * 还原备份（0.4.0）：**整库覆盖** —— 还原之后书库就是备份那一刻的样子。
+   * 还原备份（0.4.0，1.0.1 重做）：**整库覆盖** —— 还原之后书库就是备份那一刻的样子。
    * 主进程会在换库前把当前书库整份挪到 `restore-undo-<时间>`（想反悔可以手动搬回），
-   * 换完库文件应用会自己重启（数据库连接已作废），所以这里成功后只负责把话说明白。
+   * 换完库**原地重接，应用不退出** —— 成功后弹「还原完成」，用户点「刷新书架」整页重载。
    */
   const restoreBackup = (): void => {
     if (restoring) return
@@ -536,7 +536,8 @@ export function ShelfView({
           </p>
           <p className="modal-note">
             还原前会把当前书库整份挪到数据目录下的 restore-undo-&lt;时间&gt;
-            文件夹（不是直接删），万一后悔可以手动换回来。还原完成后应用会自己重启一次。
+            文件夹（不是直接删），万一后悔可以手动换回来。还原完成后应用不会退出，
+            点一下「刷新书架」就能看到还原后的书库。
           </p>
         </Modal>
       ) : null}
@@ -544,14 +545,17 @@ export function ShelfView({
       {restored ? (
         <Modal
           title="还原完成"
-          confirmLabel="知道了"
+          confirmLabel="刷新书架"
           cancelLabel="关闭"
           onCancel={() => setRestored(null)}
-          onConfirm={() => setRestored(null)}
+          onConfirm={() => {
+            // 整页重载 = 书架、进度、统计全部按新库重取（等价于以前的重启，但应用不退出）
+            window.location.reload()
+          }}
         >
           <p className="modal-text">
             已从《{restored.path}》还原 {restored.sources} 本书的原始文件（清单里记了 {restored.books} 本）。
-            应用正在重启，重启后书架就是备份里的样子。
+            应用没有退出，点「刷新书架」就能切换到还原后的书库。
           </p>
           <p className="modal-note">
             {restored.undoDir

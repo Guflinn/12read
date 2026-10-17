@@ -101,8 +101,33 @@ function handle<TSchema extends z.ZodTypeAny, TResult>(
       console.error('[12read] IPC 参数校验失败: ' + channel, parsed.error.issues)
       throw new Error('参数校验失败: ' + channel)
     }
+    // 换库闸门（1.0.1）：还原期间旧库连接已关、新库还没接上，这几秒里渲染层
+    // 随手一次读库都会打到关闭的连接上。先等闸门放行再动库。
+    await libraryGate
     return handler(parsed.data as z.infer<TSchema>, event)
   })
+}
+
+/**
+ * 换库闸门（1.0.1）：还原编排换库前竖起（holdLibraryGate），新库接好（或决定
+ * 重启兜底）后放行（releaseLibraryGate）。竖起期间所有走 `handle` 的通道都在
+ * 闸门前排队。progress:flush 是同步通道，本来就有自己的 fail-soft 闸，不经这里。
+ */
+let libraryGate: Promise<unknown> = Promise.resolve()
+let openLibraryGate: (() => void) | null = null
+
+export function holdLibraryGate(): void {
+  // 上一次的闸要是还挂着，先放掉再竖新的（防御性：正常流程不会叠）
+  openLibraryGate?.()
+  libraryGate = new Promise<void>((resolve) => {
+    openLibraryGate = resolve
+  })
+}
+
+export function releaseLibraryGate(): void {
+  openLibraryGate?.()
+  openLibraryGate = null
+  libraryGate = Promise.resolve()
 }
 
 function describeImportError(error: ImportError): string {

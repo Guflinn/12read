@@ -58,7 +58,7 @@ vi.mock('electron', () => ({
   session: { defaultSession: { webRequest: { onHeadersReceived: vi.fn() } } }
 }))
 
-const { registerIpc } = await import('@main/ipc')
+const { registerIpc, holdLibraryGate, releaseLibraryGate } = await import('@main/ipc')
 
 const BOOK_ID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
 
@@ -351,6 +351,8 @@ function setup(): ReturnType<typeof makeContext> {
   showSaveDialog.mockReset()
   showMessageBox.mockReset()
   sendToWindow.mockReset()
+  // 闸门若被上一个用例竖起来没放，先放掉（测试不能互相拖死）
+  releaseLibraryGate()
   return makeContext()
 }
 
@@ -896,6 +898,29 @@ describe('应用内更新与还原备份的通道（0.4.0）', () => {
       percent: 42,
       version: '9.9.9'
     })
+  })
+
+  it('换库闸门：hold 期间的读库请求挂起，release 后才放行（还原窗口不再报 connection is not open）', async () => {
+    const { library } = setup()
+    holdLibraryGate()
+    try {
+      let settled = false
+      const pending = call(CH.bookList).then((value) => {
+        settled = true
+        return value
+      })
+      // 让微任务跑几轮：闸门没放行之前，处理函数不应该被执行
+      await Promise.resolve()
+      await Promise.resolve()
+      expect(settled).toBe(false)
+      expect(library.list).not.toHaveBeenCalled()
+
+      releaseLibraryGate()
+      await pending
+      expect(library.list).toHaveBeenCalledTimes(1)
+    } finally {
+      releaseLibraryGate()
+    }
   })
 
   it('backup:restore 取消时返回 null，也不碰还原编排', async () => {

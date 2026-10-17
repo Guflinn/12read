@@ -11,7 +11,7 @@ import { MetaRepository } from './db/meta-repository'
 import { ReadingStatRepository } from './db/reading-repository'
 import { runMigrations } from './db/migrate'
 import { BookImagesService, IMAGE_SCHEME } from './services/book-images'
-import { registerIpc, type IpcContext } from './ipc'
+import { registerIpc, holdLibraryGate, releaseLibraryGate, type IpcContext } from './ipc'
 import { BackupService } from './services/backup'
 import { ChapterEditor } from './services/chapter-editor'
 import { FileContentReader } from './services/content-reader'
@@ -172,16 +172,24 @@ function applyRuntime(next: LibraryRuntime): void {
   ctx.progress = next.progress
   ctx.settings = next.settings
   // 还原编排（1.0.1）：换库 + 原地重建运行时，应用不退出。
-  ctx.restore = (zipPath: string): Promise<RestoreResult> =>
-    restoreInPlace(
-      {
-        cancelImports: () => next.importer.cancelAll(),
-        swap: (target) => next.restore.restoreFrom(target),
-        isDbOpen: () => next.db.isOpen(),
-        reopen: async () => applyRuntime(await buildRuntime())
-      },
-      zipPath
-    )
+  // 换库开始前竖起 IPC 换库闸门，新库接好（或决定重启兜底）后放行 ——
+  // 窗口期里渲染层的读库请求在闸门前排队，而不是打到关闭的连接上报错。
+  ctx.restore = async (zipPath: string): Promise<RestoreResult> => {
+    holdLibraryGate()
+    try {
+      return await restoreInPlace(
+        {
+          cancelImports: () => next.importer.cancelAll(),
+          swap: (target) => next.restore.restoreFrom(target),
+          isDbOpen: () => next.db.isOpen(),
+          reopen: async () => applyRuntime(await buildRuntime())
+        },
+        zipPath
+      )
+    } finally {
+      releaseLibraryGate()
+    }
+  }
 }
 
 function openWindow(): void {

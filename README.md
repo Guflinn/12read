@@ -9,7 +9,7 @@
 [![Electron](https://img.shields.io/badge/Electron-38-47848F?logo=electron&logoColor=white)](https://www.electronjs.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows&logoColor=white)](#-功能特性)
 [![Format](https://img.shields.io/badge/Format-TXT%20%7C%20EPUB%20%7C%20MOBI%20%7C%20MD%20%7C%20PDF-B24A2C)](#-功能特性)
-[![Release](https://img.shields.io/badge/Release-v1.0.0-orange)](../../releases/latest)
+[![Release](https://img.shields.io/badge/Release-v1.0.1-orange)](../../releases/latest)
 
 <img src="预览图/01-书架.png" width="880" alt="十二阅读书架">
 
@@ -51,13 +51,13 @@
 
 ### 方式一：安装版（推荐）
 
-下载 **[`twelve-read-setup-1.0.0.exe`](../../releases/download/v1.0.0/twelve-read-setup-1.0.0.exe)**（约 126 MB），双击安装。
+下载 **[`twelve-read-setup-1.0.1.exe`](../../releases/download/v1.0.1/twelve-read-setup-1.0.1.exe)**（约 126 MB），双击安装。
 
 > 想让应用以后**在应用内更新**，就装这个版本 —— 免安装版换新版只能手动下载替换。
 
 ### 方式二：免安装版
 
-下载 **[`twelve-read-portable-1.0.0.exe`](../../releases/download/v1.0.0/twelve-read-portable-1.0.0.exe)**（约 126 MB），双击即用、无需安装；首次启动自解压，稍等一两秒。
+下载 **[`twelve-read-portable-1.0.1.exe`](../../releases/download/v1.0.1/twelve-read-portable-1.0.1.exe)**（约 126 MB），双击即用、无需安装；首次启动自解压，稍等一两秒。
 
 > 首次运行如遇 Windows SmartScreen 提示，点「更多信息 → 仍要运行」即可（应用未购买代码签名证书）。
 

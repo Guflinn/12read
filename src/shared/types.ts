@@ -397,10 +397,20 @@ export interface ImportOutcome {
  *  - hanserif = 打包思源宋（保留）
  *  - zhongsong = 打包思源宋的**中字重**（wght 500，0.3.0）：用户拿华文中宋做参照提的
  *    「像它但别那么粗」，所以直接用同一款可变字体换个字重，而不是再塞一个字体文件
+ *  - xiukai = 打包方正宋刻本秀楷 简繁（GBK）Regular（1.1.0）：商业字体，用户已购
+ *    方正「软件内置字体应用授权」（按应用名授权，2026-10-25），凭证由用户留存
  * 0.2.1 曾删除过 song/hei/kai 又于第五轮恢复；hei/deng 由 schema transform 归一化到 sans。
  * 选项表见 renderer/src/core/typography.ts（每档自带 weight）。
  */
-export type FontFamilyKey = 'song' | 'fang' | 'kai' | 'sans' | 'wenkai' | 'hanserif' | 'zhongsong'
+export type FontFamilyKey =
+  | 'song'
+  | 'fang'
+  | 'kai'
+  | 'sans'
+  | 'wenkai'
+  | 'hanserif'
+  | 'zhongsong'
+  | 'xiukai'
 
 /** 正文栏宽：一行放多少字（选项表见 renderer/src/core/typography.ts）。 */
 export type PageWidthKey = 'narrow' | 'medium' | 'wide' | 'xlarge' | 'full'

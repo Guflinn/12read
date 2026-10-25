@@ -12,7 +12,8 @@ const SERIF_VF_STACK = '"Noto Serif SC", "Source Han Serif SC", "Noto Serif CJK 
  * 字体选项表（0.2.1 第五轮按用户审美定稿；0.3.0 补「中宋」）：
  *  - 宋体 / 仿宋 / 楷体 = 系统自带（用户点名要经典的，接受大字号的点阵观感）；
  *  - 黑体 = 打包思源黑体 Noto Sans SC（OFL）—— 用户想要的「苹方」是 macOS 独占无法打包，这是最接近的替代；
- *  - 文楷 = 打包霞鹜文楷；思源宋 / 中宋 = 打包思源宋可变字体的两个字重。
+ *  - 文楷 = 打包霞鹜文楷；思源宋 / 中宋 = 打包思源宋可变字体的两个字重；
+ *  - 秀楷 = 打包方正宋刻本秀楷（1.1.0，用户已购软件内置字体授权，见 styles.css）。
  *
  * `weight` 只有思源宋那一族吃得到（styles.css 的 @font-face 声明了 wght 200–900）；
  * 系统字体没有多字重，写进去也只是个普通 font-weight，不影响观感。
@@ -60,6 +61,17 @@ export const FONT_FAMILIES: ReadonlyArray<{
     value: 'zhongsong',
     label: '中宋',
     stack: '"STZhongsong", "FZShuSong", "Source Han Serif SC", "Noto Serif SC", serif',
+    weight: DEFAULT_FONT_WEIGHT
+  },
+  // 秀楷（1.1.0）：方正宋刻本秀楷 简繁（GBK）Regular，打包分发。
+  // 与「中宋」不同：这是商业字体（方正精品字），打包进安装包需要「软件内置字体应用授权」
+  // —— 用户已购（按应用名授权，2026-10-25），授权凭证由用户留存。
+  // 简繁 GBK 一个文件就同时覆盖简体与繁体，不再打 GB2312 简体版（超集关系，纯冗余）。
+  // 静态单字重：字重恒为 400；回退栈第一位与 styles.css 的 @font-face family 名逐字一致。
+  {
+    value: 'xiukai',
+    label: '秀楷',
+    stack: '"FZSongKeBenXiuKaiJF", "KaiTi", "STKaiti", serif',
     weight: DEFAULT_FONT_WEIGHT
   }
 ]

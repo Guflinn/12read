@@ -42,6 +42,17 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 现在在哪（以 `git log` 为准）
 
+- **1.1.0 开发中：新增「秀楷」档（2026-10-25，未发版未 push）**：用户主动提供方正宋刻本秀楷
+  家族包（12 个 TTF = 简繁 GBK × 6 字重 + 简体 GB2312 × 6 字重）并确认**已购方正「软件内置字体
+  应用授权」**（按应用名授权，凭证用户留存；打包前对官方授权页逐条核实过 —— 该字体是付费
+  精品字，个人非商业授权不含打包分发）。按用户拍板**只打 GBK Regular 一个文件**
+  （6.4MB，简繁都覆盖；GB2312 简体版是超集关系纯冗余，其余 5 个字重在「一档一固定字重」
+  的 UI 下用不到）。改动：字体文件进 `src/renderer/src/assets/fonts/FZSongKeBenXiuKaiJF-Regular.ttf`、
+  styles.css 加 `@font-face`（family `FZSongKeBenXiuKaiJF`）、`FONT_FAMILIES` 加 `xiukai` 档
+  （stack `"FZSongKeBenXiuKaiJF", "KaiTi", "STKaiti", serif`，label「秀楷」）、`FontFamilyKey`
+  与 settingsSchema 枚举扩 `xiukai`；typography 单测 / 契约 ipc-schema / e2e fonts.check 三处
+  测试补齐。Aa 面板按钮遍历生成无需改 TSX；scrim 坐标点击（x:30）横向远离面板，面板变高无碍。
+  `package.json` 按惯例提前标 1.1.0。**未做**：发版（等用户）、真机看一眼秀楷观感。
 - **1.0.1 已发布（2026-10-17）**：tag `v1.0.1` → `9415e8c`（附注 tag「正式版：修复备份还原 —— 原地重接新库，还原全程应用不退出。」），
   Release「十二阅读 v1.0.1（Windows）」**不勾 Pre-release**，`releases/latest` 指向它。
   **Assets 只放两个 exe**（沿用 1.0.0 的定论）—— **1.0.0 → 1.0.1 应用内更新不可用**（设计内退路，用户已接受），
@@ -178,7 +189,10 @@ pnpm dist           # electron-vite build + electron-builder --dir（产出 rele
 
 ## 下一步（按顺序）
 
-1. ~~发 1.0.1~~ **已完成（2026-10-17）**：见「现在在哪」首条。0.4.0/1.0.0 → 1.0.1 的应用内更新不可用
+1. **1.1.0「秀楷」档（2026-10-25 写完，未发版）**：测试跑绿、commit 后**等用户验观感/拍板发版**；
+   发版要带 latest.yml + blockmap 才能恢复应用内更新（1.0.0 起附件只放两个 exe，1.0.0/1.0.1 → 新版
+   的应用内更新都不可用，这是设计内退路不是 bug）。
+2. ~~发 1.0.1~~ **已完成（2026-10-17）**：见「现在在哪」首条。0.4.0/1.0.0 → 1.0.1 的应用内更新不可用
    （附件只有两个 exe），用户手动覆盖安装。
 2. **等用户真机反馈**：应用内更新第一次真跑（等下一次带 latest.yml 的发版）；还原备份新流程日常用着如何。
 3. **可做的下一件事（都要用户拍板）**：`release/` 与 `release-tmpN/`（19/20/21 已用完）旧产物可清，

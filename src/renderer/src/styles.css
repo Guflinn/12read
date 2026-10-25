@@ -24,6 +24,14 @@
     font-weight: 200 900;
     font-display: swap;
   }
+  /* 秀楷（1.1.0）：方正宋刻本秀楷 简繁（GBK）Regular。
+     商业字体 —— 用户已购方正「软件内置字体应用授权」（按应用名授权，2026-10-25），
+     授权凭证由用户留存。静态单字重：加粗照旧走 --bold-shadow，不合成粗体。 */
+  @font-face {
+    font-family: "FZSongKeBenXiuKaiJF";
+    src: url("./assets/fonts/FZSongKeBenXiuKaiJF-Regular.ttf") format("truetype");
+    font-display: swap;
+  }
   :root {
     color-scheme: light;
     --bg: #f6f3ed;

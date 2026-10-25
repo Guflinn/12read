@@ -442,6 +442,15 @@ test('字体与栏宽：设置里换字体、换宽度，正文跟着变并且�
     .poll(() => fontLoaded('Noto Sans SC'), { message: '思源黑体字体文件应已加载' })
     .toBe(true)
 
+  // 秀楷（1.1.0）：打包的方正宋刻本秀楷 简繁 Regular，同样要确认 @font-face 真加载成功
+  await page.click('#font-xiukai')
+  await expect(page.locator('#font-xiukai')).toHaveClass(/on/)
+  await expect
+    .poll(() => fontLoaded('FZSongKeBenXiuKaiJF'), { message: '秀楷字体文件应已加载' })
+    .toBe(true)
+  await expect.poll(() => cssVar(page, '--font-body')).toContain('FZSongKeBenXiuKaiJF')
+  await page.click('#font-sans')
+
   // 中宋（0.3.0）：华文中宋是**系统字体**（Windows 自带）、单字重、没有细体，
   // 所以这一档是「系统字体优先」：装了就直接用，一个字节都不打包（也没有商业字体授权问题）。
   await page.click('#font-zhongsong')

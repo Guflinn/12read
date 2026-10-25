@@ -144,7 +144,7 @@ export const settingsSchema = z.object({
   // enum 必须保留历史上出现过的全部 key —— 老设置里的旧值若被拒，整份设置 parse 失败回退默认，
   // 字号行距全丢。transform 把已删除的 key 归一化：hei→sans、deng→sans（黑体类归新黑体）。
   fontFamily: z
-    .enum(['song', 'hei', 'kai', 'fang', 'deng', 'wenkai', 'hanserif', 'sans', 'zhongsong'])
+    .enum(['song', 'hei', 'kai', 'fang', 'deng', 'wenkai', 'hanserif', 'sans', 'zhongsong', 'xiukai'])
     .default('song')
     .transform((value): FontFamilyKey => {
       if (value === 'hei' || value === 'deng') return 'sans'

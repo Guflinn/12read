@@ -3,14 +3,6 @@
 """
 发 1.1.0：建附注 tag（若缺）+ 建 GitHub Release（**正式版，不勾 Pre-release**）+ 上传两个 exe（安装版 / 免安装版）。
 
-与 upload-release-1.0.1.py 同一套路（本机无 gh CLI，走 REST API；直连优先；
-附注 tag 走 REST API 建 —— `git push tag` 在本机会连续 schannel SSL 中断）。
-
-用法：python tools/release/upload-release-1.1.0.py
-跑完会打印 Release 页面地址与附件清单；重复跑不会建第二个 Release（已存在就复用）。
-"""
-发 1.1.0：建附注 tag（若缺）+ 建 GitHub Release（**正式版，不勾 Pre-release**）+ 上传安装包、更新元数据（latest.yml / blockmap）。
-
 与 upload-release-0.4.0.py 同一套路（本机无 gh CLI，走 REST API；直连优先；
 附注 tag 走 REST API 建 —— `git push tag` 在本机会连续 schannel SSL 中断）。
 
@@ -43,7 +35,7 @@ PROXY = ''  # 由 pick_proxy() 填；'' = 直连
 # tools/release/xxx.py → parents[2] 才是仓库根
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 NOTES = ROOT / 'tools' / 'release' / 'release-notes-1.1.0.md'
-# 1.1.0 起附件只放两个 exe（1.0.0 已定论：latest.yml / blockmap 不再上传，
+# 附件只放两个 exe（1.0.0 已定论并沿用：latest.yml / blockmap 不再上传，
 # 代价是应用内更新不可用，用户已接受）。附件名只能 ASCII（GitHub 会删掉
 # 附件名里的非 ASCII 字符），中文名副本只留在「发布-1.1.0/」里给用户直接分发。
 ASSETS = [
